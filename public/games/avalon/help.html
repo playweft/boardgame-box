@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#176b63" />
+    <title>阿瓦隆玩法说明</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Avenir Next", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+        color: #f4f4e9;
+        background: #176b63;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        --muted: #b4d0c9;
+        --gold: #ffdf28;
+        --line: rgb(230 255 247 / 20%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100svh;
+        margin: 0;
+      }
+
+      main {
+        width: min(100%, 42rem);
+        margin: 0 auto;
+        padding: 1.25rem 1.25rem 3rem;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .back-link {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-decoration: none;
+      }
+
+      header {
+        padding: 2.5rem 0 1.5rem;
+      }
+
+      .eyebrow {
+        margin: 0 0 0.5rem;
+        color: var(--gold);
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+      }
+
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 0.5rem;
+        font-size: clamp(2rem, 8vw, 2.8rem);
+        letter-spacing: -0.04em;
+      }
+
+      .intro,
+      section p,
+      li {
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.75;
+      }
+
+      .intro {
+        margin: 0;
+      }
+
+      section {
+        padding: 1.25rem 0;
+        border-top: 1px solid var(--line);
+      }
+
+      h2 {
+        margin-bottom: 0.65rem;
+        font-size: 1.08rem;
+      }
+
+      ol,
+      ul {
+        margin: 0;
+        padding-left: 1.35rem;
+      }
+
+      li + li {
+        margin-top: 0.45rem;
+      }
+
+      strong {
+        color: #fff;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+        text-align: center;
+      }
+
+      th,
+      td {
+        padding: 0.6rem 0.25rem;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      td:first-child,
+      th:first-child {
+        text-align: left;
+      }
+
+      .note {
+        margin: 0.7rem 0 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.65;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back-link" href="./index.html">← 返回游戏</a>
+      <header>
+        <p class="eyebrow">THE RESISTANCE · AVALON</p>
+        <h1>游戏规则</h1>
+        <p class="intro">5–10 人参与。忠诚阵营要完成任务，邪恶阵营则试图破坏任务并隐藏身份。</p>
+      </header>
+
+      <section>
+        <h2>每轮流程</h2>
+        <ol>
+          <li>队长按任务人数提名队伍，全体玩家秘密投票。赞成票超过半数，队伍出发；否则提案被否决，由下一位队长重新提名。</li>
+          <li>连续 5 次提案被否决，邪恶阵营立即获胜。</li>
+          <li>队伍成员秘密选择任务成功或失败。忠诚玩家只能选成功，邪恶玩家可以选择任一结果。</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>任务人数</h2>
+        <table>
+          <thead>
+            <tr><th>玩家</th><th>任务 1</th><th>任务 2</th><th>任务 3</th><th>任务 4</th><th>任务 5</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>5 人</td><td>2</td><td>3</td><td>2</td><td>3</td><td>3</td></tr>
+            <tr><td>6 人</td><td>2</td><td>3</td><td>4</td><td>3</td><td>4</td></tr>
+            <tr><td>7 人</td><td>2</td><td>3</td><td>3</td><td>4</td><td>4</td></tr>
+            <tr><td>8–10 人</td><td>3</td><td>4</td><td>4</td><td>5</td><td>5</td></tr>
+          </tbody>
+        </table>
+        <p class="note">通常出现 1 张失败牌，任务即失败；7 人及以上的第 4 个任务需要至少 2 张失败牌才会失败。</p>
+      </section>
+
+      <section>
+        <h2>特殊身份</h2>
+        <ul>
+          <li><strong>梅林：</strong>能看见大多数邪恶玩家，但看不见莫德雷德和奥伯伦。</li>
+          <li><strong>派西维尔：</strong>能看到梅林与莫甘娜两位候选人，但无法直接分辨。</li>
+          <li><strong>莫甘娜：</strong>在派西维尔眼中伪装成梅林候选人。</li>
+          <li><strong>莫德雷德：</strong>邪恶玩家，但梅林看不见他。</li>
+          <li><strong>奥伯伦：</strong>不认识其他邪恶玩家，其他邪恶玩家也看不见他。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>胜负条件</h2>
+        <p>忠诚阵营完成 3 个任务后进入刺杀阶段。若刺客猜中梅林，邪恶阵营获胜；否则忠诚阵营获胜。邪恶阵营破坏 3 个任务也会获胜。</p>
+      </section>
+    </main>
+  </body>
+</html>

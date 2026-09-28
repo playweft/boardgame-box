@@ -1,0 +1,45 @@
+{
+  "$schema": "https://play.longern.com/schemas/game-manifest-v1.json",
+  "manifest_version": 1,
+  "id": "/avalon/",
+  "version": "1.0.0",
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "start_url": "./index.html",
+  "help_url": "./help.html",
+  "name": "Avalon",
+  "name_localized": {
+    "zh-CN": "阿瓦隆"
+  },
+  "description": "A hidden-role team deduction game for 5–10 players.",
+  "description_localized": {
+    "zh-CN": "5–10 人隐藏身份阵营推理游戏。"
+  },
+  "categories": ["games", "strategy"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "background_color": "#171923",
+  "theme_color": "#171923",
+  "orientation": "any",
+  "modes": {
+    "room": {
+      "players": {
+        "min": 5,
+        "max": 10
+      },
+      "server": {
+        "runtime": "lua",
+        "entry": "./game.lua",
+        "persistence": "durable"
+      }
+    }
+  }
+}

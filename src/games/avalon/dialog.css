@@ -1,0 +1,69 @@
+.quest-dialog[open] {
+  animation: quest-dialog-enter 180ms ease-out both;
+}
+
+.quest-dialog[open].is-closing {
+  pointer-events: none;
+  animation: quest-dialog-exit 180ms ease-in both;
+}
+
+.quest-dialog[open]::backdrop {
+  animation: quest-backdrop-enter 180ms ease-out both;
+}
+
+.quest-dialog[open].is-closing::backdrop {
+  animation: quest-backdrop-exit 180ms ease-in both;
+}
+
+@keyframes quest-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes quest-dialog-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.99);
+  }
+}
+
+@keyframes quest-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes quest-backdrop-exit {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-dialog[open],
+  .quest-dialog[open].is-closing,
+  .quest-dialog[open]::backdrop,
+  .quest-dialog[open].is-closing::backdrop {
+    animation-duration: 1ms;
+  }
+}
