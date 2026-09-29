@@ -11,6 +11,9 @@
 /avalon/playweft.json
   Access-Control-Allow-Origin: *
 
+/*/playweft.json
+  Access-Control-Allow-Origin: *
+
 /featured-games.json
   Access-Control-Allow-Origin: *
 

@@ -1,6 +1,6 @@
 import "./style.css";
 import { h, render as renderPreact } from "preact";
-import { createPlayweftClient } from "./playweft-client.js";
+import { createPlayweftClient } from "../../shared/playweft-client.js";
 import AvalonApp from "./view.jsx";
 
 const app = document.querySelector("#avalon-app");

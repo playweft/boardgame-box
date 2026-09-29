@@ -40,9 +40,7 @@ export function createPlayweftClient({
       if (!request) return;
       pending.delete(message.id);
       if (message.error)
-        request.reject(
-          new Error(message.error.message || "Playweft 调用失败。"),
-        );
+        request.reject(new Error(message.error.message || "Playweft 调用失败。"));
       else request.resolve(message.result);
       return;
     }
@@ -79,8 +77,7 @@ export function createPlayweftClient({
     port.onmessage = handlePortMessage;
     port.start();
     try {
-      const context = await call("game.initialize");
-      onInitialize(context);
+      onInitialize(await call("game.initialize"));
     } catch (error) {
       onError(error instanceof Error ? error.message : "Playweft 初始化失败。");
     }

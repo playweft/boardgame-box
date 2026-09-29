@@ -1,0 +1,82 @@
+:root {
+  font-family:
+    "Avenir Next", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  color: #f4f4e9;
+  background: #176b63;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  --muted: #b4d0c9;
+  --line: rgb(230 255 247 / 20%);
+  --gold: #ffdf28;
+  --green: #75e2a2;
+  --red: #ff6468;
+  --deep: #105a54;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0;
+  background: #176b63;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.primary-button {
+  min-height: 3.25rem;
+  padding: 0.85rem 1.2rem;
+  border: 0;
+  border-radius: 0.8rem;
+  color: #143d38;
+  background: var(--gold);
+  box-shadow: 0 5px 0 #c5a916;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    filter 160ms ease,
+    transform 90ms ease,
+    box-shadow 90ms ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.primary-button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #c5a916;
+}
+
+.primary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.primary-button > .icon {
+  float: right;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: 0.5rem;
+}

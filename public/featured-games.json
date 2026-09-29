@@ -1,5 +1,8 @@
 [
   {
     "manifestUrl": "./avalon/playweft.json"
+  },
+  {
+    "manifestUrl": "./bomb-busters/playweft.json"
   }
 ]
