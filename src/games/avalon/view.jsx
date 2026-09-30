@@ -1,5 +1,5 @@
 import { h } from "preact";
-import Dialog from "./dialog.jsx";
+import Dialog from "../../shared/dialog.jsx";
 import {
   ArrowLeft,
   ArrowRight,

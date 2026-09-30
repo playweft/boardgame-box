@@ -12,6 +12,7 @@ let playerNames = Array.from({ length: 5 }, (_, index) => "玩家 " + (index + 1
 let localGame = null;
 let localReady = false;
 let selectedSourceId = null;
+let selectedInfoWireId = null;
 let localError = "";
 let roomReady = false;
 let roomState = null;
@@ -19,6 +20,11 @@ let roomError = "";
 let roomBusy = false;
 
 function currentLocalId() {
+  if (localGame?.phase === "setup_info") {
+    return localGame.players.find(
+      (player) => player.id === localGame.setupInfoOrder[localGame.setupInfoIndex],
+    )?.id;
+  }
   return localGame?.players[localGame.turn]?.id;
 }
 
@@ -42,6 +48,7 @@ function redraw() {
       busy: roomBusy,
       localReady,
       selectedSourceId,
+      selectedInfoWireId,
       error: localError,
       onCount(value) {
         playerCount = value;
@@ -58,6 +65,7 @@ function redraw() {
         localGame = createGame(players);
         localReady = false;
         selectedSourceId = null;
+        selectedInfoWireId = null;
         localError = "";
         redraw();
       },
@@ -66,12 +74,25 @@ function redraw() {
         redraw();
       },
       onSource(wireId, solo) {
-        if (solo) {
-          submitAction({ type: "solo_cut", wireId });
-          return;
+        if (selectedSourceId && selectedSourceId !== wireId) {
+          const soloGroup = visibleGame?.soloCuts.find(
+            (entry) => entry.ids.includes(selectedSourceId) && entry.ids.includes(wireId),
+          );
+          if (solo && soloGroup) {
+            submitAction({ type: "solo_cut", wireId: selectedSourceId });
+            return;
+          }
         }
-        selectedSourceId = wireId;
+        selectedSourceId = selectedSourceId === wireId ? null : wireId;
         redraw();
+      },
+      onInfoSelect(wireId) {
+        selectedInfoWireId = wireId;
+        redraw();
+      },
+      onPlaceInfo() {
+        if (!selectedInfoWireId) return;
+        submitAction({ type: "place_info", wireId: selectedInfoWireId });
       },
       onTarget(targetId) {
         if (!selectedSourceId) return;
@@ -80,9 +101,6 @@ function redraw() {
           sourceId: selectedSourceId,
           targetId,
         });
-      },
-      onSolo(wireId) {
-        submitAction({ type: "solo_cut", wireId });
       },
       onRevealRed() {
         submitAction({ type: "reveal_red" });
@@ -95,6 +113,7 @@ function redraw() {
         localGame = null;
         localReady = false;
         selectedSourceId = null;
+        selectedInfoWireId = null;
         redraw();
       },
     }),
@@ -114,8 +133,9 @@ function submitAction(action) {
     return;
   }
   selectedSourceId = null;
+  selectedInfoWireId = null;
   localError = "";
-  localReady = localGame.phase === "ended";
+  localReady = localGame.phase !== "setup_info";
   redraw();
 }
 
@@ -143,6 +163,7 @@ const roomClient = embedded
       onState(state) {
         roomState = state;
         selectedSourceId = null;
+        selectedInfoWireId = null;
         roomError = "";
         redraw();
       },

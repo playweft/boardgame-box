@@ -30,10 +30,33 @@ local function shuffle(state, items)
   end
 end
 
+local function draw_special_wires(state, kind, suffix, in_play, candidate_count)
+  local all_wires = {}
+  for number = 1, 11 do
+    table.insert(all_wires, {
+      kind = kind,
+      value = nil,
+      sort = number * 10 + suffix,
+      tileNumber = tostring(number) .. "." .. tostring(suffix),
+    })
+  end
+  shuffle(state, all_wires)
+  local candidates = {}
+  for index = 1, candidate_count do table.insert(candidates, all_wires[index]) end
+  table.sort(candidates, function(left, right) return left.sort < right.sort end)
+  local tile_numbers = {}
+  for _, wire in ipairs(candidates) do table.insert(tile_numbers, wire.tileNumber) end
+  shuffle(state, candidates)
+  local selected = {}
+  for index = 1, in_play do table.insert(selected, candidates[index]) end
+  return selected, tile_numbers
+end
+
 local function make_state(players, seed)
   local state = {
     players = players,
     wires = {},
+    specialCandidates = {},
     hands = {},
     rackSlots = {},
     clues = {},
@@ -41,7 +64,9 @@ local function make_state(players, seed)
     detonator = 0,
     detonatorLimit = ERROR_LIMIT,
     turn = (seed % #players) + 1,
-    phase = "playing",
+    phase = "setup_info",
+    setupInfoOrder = {},
+    setupInfoIndex = 1,
     outcome = nil,
     lastAction = nil,
     seed = seed,
@@ -52,20 +77,25 @@ local function make_state(players, seed)
     for copy = 1, WIRES_PER_VALUE do
       wire_number = wire_number + 1
       local id = "wire-" .. wire_number
-      state.wires[id] = {id = id, kind = "number", value = value, sort = value * 10}
+      state.wires[id] = {id = id, kind = "number", value = value, sort = value * 10, tileNumber = tostring(value)}
       table.insert(deck, id)
     end
   end
-  for copy = 1, 2 do
-    wire_number = wire_number + 1
-    local id = "wire-" .. wire_number
-    state.wires[id] = {id = id, kind = "yellow", value = nil, sort = next_random(state) % 120 + 10}
-    table.insert(deck, id)
+  local red_wires, red_candidates = draw_special_wires(state, "red", 5, 1, 2)
+  local yellow_wires, yellow_candidates = draw_special_wires(state, "yellow", 1, 2, 3)
+  state.specialCandidates = {
+    red = {inPlay = 1, candidateCount = 2, tileNumbers = red_candidates},
+    yellow = {inPlay = 2, candidateCount = 3, tileNumbers = yellow_candidates},
+  }
+  for _, special_wires in ipairs({red_wires, yellow_wires}) do
+    for _, wire in ipairs(special_wires) do
+      wire_number = wire_number + 1
+      local id = "wire-" .. wire_number
+      wire.id = id
+      state.wires[id] = wire
+      table.insert(deck, id)
+    end
   end
-  wire_number = wire_number + 1
-  local red_id = "wire-" .. wire_number
-  state.wires[red_id] = {id = red_id, kind = "red", value = nil, sort = next_random(state) % 120 + 10}
-  table.insert(deck, red_id)
   shuffle(state, deck)
   local opaque_wires, opaque_deck = {}, {}
   for index, source_id in ipairs(deck) do
@@ -78,27 +108,33 @@ local function make_state(players, seed)
   state.wires = opaque_wires
   deck = opaque_deck
 
-  for _, player in ipairs(players) do state.hands[player.id] = {} end
+  local rack_order = {}
+  for player_index, player in ipairs(players) do
+    state.hands[player.id] = {}
+    state.rackSlots[player.id] = {}
+    local rack_count = (#players == 2 or (#players == 3 and player_index == state.turn)) and 2 or 1
+    for rack_index = 1, rack_count do
+      table.insert(state.rackSlots[player.id], {})
+      table.insert(rack_order, {playerId = player.id, rackIndex = rack_index})
+    end
+  end
   for index, wire_id in ipairs(deck) do
-    local owner = players[((index - 1) % #players) + 1]
-    table.insert(state.hands[owner.id], wire_id)
+    local rack = rack_order[((index - 1) % #rack_order) + 1]
+    table.insert(state.rackSlots[rack.playerId][rack.rackIndex], wire_id)
   end
   for _, player in ipairs(players) do
-    table.sort(state.hands[player.id], function(left, right)
-      return state.wires[left].sort < state.wires[right].sort
-    end)
-    state.rackSlots[player.id] = {}
-    for _, wire_id in ipairs(state.hands[player.id]) do
-      table.insert(state.rackSlots[player.id], wire_id)
+    for _, slots in ipairs(state.rackSlots[player.id]) do
+      table.sort(slots, function(left, right)
+        return state.wires[left].sort < state.wires[right].sort
+      end)
+      for _, wire_id in ipairs(slots) do
+        table.insert(state.hands[player.id], wire_id)
+      end
     end
-    local blue = {}
-    for _, wire_id in ipairs(state.hands[player.id]) do
-      if state.wires[wire_id].kind == "number" then table.insert(blue, wire_id) end
-    end
-    if #blue > 0 then
-      local clue_id = blue[(next_random(state) % #blue) + 1]
-      state.clues[clue_id] = true
-    end
+  end
+  for offset = 0, #players - 1 do
+    local index = ((state.turn + offset - 1) % #players) + 1
+    table.insert(state.setupInfoOrder, players[index].id)
   end
   return state
 end
@@ -136,21 +172,28 @@ local function remove_wires(state, player_id, wire_ids, revealed_red)
   end
   state.hands[player_id] = remaining
   for _, wire_id in ipairs(wire_ids) do
-    for slot_index, slot_wire_id in ipairs(state.rackSlots[player_id]) do
-      if slot_wire_id == wire_id then
-        state.rackSlots[player_id][slot_index] = false
-        break
+    local rack_position, slot_position
+    for rack_index, slots in ipairs(state.rackSlots[player_id]) do
+      for slot_index, slot_wire_id in ipairs(slots) do
+        if slot_wire_id == wire_id then
+          rack_position = rack_index
+          slot_position = slot_index
+          slots[slot_index] = false
+          break
+        end
       end
+      if rack_position then break end
     end
-  end
-  for _, wire_id in ipairs(wire_ids) do
     state.clues[wire_id] = nil
     local wire = state.wires[wire_id]
     table.insert(state.cutWires, {
       id = wire_id,
       playerId = player_id,
+      rackIndex = rack_position - 1,
+      slotIndex = slot_position - 1,
       kind = wire.kind,
       value = wire.value,
+      tileNumber = wire.tileNumber,
       revealedRed = revealed_red == true,
     })
   end
@@ -204,6 +247,28 @@ function on_action(state, action, context)
       state = make_state(state.players, next_random(state)),
       events = {{type = "rematched", player = actor_id}},
     }
+  end
+  if state.phase == "setup_info" then
+    if action.type ~= "place_info" then
+      return reject("SETUP_INFO_REQUIRED", "Choose one of your blue wires for the information token")
+    end
+    if state.setupInfoOrder[state.setupInfoIndex] ~= actor_id then
+      return reject("NOT_YOUR_SETUP_TURN", "Wait for your turn to place the information token")
+    end
+    local wire = state.wires[action.wireId]
+    local held = false
+    for _, wire_id in ipairs(state.hands[actor_id]) do
+      if wire_id == action.wireId then held = true end
+    end
+    if not wire or wire.kind ~= "number" or not held then
+      return reject("INVALID_INFO_WIRE", "Choose one of your blue wires")
+    end
+    state.clues[action.wireId] = true
+    state.setupInfoIndex = state.setupInfoIndex + 1
+    if state.setupInfoIndex > #state.setupInfoOrder then
+      state.phase = "playing"
+    end
+    return {accepted = true, state = state, events = {}}
   end
   if state.phase ~= "playing" then return reject("GAME_OVER", "The mission has ended") end
   if actor_index ~= state.turn then return reject("NOT_YOUR_TURN", "Wait for your turn") end
@@ -322,11 +387,15 @@ end
 
 function view(state, events, context)
   local viewer_id = context.viewer.id
+  local current_player_id = state.phase == "setup_info"
+    and state.setupInfoOrder[state.setupInfoIndex]
+    or state.players[state.turn].id
   local projected = {
     phase = state.phase,
     players = state.players,
+    specialCandidates = state.specialCandidates,
     viewerId = viewer_id,
-    currentPlayerId = state.players[state.turn].id,
+    currentPlayerId = current_player_id,
     hands = {},
     racks = {},
     cutWires = state.cutWires,
@@ -335,10 +404,14 @@ function view(state, events, context)
     detonatorLimit = state.detonatorLimit,
     outcome = state.outcome,
     lastAction = state.lastAction,
-    ownTurn = state.players[state.turn].id == viewer_id,
+    ownTurn = current_player_id == viewer_id,
     soloCuts = {},
     canRevealRed = false,
   }
+  local cut_wires_by_slot = {}
+  for _, wire in ipairs(state.cutWires) do
+    cut_wires_by_slot[wire.playerId .. ":" .. wire.rackIndex .. ":" .. wire.slotIndex] = wire
+  end
   for _, player in ipairs(state.players) do
     projected.hands[player.id] = {}
     projected.racks[player.id] = {}
@@ -349,29 +422,41 @@ function view(state, events, context)
         id = wire_id,
         kind = revealed and wire.kind or nil,
         value = revealed and wire.value or nil,
+        tileNumber = revealed and wire.tileNumber or nil,
         revealed = revealed,
       })
     end
-    local slots = state.rackSlots[player.id]
-    for slot_index, wire_id in ipairs(slots) do
-      if wire_id == false then
-        table.insert(projected.racks[player.id], {
-          id = player.id .. "-slot-" .. slot_index,
-          empty = true,
-        })
-      else
-        local wire = state.wires[wire_id]
-        local revealed = state.phase == "ended" or player.id == viewer_id or state.clues[wire_id] == true
-        table.insert(projected.racks[player.id], {
-          id = wire_id,
-          kind = revealed and wire.kind or nil,
-          value = revealed and wire.value or nil,
-          revealed = revealed,
-        })
+    for rack_index, slots in ipairs(state.rackSlots[player.id]) do
+      local rack = {}
+      for slot_index, wire_id in ipairs(slots) do
+        if wire_id == false then
+          table.insert(rack, {
+            id = player.id .. "-rack-" .. (rack_index - 1) .. "-slot-" .. (slot_index - 1),
+            empty = true,
+            cutWire = cut_wires_by_slot[player.id .. ":" .. (rack_index - 1) .. ":" .. (slot_index - 1)],
+          })
+        else
+          local wire = state.wires[wire_id]
+          local revealed = state.phase == "ended" or player.id == viewer_id
+          local info_token
+          if state.clues[wire_id] then
+            if wire.kind == "number" then info_token = tostring(wire.value)
+            elseif wire.kind == "yellow" then info_token = wire.tileNumber end
+          end
+          table.insert(rack, {
+            id = wire_id,
+            kind = revealed and wire.kind or nil,
+            value = revealed and wire.value or nil,
+            tileNumber = revealed and wire.tileNumber or nil,
+            revealed = revealed,
+            infoToken = info_token,
+          })
+        end
       end
+      table.insert(projected.racks[player.id], rack)
     end
   end
-  if projected.ownTurn then
+  if projected.ownTurn and state.phase == "playing" then
     projected.soloCuts = solo_options(state, viewer_id)
     local hand = state.hands[viewer_id]
     projected.canRevealRed = #hand > 0

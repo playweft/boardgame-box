@@ -40,6 +40,7 @@ export default function Dialog({
   return (
     <dialog
       {...props}
+      data-app-dialog=""
       className={className + (closing ? " is-closing" : "")}
       ref={dialogRef}
       onClick={(event) => {

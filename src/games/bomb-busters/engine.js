@@ -11,6 +11,28 @@ function shuffled(items, random) {
   return result;
 }
 
+function drawSpecialWires(kind, suffix, inPlay, candidateCount, random) {
+  const allWires = Array.from({ length: 11 }, (_, index) => {
+    const number = index + 1;
+    return {
+      kind,
+      value: null,
+      sort: number * 10 + suffix,
+      tileNumber: number + "." + suffix,
+    };
+  });
+  const candidates = shuffled(allWires, random)
+    .slice(0, candidateCount)
+    .sort((left, right) => left.sort - right.sort);
+  const selected = shuffled(candidates, random).slice(0, inPlay);
+  return {
+    candidates: candidates.map((wire) => wire.tileNumber),
+    wires: selected,
+    inPlay,
+    candidateCount,
+  };
+}
+
 export function createGame(players, random = Math.random) {
   const wires = {};
   const deck = [];
@@ -18,20 +40,28 @@ export function createGame(players, random = Math.random) {
   for (let value = 1; value <= VALUE_COUNT; value += 1) {
     for (let copy = 1; copy <= WIRE_COUNT; copy += 1) {
       const id = `wire-${++wireNumber}`;
-      wires[id] = { id, kind: "number", value, sort: value * 10 };
+      wires[id] = { id, kind: "number", value, sort: value * 10, tileNumber: String(value) };
       deck.push(id);
     }
   }
-  for (let copy = 1; copy <= 2; copy += 1) {
-    const sort = 10 + Math.floor(random() * 120);
-    const id = `wire-${++wireNumber}`;
-    wires[id] = { id, kind: "yellow", value: null, sort };
-    deck.push(id);
+  const specialSets = {
+    red: drawSpecialWires("red", 5, 1, 2, random),
+    yellow: drawSpecialWires("yellow", 1, 2, 3, random),
+  };
+  for (const kind of ["red", "yellow"]) {
+    for (const specialWire of specialSets[kind].wires) {
+      const id = `wire-${++wireNumber}`;
+      wires[id] = { id, ...specialWire };
+      deck.push(id);
+    }
   }
-  const redSort = 10 + Math.floor(random() * 120);
-  const redId = `wire-${++wireNumber}`;
-  wires[redId] = { id: redId, kind: "red", value: null, sort: redSort };
-  deck.push(redId);
+  const specialCandidates = Object.fromEntries(
+    Object.entries(specialSets).map(([kind, set]) => [kind, {
+      inPlay: set.inPlay,
+      candidateCount: set.candidateCount,
+      tileNumbers: set.candidates,
+    }]),
+  );
 
   const shuffledDeck = shuffled(deck, random);
   const opaqueWires = {};
@@ -43,39 +73,50 @@ export function createGame(players, random = Math.random) {
   for (const wireId of Object.keys(wires)) delete wires[wireId];
   Object.assign(wires, opaqueWires);
 
-  const hands = Object.fromEntries(players.map((player) => [player.id, []]));
-  opaqueDeck.forEach((wireId, index) => {
-    hands[players[index % players.length].id].push(wireId);
-  });
-  for (const hand of Object.values(hands)) {
-    hand.sort((left, right) => wires[left].sort - wires[right].sort);
-  }
-  const rackSlots = Object.fromEntries(
-    players.map((player) => [player.id, hands[player.id].slice()]),
+  const turn = Math.floor(random() * players.length);
+  const rackCounts = players.map((_, index) =>
+    players.length === 2 || (players.length === 3 && index === turn) ? 2 : 1,
   );
-
-  const clues = {};
+  const rackSlots = Object.fromEntries(
+    players.map((player, index) => [
+      player.id,
+      Array.from({ length: rackCounts[index] }, () => []),
+    ]),
+  );
+  const rackOrder = players.flatMap((player, playerIndex) =>
+    rackSlots[player.id].map((_, rackIndex) => ({ playerId: player.id, rackIndex })),
+  );
+  opaqueDeck.forEach((wireId, index) => {
+    const rack = rackOrder[index % rackOrder.length];
+    rackSlots[rack.playerId][rack.rackIndex].push(wireId);
+  });
   for (const player of players) {
-    const blueWires = hands[player.id].filter(
-      (wireId) => wires[wireId].kind === "number",
-    );
-    if (blueWires.length) {
-      const wireId = blueWires[Math.floor(random() * blueWires.length)];
-      clues[wireId] = true;
+    for (const slots of rackSlots[player.id]) {
+      slots.sort((left, right) => wires[left].sort - wires[right].sort);
     }
   }
+  const hands = Object.fromEntries(
+    players.map((player) => [player.id, rackSlots[player.id].flat()]),
+  );
+
+  const setupInfoOrder = players.map(
+    (_, offset) => players[(turn + offset) % players.length].id,
+  );
 
   return {
-    phase: "playing",
+    phase: "setup_info",
     players: players.map((player, seat) => ({ ...player, seat })),
     wires,
+    specialCandidates,
     hands,
     rackSlots,
-    clues,
+    clues: {},
+    setupInfoOrder,
+    setupInfoIndex: 0,
     cutWires: [],
     detonator: 0,
     detonatorLimit: ERROR_LIMIT,
-    turn: 0,
+    turn,
     outcome: null,
     lastAction: null,
   };
@@ -86,17 +127,28 @@ function removeWires(state, playerId, wireIds, revealedRed = false) {
   state.hands[playerId] = state.hands[playerId].filter(
     (wireId) => !removed.has(wireId),
   );
-  state.rackSlots[playerId] = state.rackSlots[playerId].map((wireId) =>
-    removed.has(wireId) ? null : wireId,
-  );
   for (const wireId of wireIds) {
     delete state.clues[wireId];
     const wire = state.wires[wireId];
+    let rackIndex = -1;
+    let slotIndex = -1;
+    for (let rack = 0; rack < state.rackSlots[playerId].length; rack += 1) {
+      const slot = state.rackSlots[playerId][rack].indexOf(wireId);
+      if (slot >= 0) {
+        rackIndex = rack;
+        slotIndex = slot;
+        state.rackSlots[playerId][rack][slot] = null;
+        break;
+      }
+    }
     state.cutWires.push({
       id: wireId,
       playerId,
+      rackIndex,
+      slotIndex,
       kind: wire.kind,
       value: wire.value,
+      tileNumber: wire.tileNumber,
       revealedRed,
     });
   }
@@ -122,9 +174,25 @@ function reject(message) {
 }
 
 export function applyAction(state, actorId, action) {
-  if (state.phase !== "playing") return reject("游戏已结束");
   const actorIndex = state.players.findIndex((player) => player.id === actorId);
   if (actorIndex < 0) return reject("玩家不存在");
+  if (state.phase === "setup_info") {
+    if (action.type !== "place_info") return reject("请先放置信息标记");
+    if (state.setupInfoOrder[state.setupInfoIndex] !== actorId) {
+      return reject("还没轮到你放置信息标记");
+    }
+    const wire = state.wires[action.wireId];
+    if (wire?.kind !== "number" || !state.hands[actorId].includes(action.wireId)) {
+      return reject("请选择自己的一根蓝线");
+    }
+    state.clues[action.wireId] = true;
+    state.setupInfoIndex += 1;
+    if (state.setupInfoIndex >= state.setupInfoOrder.length) {
+      state.phase = "playing";
+    }
+    return { accepted: true, state };
+  }
+  if (state.phase !== "playing") return reject("游戏已结束");
   if (actorIndex !== state.turn) return reject("还没轮到你");
 
   if (action.type === "dual_cut") {
@@ -238,10 +306,20 @@ function availableSoloCuts(state, playerId) {
 }
 
 export function projectGame(state, viewerId) {
-  const currentId = state.players[state.turn]?.id;
+  const currentId =
+    state.phase === "setup_info"
+      ? state.setupInfoOrder[state.setupInfoIndex]
+      : state.players[state.turn]?.id;
   const viewerTurn = viewerId === currentId;
+  const playingTurn = state.phase === "playing" && viewerTurn;
   const hands = {};
   const racks = {};
+  const cutWiresBySlot = new Map(
+    state.cutWires.map((wire) => [
+      `${wire.playerId}:${wire.rackIndex}:${wire.slotIndex}`,
+      wire,
+    ]),
+  );
   for (const player of state.players) {
     hands[player.id] = state.hands[player.id].map((wireId) => {
       const wire = state.wires[wireId];
@@ -253,28 +331,41 @@ export function projectGame(state, viewerId) {
         id: wire.id,
         kind: revealed ? wire.kind : null,
         value: revealed ? wire.value : null,
+        tileNumber: revealed ? wire.tileNumber : null,
         revealed,
       };
     });
-    const slots = state.rackSlots[player.id];
-    racks[player.id] = slots.map((wireId, slotIndex) => {
-      if (wireId === null) {
-        return { id: player.id + "-slot-" + slotIndex, empty: true };
-      }
-      const wire = state.wires[wireId];
-      const revealed =
-        state.phase === "ended" ||
-        player.id === viewerId ||
-        state.clues[wireId] === true;
-      return {
-        id: wire.id,
-        kind: revealed ? wire.kind : null,
-        value: revealed ? wire.value : null,
-        revealed,
-      };
-    });
+    racks[player.id] = state.rackSlots[player.id].map((slots, rackIndex) =>
+      slots.map((wireId, slotIndex) => {
+        if (wireId === null) {
+          return {
+            id: player.id + "-rack-" + rackIndex + "-slot-" + slotIndex,
+            empty: true,
+            cutWire: cutWiresBySlot.get(`${player.id}:${rackIndex}:${slotIndex}`) || null,
+          };
+        }
+        const wire = state.wires[wireId];
+        const revealed =
+          state.phase === "ended" ||
+          player.id === viewerId;
+        return {
+          id: wire.id,
+          kind: revealed ? wire.kind : null,
+          value: revealed ? wire.value : null,
+          tileNumber: revealed ? wire.tileNumber : null,
+          revealed,
+          infoToken: state.clues[wireId]
+            ? wire.kind === "number"
+              ? String(wire.value)
+              : wire.kind === "yellow"
+                ? wire.tileNumber
+                : null
+            : null,
+        };
+      }),
+    );
   }
-  const soloCuts = viewerTurn ? availableSoloCuts(state, viewerId) : [];
+  const soloCuts = playingTurn ? availableSoloCuts(state, viewerId) : [];
   const ownHand = state.hands[viewerId] || [];
   return {
     phase: state.phase,
@@ -284,6 +375,7 @@ export function projectGame(state, viewerId) {
     hands,
     racks,
     cutWires: state.cutWires,
+    specialCandidates: state.specialCandidates,
     clues: state.clues,
     detonator: state.detonator,
     detonatorLimit: state.detonatorLimit,
@@ -292,7 +384,7 @@ export function projectGame(state, viewerId) {
     ownTurn: viewerTurn,
     soloCuts,
     canRevealRed:
-      viewerTurn &&
+      playingTurn &&
       ownHand.length > 0 &&
       ownHand.every((wireId) => state.wires[wireId].kind === "red"),
   };

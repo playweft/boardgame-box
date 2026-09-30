@@ -1,0 +1,69 @@
+[data-app-dialog][open] {
+  animation: app-dialog-enter 180ms ease-out both;
+}
+
+[data-app-dialog][open].is-closing {
+  pointer-events: none;
+  animation: app-dialog-exit 180ms ease-in both;
+}
+
+[data-app-dialog][open]::backdrop {
+  animation: app-backdrop-enter 180ms ease-out both;
+}
+
+[data-app-dialog][open].is-closing::backdrop {
+  animation: app-backdrop-exit 180ms ease-in both;
+}
+
+@keyframes app-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes app-dialog-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.99);
+  }
+}
+
+@keyframes app-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes app-backdrop-exit {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-app-dialog][open],
+  [data-app-dialog][open].is-closing,
+  [data-app-dialog][open]::backdrop,
+  [data-app-dialog][open].is-closing::backdrop {
+    animation-duration: 1ms;
+  }
+}

@@ -1,5 +1,7 @@
 import { h } from "preact";
-import { ArrowLeft, ArrowRight, Bomb, Check, CircleHelp, Scissors } from "lucide";
+import { useState } from "preact/hooks";
+import { ArrowLeft, ArrowRight, Bomb, Check, CircleHelp, Scissors, X } from "lucide";
+import Dialog from "../../shared/dialog.jsx";
 
 const iconData = {
   "arrow-left": ArrowLeft,
@@ -8,6 +10,7 @@ const iconData = {
   check: Check,
   "circle-help": CircleHelp,
   scissors: Scissors,
+  x: X,
 };
 
 function Icon({ name, className = "icon" }) {
@@ -42,19 +45,48 @@ function Icon({ name, className = "icon" }) {
   );
 }
 
-function Shell({ children }) {
+function Shell({ children, room }) {
+  const [helpOpen, setHelpOpen] = useState(false);
+
   return (
     <div className="page-shell bomb-shell">
       <header className="topbar">
-        <a className="back-link" href="../../" aria-label="返回桌游盒">
-          <Icon name="arrow-left" />
-        </a>
+        {!room && (
+          <a className="back-link" href="../../" aria-label="返回桌游盒">
+            <Icon name="arrow-left" />
+          </a>
+        )}
         <div className="topbar-title">炸弹克星</div>
-        <a className="help-link" href="./help.html" aria-label="游戏规则">
-          <Icon name="circle-help" />
-        </a>
+        {!room && (
+          <button
+            className="help-link"
+            type="button"
+            aria-label="游戏规则"
+            onClick={() => setHelpOpen(true)}
+          >
+            <Icon name="circle-help" />
+          </button>
+        )}
       </header>
       {children}
+      <Dialog
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        className="help-dialog"
+        aria-label="炸弹克星规则"
+      >
+        <div className="help-dialog-content">
+          <button
+            className="help-dialog-close"
+            type="button"
+            aria-label="关闭"
+            onClick={() => setHelpOpen(false)}
+          >
+            <Icon name="x" />
+          </button>
+          <iframe className="help-frame" src="./help.html" title="炸弹克星规则" />
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -109,38 +141,72 @@ function PassDevice({ player, onReveal }) {
   );
 }
 
-function Wire({ wire, ownerId, viewerId, ownTurn, busy, sourceId, soloIds, onSource, onTarget }) {
+function WireFace({ wire }) {
+  return wire.kind === "number"
+    ? wire.value
+    : wire.kind === "yellow"
+      ? wire.tileNumber || "黄"
+      : wire.tileNumber || <Icon name="bomb" />;
+}
+
+function wireKindClass(wire) {
+  return wire.kind === "number" ? "number" : wire.kind;
+}
+
+function wireLabel(wire) {
+  return wire.kind === "number"
+    ? String(wire.value)
+    : wire.kind === "yellow"
+      ? "黄线 " + (wire.tileNumber || "")
+      : "红线 " + (wire.tileNumber || "");
+}
+
+function Wire({
+  wire, ownerId, viewerId, ownTurn, busy, sourceId, soloIds,
+  setupInfo, selectedInfoWireId, onInfoSelect, onSource, onTarget,
+}) {
   const isOwn = ownerId === viewerId;
   const isSelected = wire.id === sourceId;
+  const isInfoSelected = wire.id === selectedInfoWireId;
   const isSolo = soloIds.has(wire.id);
   if (!wire.revealed) {
     return (
       <button
         className="wire wire-hidden"
         type="button"
-        aria-label="队友的隐藏线缆"
-        disabled={!ownTurn || busy || !sourceId}
+        aria-label={wire.infoToken ? "队友隐藏线缆，提示 " + wire.infoToken : "队友的隐藏线缆"}
+        disabled={setupInfo || !ownTurn || busy || !sourceId}
         onClick={() => onTarget(wire.id)}
       >
         <Icon name="scissors" />
+        {wire.infoToken && <span className="wire-info-token">{wire.infoToken}</span>}
       </button>
     );
   }
-  const kindClass = wire.kind === "number" ? "number" : wire.kind;
   return (
     <button
       className={[
         "wire",
-        "wire-" + kindClass,
-        isSelected && "wire-selected",
+        "wire-" + wireKindClass(wire),
+        (setupInfo ? isInfoSelected : isSelected) && "wire-selected",
         isSolo && "wire-solo",
       ]
         .filter(Boolean)
         .join(" ")}
       type="button"
-      aria-label={wire.kind === "number" ? String(wire.value) : wire.kind === "yellow" ? "黄线" : "红线"}
-      disabled={!ownTurn || busy || (!isOwn && !sourceId)}
+      aria-label={wireLabel(wire)}
+      disabled={
+        !ownTurn ||
+        busy ||
+        (setupInfo
+          ? !isOwn || wire.kind !== "number"
+          : !isOwn && !sourceId)
+      }
       onClick={() => {
+        if (setupInfo) {
+          onInfoSelect(wire.id);
+          return;
+        }
         if (!isOwn) {
           onTarget(wire.id);
           return;
@@ -148,40 +214,64 @@ function Wire({ wire, ownerId, viewerId, ownTurn, busy, sourceId, soloIds, onSou
         onSource(wire.id, isSolo);
       }}
     >
-      {wire.kind === "number" ? wire.value : wire.kind === "yellow" ? "黄" : <Icon name="bomb" />}
+      <WireFace wire={wire} />
     </button>
   );
 }
 
-function Rack({ player, game, viewerId, busy, sourceId, soloIds, onSource, onTarget }) {
+function Rack({
+  player, game, viewerId, busy, sourceId, selectedInfoWireId,
+  soloIds, onInfoSelect, onSource, onTarget,
+}) {
   const isCurrent = player.id === game.currentPlayerId;
-  const slots = game.racks[player.id];
+  const stands = game.racks[player.id] || [];
   return (
     <section className={isCurrent ? "player-rack active-rack" : "player-rack"}>
       <div className="rack-heading">
         <strong>{player.name}</strong>
         {isCurrent && <Icon name="scissors" className="turn-icon" />}
       </div>
-      <div className="wire-row">
-        {slots.map((slot) =>
-          slot.empty ? (
-            <span className="wire wire-empty" aria-hidden="true" key={slot.id} />
-          ) : (
-            <Wire
-              wire={slot}
-              ownerId={player.id}
-              viewerId={viewerId}
-              ownTurn={game.ownTurn}
-              busy={busy}
-              sourceId={sourceId}
-              soloIds={soloIds}
-              onSource={onSource}
-              onTarget={onTarget}
-              key={slot.id}
-            />
-          ),
-        )}
-      </div>
+      {stands.map((slots, rackIndex) => (
+        <div
+          className="wire-row player-stand"
+          role="group"
+          aria-label={"牌架 " + (rackIndex + 1)}
+          key={rackIndex}
+        >
+          {slots.map((slot) =>
+            slot.empty ? (
+              <span className={slot.cutWire ? "wire-slot has-cut" : "wire-slot"} key={slot.id}>
+                <span className="wire wire-empty" aria-hidden="true" />
+                {slot.cutWire && (
+                  <span
+                    className={"wire wire-" + wireKindClass(slot.cutWire) + " wire-cut"}
+                    role="img"
+                    aria-label={"已剪断：" + wireLabel(slot.cutWire)}
+                  >
+                    <WireFace wire={slot.cutWire} />
+                  </span>
+                )}
+              </span>
+            ) : (
+              <Wire
+                wire={slot}
+                ownerId={player.id}
+                viewerId={viewerId}
+                ownTurn={game.ownTurn}
+                busy={busy}
+                sourceId={sourceId}
+                setupInfo={game.phase === "setup_info"}
+                selectedInfoWireId={selectedInfoWireId}
+                onInfoSelect={onInfoSelect}
+                soloIds={soloIds}
+                onSource={onSource}
+                onTarget={onTarget}
+                key={slot.id}
+              />
+            ),
+          )}
+        </div>
+      ))}
     </section>
   );
 }
@@ -204,13 +294,34 @@ function MissionStatus({ game, cutWires }) {
   );
 }
 
-function GameBoard({ game, viewerId, busy, selectedSourceId, onSource, onTarget, onSolo, onRevealRed, error }) {
+function SpecialCandidates({ candidates }) {
+  if (!candidates) return null;
+  return (
+    <div className="special-candidates" aria-label="本局红黄线候选编号">
+      {[
+        ["red", "红线", candidates.red],
+        ["yellow", "黄线", candidates.yellow],
+      ].map(([kind, label, entry]) => (
+        <div className={"special-candidate special-candidate-" + kind} key={kind}>
+          <strong>{label} {entry.inPlay}/{entry.candidateCount}：</strong>
+          <span>{entry.tileNumbers.join("、")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GameBoard({
+  game, viewerId, busy, selectedSourceId, selectedInfoWireId,
+  onInfoSelect, onPlaceInfo, onSource, onTarget, onRevealRed, error,
+}) {
   const cutWires = Array.isArray(game.cutWires) ? game.cutWires : [];
   const soloCuts = Array.isArray(game.soloCuts) ? game.soloCuts : [];
   const soloIds = new Set(soloCuts.flatMap((entry) => entry.ids));
   return (
     <main className="play-view">
       <MissionStatus game={game} cutWires={cutWires} />
+      <SpecialCandidates candidates={game.specialCandidates} />
       <div className="player-racks">
         {game.players.map((player) => (
           <Rack
@@ -219,7 +330,9 @@ function GameBoard({ game, viewerId, busy, selectedSourceId, onSource, onTarget,
             viewerId={viewerId}
             busy={busy}
             sourceId={selectedSourceId}
+            selectedInfoWireId={selectedInfoWireId}
             soloIds={soloIds}
+            onInfoSelect={onInfoSelect}
             onSource={onSource}
             onTarget={onTarget}
             key={player.id}
@@ -228,25 +341,30 @@ function GameBoard({ game, viewerId, busy, selectedSourceId, onSource, onTarget,
       </div>
       {game.ownTurn && (
         <div className="action-bar">
-          <div className="action-options">
-            {soloCuts.map((entry) => (
+          {game.phase === "setup_info" ? (
+            <>
+              <p className="turn-hint">选一根自己的蓝线</p>
               <button
-                className="solo-option"
+                className="primary-button full-button"
                 type="button"
-                disabled={busy}
-                onClick={() => onSolo(entry.ids[0])}
-                key={entry.kind + entry.value}
+                disabled={busy || !selectedInfoWireId}
+                onClick={onPlaceInfo}
               >
-                单剪 {entry.kind === "number" ? entry.value : "黄"}
+                放置信息标记 <Icon name="check" />
               </button>
-            ))}
-            {game.canRevealRed && (
-              <button className="solo-option" type="button" disabled={busy} onClick={onRevealRed}>
-                公开红线
-              </button>
-            )}
-          </div>
-          <p className="turn-hint">选一根自己的，再选队友的</p>
+            </>
+          ) : (
+            <>
+              <div className="action-options">
+                {game.canRevealRed && (
+                  <button className="solo-option" type="button" disabled={busy} onClick={onRevealRed}>
+                    公开红线
+                  </button>
+                )}
+              </div>
+              <p className="turn-hint">选自己的线，再选队友的；单剪选同值线</p>
+            </>
+          )}
           {error && <p className="error-message">{error}</p>}
         </div>
       )}
@@ -275,13 +393,15 @@ export default function BombBustersApp({
   busy,
   localReady,
   selectedSourceId,
+  selectedInfoWireId,
   onCount,
   onName,
   onStart,
   onReveal,
+  onInfoSelect,
+  onPlaceInfo,
   onSource,
   onTarget,
-  onSolo,
   onRevealRed,
   onRestart,
   error,
@@ -321,13 +441,15 @@ export default function BombBustersApp({
         viewerId={game.viewerId}
         busy={busy}
         selectedSourceId={selectedSourceId}
+        selectedInfoWireId={selectedInfoWireId}
+        onInfoSelect={onInfoSelect}
+        onPlaceInfo={onPlaceInfo}
         onSource={onSource}
         onTarget={onTarget}
-        onSolo={onSolo}
         onRevealRed={onRevealRed}
         error={error || roomError}
       />
     );
   }
-  return <Shell>{content}</Shell>;
+  return <Shell room={room}>{content}</Shell>;
 }
