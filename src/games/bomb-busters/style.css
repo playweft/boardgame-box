@@ -1,3 +1,21 @@
+/* Theme overrides are local to Bomb Busters. */
+:root {
+  color: #132c33;
+  background: #6ba4ad;
+  --muted: #203c43;
+  --line: rgb(3 4 8 / 22%);
+  --green: #145b36;
+  --red: #92222b;
+  --wire-blue: #70c8ff;
+  --wire-yellow: #ffe071;
+  --wire-red: #ff858a;
+  --card-background: #030408;
+}
+
+body {
+  background: #6ba4ad;
+}
+
 .page-shell {
   width: min(100%, 36rem);
   min-height: 100vh;
@@ -103,7 +121,7 @@ button.help-link {
   width: 100%;
   height: 100%;
   border: 0;
-  background: #176b63;
+  background: #6ba4ad;
 }
 
 .setup-view,
@@ -118,7 +136,7 @@ button.help-link {
 
 .eyebrow {
   margin: 0 0 0.55rem;
-  color: var(--gold);
+  color: #3c3509;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -173,7 +191,7 @@ button.help-link {
   width: 100%;
   border: 0;
   outline: 0;
-  color: #f4f4e9;
+  color: #132c33;
   background: transparent;
   font-size: 0.9rem;
 }
@@ -212,7 +230,7 @@ button.help-link {
   flex-wrap: wrap;
   gap: 0.35rem 1rem;
   padding: 0.65rem 0 0.25rem;
-  color: #e9f5ed;
+  color: #132c33;
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
@@ -224,11 +242,11 @@ button.help-link {
 }
 
 .special-candidate-red strong {
-  color: #ffaaa0;
+  color: #7d1721;
 }
 
 .special-candidate-yellow strong {
-  color: #ffdf69;
+  color: #483600;
 }
 
 .detonator {
@@ -251,7 +269,7 @@ button.help-link {
 .detonator-step {
   width: 0.68rem;
   height: 0.68rem;
-  border: 1px solid rgb(255 100 104 / 60%);
+  border: 1px solid var(--red);
   border-radius: 50%;
 }
 
@@ -273,11 +291,29 @@ button.help-link {
 
 .player-racks {
   display: grid;
+  gap: 0.8rem;
+  margin-top: 0.75rem;
 }
 
 .player-rack {
-  padding: 0.8rem 0 0.9rem;
-  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  padding: 0.9rem 0.85rem;
+  border: 0;
+  border-radius: 1rem;
+  background: whitesmoke;
+  transition: box-shadow 220ms ease;
+}
+
+.active-rack {
+  box-shadow:
+    rgba(0, 0, 0, 0.3) 0px 4px 4px 0px,
+    rgba(0, 0, 0, 0.15) 0px 8px 12px 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-rack {
+    transition: none;
+  }
 }
 
 .rack-heading {
@@ -291,13 +327,13 @@ button.help-link {
 }
 
 .active-rack .rack-heading {
-  color: #fff;
+  color: #132c33;
 }
 
 .turn-icon {
   width: 0.95rem;
   height: 0.95rem;
-  color: var(--gold);
+  color: #3c3509;
 }
 
 .wire-row {
@@ -312,29 +348,21 @@ button.help-link {
   min-height: 2.55rem;
   margin-top: 0.35rem;
   padding-top: 0.35rem;
-  border-top: 1px dashed rgb(230 255 247 / 22%);
+  border-top: 1px dashed var(--line);
 }
 
 .wire-slot {
   position: relative;
-  display: inline-block;
-  width: 2.3rem;
-  height: 2.35rem;
+  display: inline-grid;
   flex: 0 0 auto;
-}
-
-.wire-slot .wire-empty {
-  position: absolute;
-  bottom: 0;
-  left: 0;
 }
 
 .wire-slot .wire-cut {
   position: absolute;
   z-index: 1;
-  top: 0;
-  left: 0.22rem;
-  box-shadow: 0 0.15rem 0.35rem rgb(0 0 0 / 28%);
+  top: -0.35rem;
+  left: 0.06rem;
+  opacity: 0.65;
 }
 
 .wire {
@@ -348,7 +376,10 @@ button.help-link {
   border-radius: 0.45rem;
   font-size: 0.8rem;
   font-weight: 700;
-  transition: opacity 140ms ease, background-color 140ms ease;
+  background: var(--card-background);
+  transition:
+    opacity 140ms ease,
+    background-color 140ms ease;
 }
 
 button.wire {
@@ -357,24 +388,20 @@ button.wire {
 }
 
 .wire-number {
-  color: #193c4f;
-  background: #e9f0ef;
+  color: var(--wire-blue);
 }
 
 .wire-yellow {
-  color: #3f3517;
-  background: #ffdf69;
+  color: var(--wire-yellow);
 }
 
 .wire-red {
-  color: #fff;
-  background: #db5553;
+  color: var(--wire-red);
 }
 
 .wire-hidden {
   border-color: rgb(255 255 255 / 28%);
-  color: rgb(255 255 255 / 70%);
-  background: rgb(16 90 84 / 48%);
+  color: #c6d5df;
 }
 
 .wire-hidden:disabled {
@@ -398,12 +425,20 @@ button.wire {
   padding: 0 0.12rem;
   border: 1px solid #fff;
   border-radius: 999px;
-  color: #3f3517;
-  background: #ffdf69;
   box-shadow: 0 1px 3px rgb(0 0 0 / 28%);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
+}
+
+.wire-info-blue {
+  color: #fff;
+  background: #1768ad;
+}
+
+.wire-info-yellow {
+  color: #302500;
+  background: var(--wire-yellow);
 }
 
 .wire-selected {
@@ -416,15 +451,15 @@ button.wire {
 }
 
 .wire-empty {
-  border: 1px dashed rgb(230 255 247 / 24%);
-  background: rgb(16 90 84 / 24%);
+  border: 1px dashed var(--line);
+  background: transparent;
 }
 
 .action-bar {
   position: sticky;
   bottom: 0;
   padding: 0.8rem 0 max(0.6rem, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgb(23 107 99 / 0%), #176b63 18%);
+  background: linear-gradient(180deg, rgb(107 164 173 / 0%), #6ba4ad 18%);
 }
 
 .action-options {
@@ -438,8 +473,8 @@ button.wire {
   padding: 0.4rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: #e9f5ed;
-  background: rgb(16 90 84 / 52%);
+  color: #132c33;
+  background: rgb(3 4 8 / 8%);
   font-size: 0.75rem;
 }
 
@@ -454,7 +489,7 @@ button.wire {
 }
 
 .error-message {
-  color: #ffd7ce;
+  color: #7d1721;
 }
 
 .result-view {
@@ -481,10 +516,6 @@ button.wire {
 @media (max-width: 380px) {
   .wire-row {
     gap: 0.22rem;
-  }
-
-  .wire-slot {
-    width: 2.1rem;
   }
 
   .wire {

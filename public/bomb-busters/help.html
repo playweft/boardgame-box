@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#6ba4ad" />
+  <title>炸弹克星 · 规则</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Avenir Next", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+      color: #132c33;
+      background: #6ba4ad;
+      --muted: #203c43;
+      --line: rgb(3 4 8 / 22%);
+      --gold: #3c3509;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100svh;
+      margin: 0;
+    }
+
+    main {
+      width: min(100%, 40rem);
+      margin: 0 auto;
+      padding: 1.2rem 1.25rem 3rem;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    h1 {
+      margin: 1.6rem 0 1.2rem;
+      font-size: 1.7rem;
+      font-weight: 500;
+    }
+
+    section {
+      padding: 1rem 0;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 0.6rem;
+      color: var(--gold);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    p,
+    li {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.7;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    ol {
+      margin: 0;
+      padding-left: 1.3rem;
+    }
+
+    li+li {
+      margin-top: 0.35rem;
+    }
+
+    .note {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+    }
+
+    .source {
+      color: var(--gold);
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>规则</h1>
+    <section>
+      <h2>目标</h2>
+      <p>合作剪断所有线缆。剪到红线或引爆器走完即失败。</p>
+    </section>
+    <section>
+      <h2>开局</h2>
+      <p>从队长起顺时针，每位玩家在自己的蓝线中选一根放置信息标记；双牌架也只选一根。</p>
+    </section>
+    <section>
+      <h2>每回合</h2>
+      <ol>
+        <li>双剪：用自己的一根线猜另一位玩家的线；猜中后两根都翻开，摆在各自原槽前。</li>
+        <li>猜错蓝线或黄线，引爆器前进一步；队友在目标线前放提示标记，显示真实值。红线会直接引爆。</li>
+        <li>单剪：若同值剩余线缆全在自己手上，可一次剪断；翻开的线摆在各自原槽前。</li>
+        <li>只剩红线时公开红线，不会引爆。</li>
+      </ol>
+    </section>
+    <p class="note">本局红线 1/2、黄线 2/3：候选编号从对应范围随机抽取，入局牌不标明。编号只用于排序。<br /><a class="source" href="./rules.md"
+        download>下载英文规则全文（Markdown）</a> · <a class="source"
+        href="https://gamers-hq.de/media/pdf/9f/a1/ff/4250231739545_en.pdf">英文规则书</a></p>
+  </main>
+</body>
+
+</html>

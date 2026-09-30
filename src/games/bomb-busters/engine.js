@@ -358,7 +358,7 @@ export function projectGame(state, viewerId) {
             ? wire.kind === "number"
               ? String(wire.value)
               : wire.kind === "yellow"
-                ? wire.tileNumber
+                ? "黄"
                 : null
             : null,
         };

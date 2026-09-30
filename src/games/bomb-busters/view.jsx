@@ -161,6 +161,19 @@ function wireLabel(wire) {
       : "红线 " + (wire.tileNumber || "");
 }
 
+function InfoToken({ value }) {
+  if (!value) return null;
+  const isBlue = /^\d+$/.test(value);
+  return (
+    <span
+      className={"wire-info-token " + (isBlue ? "wire-info-blue" : "wire-info-yellow")}
+      aria-hidden="true"
+    >
+      {isBlue ? value : null}
+    </span>
+  );
+}
+
 function Wire({
   wire, ownerId, viewerId, ownTurn, busy, sourceId, soloIds,
   setupInfo, selectedInfoWireId, onInfoSelect, onSource, onTarget,
@@ -179,7 +192,7 @@ function Wire({
         onClick={() => onTarget(wire.id)}
       >
         <Icon name="scissors" />
-        {wire.infoToken && <span className="wire-info-token">{wire.infoToken}</span>}
+        <InfoToken value={wire.infoToken} />
       </button>
     );
   }
@@ -194,7 +207,7 @@ function Wire({
         .filter(Boolean)
         .join(" ")}
       type="button"
-      aria-label={wireLabel(wire)}
+      aria-label={wireLabel(wire) + (wire.infoToken ? "，已公开提示 " + wire.infoToken : "")}
       disabled={
         !ownTurn ||
         busy ||
@@ -215,6 +228,7 @@ function Wire({
       }}
     >
       <WireFace wire={wire} />
+      <InfoToken value={wire.infoToken} />
     </button>
   );
 }

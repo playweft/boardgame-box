@@ -8,7 +8,7 @@
 
 阿瓦隆支持 5–10 人线下传屏和 Playweft 房间模式；炸弹克星支持 2–5 人合作传屏和房间模式。运行 npm run build 构建，npm run check 验证生产构建。
 
-每个游戏都有独立的 Vite 配置与 `dist/<game>/` 产物；`src/shared` 提供共用主题和 Playweft 客户端，每款游戏仍独立加载自己的资源。`public/games/<game>` 存放专属 Manifest、Lua 逻辑、帮助页和图标。
+每个游戏都有独立的 Vite 配置与 `dist/<game>/` 产物；`src/shared` 提供共用主题和 Playweft 客户端，每款游戏仍独立加载自己的资源。`public/<game>` 存放专属 Manifest、Lua 逻辑、帮助页和图标。
 
 ## 部署
 

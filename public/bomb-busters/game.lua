@@ -441,7 +441,7 @@ function view(state, events, context)
           local info_token
           if state.clues[wire_id] then
             if wire.kind == "number" then info_token = tostring(wire.value)
-            elseif wire.kind == "yellow" then info_token = wire.tileNumber end
+            elseif wire.kind == "yellow" then info_token = "黄" end
           end
           table.insert(rack, {
             id = wire_id,

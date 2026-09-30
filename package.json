@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#vite-config": "./vite.config.js"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "node build/site.js",
+    "build": "vite build",
     "check": "npm run build",
     "deploy": "wrangler deploy"
   },
