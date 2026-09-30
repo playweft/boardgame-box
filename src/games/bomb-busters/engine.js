@@ -111,6 +111,8 @@ export function createGame(players, random = Math.random, captainId = null) {
     hands,
     rackSlots,
     clues: {},
+    detectorUsed: {},
+    pendingDetector: null,
     setupInfoOrder,
     setupInfoIndex: 0,
     cutWires: [],
@@ -202,7 +204,59 @@ export function applyAction(state, actorId, action) {
     return { accepted: true, state };
   }
   if (state.phase !== "playing") return reject("游戏已结束");
+  if (state.pendingDetector) {
+    const pending = state.pendingDetector;
+    if (action.type !== "resolve_detector" || actorId !== pending.targetOwnerId) {
+      return reject("等待被探测的队友选择线缆");
+    }
+    const source = state.wires[pending.sourceId];
+    const matches = pending.targetIds.filter((id) => {
+      const wire = state.wires[id];
+      return wire.kind === source.kind && wire.value === source.value;
+    });
+    const choices = matches.length ? matches : pending.targetIds.filter((id) => state.wires[id].kind !== "red");
+    if (!choices.includes(action.wireId)) return reject("请选择可剪断或可放提示的线缆");
+    const target = state.wires[action.wireId];
+    if (matches.length) {
+      removeWires(state, pending.actorId, [pending.sourceId]);
+      removeWires(state, pending.targetOwnerId, [action.wireId]);
+    } else {
+      state.detonator += 1;
+      state.clues[action.wireId] = true;
+    }
+    state.lastAction = { type: matches.length ? "success" : "miss", actorId: pending.actorId,
+      targetOwnerId: pending.targetOwnerId, wire: { kind: target.kind, value: target.value } };
+    state.pendingDetector = null;
+    if (state.detonator >= state.detonatorLimit) {
+      state.phase = "ended";
+      state.outcome = "failure";
+    } else {
+      nextTurn(state, state.players.findIndex((player) => player.id === pending.actorId));
+    }
+    return { accepted: true, state };
+  }
   if (actorIndex !== state.turn) return reject("还没轮到你");
+
+  if (action.type === "double_detector") {
+    if (state.detectorUsed?.[actorId]) return reject("双重探测器本局已经使用");
+    const source = state.wires[action.sourceId];
+    if (!source || !state.hands[actorId].includes(source.id) || source.kind === "red") return reject("请选择自己的蓝线或黄线");
+    const ids = action.targetIds;
+    if (!Array.isArray(ids) || ids.length !== 2 || ids[0] === ids[1]) return reject("请选择两根不同的线缆");
+    const owner = state.players.find((player) => player.id !== actorId &&
+      state.rackSlots[player.id].some((rack) => ids.every((id) => rack.includes(id))));
+    if (!owner) return reject("请选择同一队友牌架上的两根线缆");
+    state.detectorUsed ||= {};
+    state.detectorUsed[actorId] = true;
+    if (ids.every((id) => state.wires[id].kind === "red")) {
+      state.phase = "ended";
+      state.outcome = "failure";
+      state.lastAction = { type: "red", actorId, targetOwnerId: owner.id };
+    } else {
+      state.pendingDetector = { actorId, sourceId: source.id, targetOwnerId: owner.id, targetIds: ids.slice() };
+    }
+    return { accepted: true, state };
+  }
 
   if (action.type === "dual_cut") {
     const ownHand = state.hands[actorId];
@@ -316,11 +370,11 @@ function availableSoloCuts(state, playerId) {
 
 export function projectGame(state, viewerId) {
   const currentId =
-    state.phase === "setup_info"
+    state.pendingDetector ? state.pendingDetector.targetOwnerId : state.phase === "setup_info"
       ? state.setupInfoOrder[state.setupInfoIndex]
       : state.players[state.turn]?.id;
   const viewerTurn = viewerId === currentId;
-  const playingTurn = state.phase === "playing" && viewerTurn;
+  const playingTurn = state.phase === "playing" && viewerTurn && !state.pendingDetector;
   const hands = {};
   const racks = {};
   const cutWiresBySlot = new Map(
@@ -375,6 +429,18 @@ export function projectGame(state, viewerId) {
   }
   const soloCuts = playingTurn ? availableSoloCuts(state, viewerId) : [];
   const ownHand = state.hands[viewerId] || [];
+  let detectorChoice = null;
+  if (state.pendingDetector) {
+    const pending = state.pendingDetector;
+    const source = state.wires[pending.sourceId];
+    detectorChoice = { actorId: pending.actorId, targetOwnerId: pending.targetOwnerId,
+      targetIds: pending.targetIds, kind: source.kind, value: source.value };
+    if (viewerId === pending.targetOwnerId) {
+      const matches = pending.targetIds.filter((id) => state.wires[id].kind === source.kind && state.wires[id].value === source.value);
+      detectorChoice.choiceIds = matches.length ? matches : pending.targetIds.filter((id) => state.wires[id].kind !== "red");
+      detectorChoice.success = matches.length > 0;
+    }
+  }
   return {
     phase: state.phase,
     players: state.players,
@@ -390,6 +456,9 @@ export function projectGame(state, viewerId) {
     outcome: state.outcome,
     lastAction: state.lastAction,
     ownTurn: viewerTurn,
+    detectorChoice,
+    detectorUsed: state.detectorUsed || {},
+    canUseDetector: playingTurn && !state.detectorUsed?.[viewerId],
     soloCuts,
     canRevealRed:
       playingTurn &&

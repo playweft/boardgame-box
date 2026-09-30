@@ -59,6 +59,7 @@ local function make_state(players, seed, captain_index)
     hands = {},
     rackSlots = {},
     clues = {},
+    detectorUsed = {},
     cutWires = {},
     detonator = 0,
     detonatorLimit = #players,
@@ -272,7 +273,73 @@ function on_action(state, action, context)
     return {accepted = true, state = state, events = {}}
   end
   if state.phase ~= "playing" then return reject("GAME_OVER", "The mission has ended") end
+  if state.pendingDetector then
+    local pending = state.pendingDetector
+    if action.type ~= "resolve_detector" or actor_id ~= pending.targetOwnerId then
+      return reject("DETECTOR_PENDING", "Wait for the teammate to choose a wire")
+    end
+    local source = state.wires[pending.sourceId]
+    local matches, safe = {}, {}
+    for _, id in ipairs(pending.targetIds) do
+      if same_wire(source, state.wires[id]) then table.insert(matches, id) end
+      if state.wires[id].kind ~= "red" then table.insert(safe, id) end
+    end
+    local valid = false
+    for _, id in ipairs(#matches > 0 and matches or safe) do
+      if id == action.wireId then valid = true end
+    end
+    if not valid then return reject("INVALID_CHOICE", "Choose an eligible wire") end
+    local target = state.wires[action.wireId]
+    if #matches > 0 then
+      remove_wires(state, pending.actorId, {pending.sourceId})
+      remove_wires(state, pending.targetOwnerId, {action.wireId})
+    else
+      state.detonator = state.detonator + 1
+      state.clues[action.wireId] = true
+    end
+    state.lastAction = {type = #matches > 0 and "success" or "miss", actorId = pending.actorId,
+      targetOwnerId = pending.targetOwnerId, wire = {kind = target.kind, value = target.value}}
+    state.pendingDetector = nil
+    if state.detonator >= state.detonatorLimit then
+      state.phase = "ended"
+      state.outcome = "failure"
+    else
+      next_turn(state, player_index(state, pending.actorId))
+    end
+    return {accepted = true, state = state, events = {}}
+  end
   if actor_index ~= state.turn then return reject("NOT_YOUR_TURN", "Wait for your turn") end
+
+  if action.type == "double_detector" then
+    if state.detectorUsed and state.detectorUsed[actor_id] then return reject("DETECTOR_USED", "Already used this mission") end
+    local source = state.wires[action.sourceId]
+    if not source or owner_of(state, action.sourceId) ~= actor_id or source.kind == "red" then
+      return reject("INVALID_SOURCE", "Choose your blue or yellow wire")
+    end
+    local ids = action.targetIds
+    if type(ids) ~= "table" or #ids ~= 2 or ids[1] == ids[2] then return reject("INVALID_TARGETS", "Choose two different wires") end
+    local target_owner = owner_of(state, ids[1])
+    if not target_owner or target_owner == actor_id or owner_of(state, ids[2]) ~= target_owner then
+      return reject("INVALID_TARGETS", "Choose a teammate's wires")
+    end
+    local same_rack = false
+    for _, rack in ipairs(state.rackSlots[target_owner]) do
+      local found = 0
+      for _, id in ipairs(rack) do if id == ids[1] or id == ids[2] then found = found + 1 end end
+      if found == 2 then same_rack = true end
+    end
+    if not same_rack then return reject("INVALID_TARGETS", "Choose wires on the same stand") end
+    state.detectorUsed = state.detectorUsed or {}
+    state.detectorUsed[actor_id] = true
+    if state.wires[ids[1]].kind == "red" and state.wires[ids[2]].kind == "red" then
+      state.phase = "ended"
+      state.outcome = "failure"
+      state.lastAction = {type = "red", actorId = actor_id, targetOwnerId = target_owner}
+    else
+      state.pendingDetector = {actorId = actor_id, sourceId = action.sourceId, targetOwnerId = target_owner, targetIds = {ids[1], ids[2]}}
+    end
+    return {accepted = true, state = state, events = {}}
+  end
 
   if action.type == "dual_cut" then
     local own_source = false
@@ -388,7 +455,7 @@ end
 
 function view(state, events, context)
   local viewer_id = context.viewer.id
-  local current_player_id = state.phase == "setup_info"
+  local current_player_id = state.pendingDetector and state.pendingDetector.targetOwnerId or state.phase == "setup_info"
     and state.setupInfoOrder[state.setupInfoIndex]
     or state.players[state.turn].id
   local projected = {
@@ -407,6 +474,7 @@ function view(state, events, context)
     lastAction = state.lastAction,
     ownTurn = current_player_id == viewer_id,
     soloCuts = {},
+    detectorUsed = state.detectorUsed or {},
     canRevealRed = false,
   }
   local cut_wires_by_slot = {}
@@ -457,7 +525,24 @@ function view(state, events, context)
       table.insert(projected.racks[player.id], rack)
     end
   end
-  if projected.ownTurn and state.phase == "playing" then
+  if state.pendingDetector then
+    local pending = state.pendingDetector
+    local source = state.wires[pending.sourceId]
+    projected.detectorChoice = {actorId = pending.actorId, targetOwnerId = pending.targetOwnerId,
+      targetIds = pending.targetIds, kind = source.kind, value = source.value}
+    if viewer_id == pending.targetOwnerId then
+      local matches, safe = {}, {}
+      for _, id in ipairs(pending.targetIds) do
+        if same_wire(source, state.wires[id]) then table.insert(matches, id) end
+        if state.wires[id].kind ~= "red" then table.insert(safe, id) end
+      end
+      projected.detectorChoice.choiceIds = #matches > 0 and matches or safe
+      projected.detectorChoice.success = #matches > 0
+    end
+  end
+  projected.canUseDetector = projected.ownTurn and state.phase == "playing" and not state.pendingDetector
+    and not projected.detectorUsed[viewer_id] or false
+  if projected.ownTurn and state.phase == "playing" and not state.pendingDetector then
     projected.soloCuts = solo_options(state, viewer_id)
     local hand = state.hands[viewer_id]
     projected.canRevealRed = #hand > 0

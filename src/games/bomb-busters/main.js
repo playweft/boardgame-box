@@ -12,14 +12,19 @@ let playerNames = Array.from({ length: 5 }, (_, index) => "玩家 " + (index + 1
 let localGame = null;
 let localReady = false;
 let selectedSourceId = null;
+let detectorEnabled = false;
+let selectedTargetIds = [];
 let selectedInfoWireId = null;
 let localError = "";
+let notice = "";
+let noticeTimer;
 let roomReady = false;
 let roomState = null;
 let roomError = "";
 let roomBusy = false;
 
 function currentLocalId() {
+  if (localGame?.pendingDetector) return localGame.pendingDetector.targetOwnerId;
   if (localGame?.phase === "setup_info") {
     return localGame.players.find(
       (player) => player.id === localGame.setupInfoOrder[localGame.setupInfoIndex],
@@ -34,6 +39,13 @@ function getVisibleGame() {
   return projectGame(localGame, localReady ? currentLocalId() : null);
 }
 
+function showNotice(message) {
+  clearTimeout(noticeTimer);
+  notice = message;
+  redraw();
+  noticeTimer = setTimeout(() => { notice = ""; redraw(); }, 2200);
+}
+
 function redraw() {
   const visibleGame = getVisibleGame();
   render(
@@ -46,8 +58,24 @@ function redraw() {
         ? roomError || (!roomReady ? "正在连接房间…" : "")
         : "",
       busy: roomBusy,
+      notice,
       localReady,
       selectedSourceId,
+      detectorEnabled,
+      selectedTargetIds,
+      onDetectorToggle() {
+        detectorEnabled = !detectorEnabled;
+        selectedTargetIds = [];
+        redraw();
+      },
+      onDetectorConfirm() {
+        if (!selectedSourceId) return showNotice("请先选择自己的导线");
+        if (selectedTargetIds.length !== 2) return showNotice("请选择队友的两根导线");
+        submitAction({ type: "double_detector", sourceId: selectedSourceId, targetIds: selectedTargetIds });
+      },
+      onDetectorChoice(wireId) {
+        submitAction({ type: "resolve_detector", wireId });
+      },
       selectedInfoWireId,
       error: localError,
       onCount(value) {
@@ -74,7 +102,12 @@ function redraw() {
         redraw();
       },
       onSource(wireId, solo) {
-        if (selectedSourceId && selectedSourceId !== wireId) {
+        const wire = visibleGame.racks[visibleGame.viewerId].flat().find((wire) => wire.id === wireId);
+        if (wire.kind === "red") {
+          if (visibleGame.canRevealRed) return submitAction({ type: "reveal_red" });
+          return showNotice("仅剩红线时可公开");
+        }
+        if (!detectorEnabled && selectedSourceId && selectedSourceId !== wireId) {
           const soloGroup = visibleGame?.soloCuts.find(
             (entry) => entry.ids.includes(selectedSourceId) && entry.ids.includes(wireId),
           );
@@ -84,6 +117,7 @@ function redraw() {
           }
         }
         selectedSourceId = selectedSourceId === wireId ? null : wireId;
+        selectedTargetIds = [];
         redraw();
       },
       onInfoSelect(wireId) {
@@ -91,19 +125,26 @@ function redraw() {
         redraw();
       },
       onPlaceInfo() {
-        if (!selectedInfoWireId) return;
+        if (!selectedInfoWireId) return showNotice("请先选择自己的蓝线");
         submitAction({ type: "place_info", wireId: selectedInfoWireId });
       },
       onTarget(targetId) {
-        if (!selectedSourceId) return;
+        if (visibleGame.phase === "setup_info") return showNotice("请先选择自己的蓝线");
+        if (!selectedSourceId) return showNotice("请先选择自己的导线");
+        if (detectorEnabled) {
+          const rack = Object.values(visibleGame.racks).flat().find((slots) => slots.some((wire) => wire.id === targetId));
+          if (selectedTargetIds.includes(targetId)) selectedTargetIds = selectedTargetIds.filter((id) => id !== targetId);
+          else if (!selectedTargetIds.every((id) => rack.some((wire) => wire.id === id))) return showNotice("请选择同一牌架上的导线");
+          else if (selectedTargetIds.length === 2) return showNotice("最多选择两根导线");
+          else selectedTargetIds = [...selectedTargetIds, targetId];
+          redraw();
+          return;
+        }
         submitAction({
           type: "dual_cut",
           sourceId: selectedSourceId,
           targetId,
         });
-      },
-      onRevealRed() {
-        submitAction({ type: "reveal_red" });
       },
       onRestart() {
         submitAction({ type: "rematch" });
@@ -125,7 +166,11 @@ function submitAction(action) {
     redraw();
     return;
   }
+  clearTimeout(noticeTimer);
+  notice = "";
   localGame = result.state;
+  detectorEnabled = false;
+  selectedTargetIds = [];
   selectedSourceId = null;
   selectedInfoWireId = null;
   localError = "";
@@ -156,7 +201,11 @@ const roomClient = embedded
         redraw();
       },
       onState(state) {
+        clearTimeout(noticeTimer);
+        notice = "";
         roomState = state;
+        detectorEnabled = false;
+        selectedTargetIds = [];
         selectedSourceId = null;
         selectedInfoWireId = null;
         roomError = "";

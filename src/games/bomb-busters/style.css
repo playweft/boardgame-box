@@ -21,15 +21,20 @@ body {
   min-height: 100vh;
   min-height: 100svh;
   margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
 }
 
 .topbar {
-  position: relative;
+  position: sticky;
+  z-index: 4;
+  top: 0;
   display: flex;
   height: 60px;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
+  background: #6ba4ad;
 }
 
 .topbar-title {
@@ -127,11 +132,14 @@ button.help-link {
 .setup-view,
 .play-view,
 .pass-view,
-.result-view,
 .message-view {
   width: 100%;
   margin: 0 auto;
   padding: 1.4rem 16px 2.5rem;
+}
+
+.play-view {
+  padding: 0 16px 0.75rem;
 }
 
 .eyebrow {
@@ -208,8 +216,7 @@ button.help-link {
   justify-content: center;
 }
 
-.pass-view h2,
-.result-view h2 {
+.pass-view h2 {
   margin: 0 0 1.2rem;
   font-size: 1.5rem;
   font-weight: 500;
@@ -270,11 +277,6 @@ button.help-link {
 .validation-token.complete {
   color: #fff;
   background: var(--green);
-}
-
-.validation-token .icon {
-  width: 0.7rem;
-  height: 0.7rem;
 }
 
 .detonator {
@@ -474,6 +476,21 @@ button.wire {
   outline-offset: 2px;
 }
 
+.revealed-rack button.wire {
+  animation: reveal-wire 280ms ease-out;
+}
+
+@keyframes reveal-wire {
+  from { transform: rotateY(90deg); }
+  to { transform: rotateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revealed-rack button.wire {
+    animation: none;
+  }
+}
+
 .wire-solo {
   box-shadow: 0 0 0 1px var(--green);
 }
@@ -484,10 +501,26 @@ button.wire {
 }
 
 .action-bar {
+  flex-shrink: 0;
+  padding: 0.8rem 0 0;
+}
+
+.own-player-dock {
+  display: flex;
+  flex-direction: column;
   position: sticky;
+  z-index: 3;
   bottom: 0;
-  padding: 0.8rem 0 max(0.6rem, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgb(107 164 173 / 0%), #6ba4ad 18%);
+  width: 100%;
+  max-height: 65svh;
+  padding: 1rem 16px max(0.75rem, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgb(107 164 173 / 0%), #6ba4ad 1rem);
+}
+
+.own-player-dock > .player-rack {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .action-options {
@@ -506,27 +539,39 @@ button.wire {
   font-size: 0.75rem;
 }
 
-.turn-hint,
 .error-message {
   margin: 0.7rem 0 0;
   font-size: 0.75rem;
-}
-
-.turn-hint {
-  color: var(--muted);
 }
 
 .error-message {
   color: #7d1721;
 }
 
-.result-view {
-  display: flex;
-  min-height: min(64vh, 36rem);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.result-dialog {
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100svh - 2rem);
+  padding: 1.5rem;
+  border: 0;
+  border-radius: 1rem;
+  color: #132c33;
+  background: whitesmoke;
   text-align: center;
+}
+
+.result-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(4px);
+}
+
+.result-dialog h2 {
+  margin: 0 0 1.2rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.result-dialog .solo-option {
+  margin-top: 1rem;
 }
 
 .result-icon {
@@ -550,4 +595,26 @@ button.wire {
     width: 1.85rem;
     height: 1.85rem;
   }
+}
+
+.detector-instruction {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+
+.action-notice {
+  position: fixed;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100vw - 3rem);
+  padding: 0.85rem 1.2rem;
+  border-radius: 0.75rem;
+  color: #fff;
+  background: rgb(0 0 0 / 65%);
+  backdrop-filter: blur(12px);
+  font-size: 0.9rem;
+  text-align: center;
+  pointer-events: none;
 }

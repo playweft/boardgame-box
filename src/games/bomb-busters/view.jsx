@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { ArrowLeft, ArrowRight, Bomb, Check, CircleHelp, Scissors, X } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
 
@@ -34,8 +34,8 @@ function Icon({ name, className = "icon" }) {
             key === "class"
               ? "className"
               : key.replace(/-([a-z])/g, (_match, letter) =>
-                  letter.toUpperCase(),
-                ),
+                letter.toUpperCase(),
+              ),
             value,
           ]),
         );
@@ -177,18 +177,19 @@ function InfoToken({ value }) {
 function Wire({
   wire, ownerId, viewerId, ownTurn, busy, sourceId, soloIds,
   setupInfo, selectedInfoWireId, onInfoSelect, onSource, onTarget,
+  selectedTargetIds, detectorChoice, onDetectorChoice,
 }) {
   const isOwn = ownerId === viewerId;
-  const isSelected = wire.id === sourceId;
+  const isSelected = wire.id === sourceId || selectedTargetIds.includes(wire.id);
   const isInfoSelected = wire.id === selectedInfoWireId;
   const isSolo = soloIds.has(wire.id);
   if (!wire.revealed) {
     return (
       <button
-        className="wire wire-hidden"
+        className={"wire wire-hidden" + (isSelected ? " wire-selected" : "")}
         type="button"
         aria-label={wire.infoToken ? "队友隐藏线缆，提示 " + wire.infoToken : "队友的隐藏线缆"}
-        disabled={setupInfo || !ownTurn || busy || !sourceId}
+        disabled={!!detectorChoice || !ownTurn || busy}
         onClick={() => onTarget(wire.id)}
       >
         <Icon name="scissors" />
@@ -209,13 +210,15 @@ function Wire({
       type="button"
       aria-label={wireLabel(wire) + (wire.infoToken ? "，已公开提示 " + wire.infoToken : "")}
       disabled={
-        !ownTurn ||
+        (detectorChoice ? !isOwn || !detectorChoice.choiceIds?.includes(wire.id) : !ownTurn) ||
         busy ||
-        (setupInfo
-          ? !isOwn || wire.kind !== "number"
-          : !isOwn && !sourceId)
+        (setupInfo && (!isOwn || wire.kind !== "number"))
       }
       onClick={() => {
+        if (detectorChoice) {
+          onDetectorChoice(wire.id);
+          return;
+        }
         if (setupInfo) {
           onInfoSelect(wire.id);
           return;
@@ -235,15 +238,20 @@ function Wire({
 
 function Rack({
   player, game, viewerId, busy, sourceId, selectedInfoWireId,
-  soloIds, onInfoSelect, onSource, onTarget,
+  soloIds, onInfoSelect, onSource, onTarget, selectedTargetIds, onDetectorChoice,
 }) {
   const isCurrent = player.id === game.currentPlayerId;
   const stands = game.racks[player.id] || [];
   return (
-    <section className={isCurrent ? "player-rack active-rack" : "player-rack"}>
+    <section className={"player-rack" + (isCurrent ? " active-rack" : "") + (game.phase === "ended" ? " revealed-rack" : "")}>
       <div className="rack-heading">
         <strong>{player.name}</strong>
         {isCurrent && <Icon name="scissors" className="turn-icon" />}
+        {player.id === viewerId && game.detectorChoice && game.ownTurn && (
+          <span className="detector-instruction">
+            探测 {game.detectorChoice.kind === "yellow" ? "黄线" : game.detectorChoice.value} · {game.detectorChoice.success ? "选一根剪断" : "选一根放提示"}
+          </span>
+        )}
       </div>
       {stands.map((slots, rackIndex) => (
         <div
@@ -272,6 +280,9 @@ function Rack({
                 ownerId={player.id}
                 viewerId={viewerId}
                 ownTurn={game.ownTurn}
+                selectedTargetIds={selectedTargetIds}
+                detectorChoice={game.detectorChoice}
+                onDetectorChoice={onDetectorChoice}
                 busy={busy}
                 sourceId={sourceId}
                 setupInfo={game.phase === "setup_info"}
@@ -327,12 +338,22 @@ function SpecialCandidates({ candidates }) {
 
 function GameBoard({
   game, viewerId, busy, selectedSourceId, selectedInfoWireId,
-  onInfoSelect, onPlaceInfo, onSource, onTarget, onRevealRed, error,
+  onInfoSelect, onPlaceInfo, onSource, onTarget, error,
+  detectorEnabled, selectedTargetIds, onDetectorToggle, onDetectorConfirm, onDetectorChoice, onShowResult,
 }) {
   const cutWires = Array.isArray(game.cutWires) ? game.cutWires : [];
   const soloCuts = Array.isArray(game.soloCuts) ? game.soloCuts : [];
   const soloIds = new Set(soloCuts.flatMap((entry) => entry.ids));
+  const ownPlayer = game.players.find((player) => player.id === viewerId);
+  const renderRack = (player) => (
+    <Rack player={player} game={game} viewerId={viewerId} busy={busy || game.phase === "ended"}
+      sourceId={selectedSourceId} selectedTargetIds={selectedTargetIds}
+      onDetectorChoice={onDetectorChoice} selectedInfoWireId={selectedInfoWireId}
+      soloIds={soloIds} onInfoSelect={onInfoSelect} onSource={onSource}
+      onTarget={onTarget} key={player.id} />
+  );
   return (
+    <>
     <main className="play-view">
       <MissionStatus game={game} cutWires={cutWires} />
       <SpecialCandidates candidates={game.specialCandidates} />
@@ -342,70 +363,65 @@ function GameBoard({
           return (
             <span className={"validation-token" + (complete ? " complete" : "")} key={value}
               aria-label={value + (complete ? "：四根已全部剪断" : "：尚未全部剪断")}>
-              {value}{complete && <Icon name="check" />}
+              {value}
             </span>
           );
         })}
       </div>
       <div className="player-racks">
-        {game.players.map((player) => (
-          <Rack
-            player={player}
-            game={game}
-            viewerId={viewerId}
-            busy={busy}
-            sourceId={selectedSourceId}
-            selectedInfoWireId={selectedInfoWireId}
-            soloIds={soloIds}
-            onInfoSelect={onInfoSelect}
-            onSource={onSource}
-            onTarget={onTarget}
-            key={player.id}
-          />
-        ))}
+        {game.players.filter((player) => player.id !== viewerId).map(renderRack)}
       </div>
-      {game.ownTurn && (
-        <div className="action-bar">
-          {game.phase === "setup_info" ? (
-            <>
-              <p className="turn-hint">选一根自己的蓝线</p>
-              <button
-                className="primary-button full-button"
-                type="button"
-                disabled={busy || !selectedInfoWireId}
-                onClick={onPlaceInfo}
-              >
-                放置信息标记 <Icon name="check" />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="action-options">
-                {game.canRevealRed && (
-                  <button className="solo-option" type="button" disabled={busy} onClick={onRevealRed}>
-                    公开红线
+      {game.phase === "ended" && !ownPlayer && <button className="solo-option" type="button" onClick={onShowResult}>查看结果</button>}
+    </main>
+      {ownPlayer && (
+        <div className="own-player-dock">
+          {renderRack(ownPlayer)}
+          <div className="action-bar">
+            {game.phase === "ended" ? (
+              <button className="solo-option" type="button" onClick={onShowResult}>查看结果</button>
+            ) : !game.detectorChoice && (game.phase === "setup_info" ? (
+              <>
+                <button
+                  className="primary-button full-button"
+                  type="button"
+                  disabled={busy || !game.ownTurn}
+                  onClick={onPlaceInfo}
+                >
+                  放置信息标记 <Icon name="check" />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="action-options">
+                  <button className="solo-option" type="button" disabled={busy || !game.canUseDetector}
+                    aria-pressed={detectorEnabled} onClick={onDetectorToggle}>
+                    {game.detectorUsed?.[viewerId] ? "双重探测器已使用" : detectorEnabled ? "取消双重探测" : "双重探测器 · 一次"}
                   </button>
-                )}
-              </div>
-              <p className="turn-hint">选自己的线，再选队友的；单剪选同值线</p>
-            </>
-          )}
-          {error && <p className="error-message">{error}</p>}
+                  {detectorEnabled && <button className="solo-option" type="button"
+                    disabled={busy} onClick={onDetectorConfirm}>
+                    确认探测（{selectedTargetIds.length}/2）
+                  </button>}
+                </div>
+              </>
+            ))}
+            {error && <p className="error-message">{error}</p>}
+          </div>
         </div>
       )}
-    </main>
+    </>
   );
 }
 
-function Result({ outcome, onRestart, busy }) {
+function Result({ open, outcome, onRestart, onClose, busy }) {
   return (
-    <main className="result-view">
+    <Dialog open={open} onClose={onClose} className="result-dialog" aria-label={outcome === "success" ? "拆弹成功" : "任务失败"}>
       <Icon name={outcome === "success" ? "check" : "bomb"} className="result-icon" />
       <h2>{outcome === "success" ? "拆弹成功" : "任务失败"}</h2>
       <button className="primary-button full-button" type="button" onClick={onRestart} disabled={busy}>
         再来一局 <Icon name="arrow-left" />
       </button>
-    </main>
+      <button className="solo-option" type="button" onClick={onClose}>查看牌桌</button>
+    </Dialog>
   );
 }
 
@@ -415,8 +431,10 @@ export default function BombBustersApp({
   game,
   room,
   roomError,
+  notice,
   busy,
   localReady,
+  detectorEnabled = false, selectedTargetIds = [], onDetectorToggle, onDetectorConfirm, onDetectorChoice,
   selectedSourceId,
   selectedInfoWireId,
   onCount,
@@ -427,10 +445,17 @@ export default function BombBustersApp({
   onPlaceInfo,
   onSource,
   onTarget,
-  onRevealRed,
   onRestart,
   error,
 }) {
+  const [resultOpen, setResultOpen] = useState(false);
+  const ended = game?.phase === "ended";
+  useEffect(() => {
+    setResultOpen(false);
+    if (!ended) return;
+    const timer = setTimeout(() => setResultOpen(true), 2000);
+    return () => clearTimeout(timer);
+  }, [ended]);
   let content;
   if (room && !game) {
     content = <main className="message-view">{roomError || "正在连接房间…"}</main>;
@@ -444,15 +469,7 @@ export default function BombBustersApp({
         onStart={onStart}
       />
     );
-  } else if (game.phase === "ended") {
-    content = (
-      <Result
-        outcome={game.outcome}
-        onRestart={onRestart}
-        busy={busy}
-      />
-    );
-  } else if (!room && !localReady) {
+  } else if (!room && !localReady && !ended) {
     content = (
       <PassDevice
         player={game.players.find((player) => player.id === game.currentPlayerId)}
@@ -466,15 +483,27 @@ export default function BombBustersApp({
         viewerId={game.viewerId}
         busy={busy}
         selectedSourceId={selectedSourceId}
+        detectorEnabled={detectorEnabled}
+        selectedTargetIds={selectedTargetIds}
+        onDetectorToggle={onDetectorToggle}
+        onDetectorConfirm={onDetectorConfirm}
+        onDetectorChoice={onDetectorChoice}
         selectedInfoWireId={selectedInfoWireId}
         onInfoSelect={onInfoSelect}
         onPlaceInfo={onPlaceInfo}
         onSource={onSource}
         onTarget={onTarget}
-        onRevealRed={onRevealRed}
+        onShowResult={() => setResultOpen(true)}
         error={error || roomError}
       />
     );
   }
-  return <Shell room={room}>{content}</Shell>;
+  return (
+    <Shell room={room}>
+      {content}
+      <Result open={ended && resultOpen} outcome={game?.outcome} onRestart={onRestart}
+        onClose={() => setResultOpen(false)} busy={busy} />
+      {notice && <div className="action-notice" role="status" aria-live="polite">{notice}</div>}
+    </Shell>
+  );
 }
