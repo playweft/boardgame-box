@@ -2,7 +2,6 @@ local MODULUS = 2147483647
 local MULTIPLIER = 48271
 local VALUE_COUNT = 12
 local WIRES_PER_VALUE = 4
-local ERROR_LIMIT = 4
 
 local function reject(code, message)
   return {accepted = false, error = {code = code, message = message}}
@@ -52,7 +51,7 @@ local function draw_special_wires(state, kind, suffix, in_play, candidate_count)
   return selected, tile_numbers
 end
 
-local function make_state(players, seed)
+local function make_state(players, seed, captain_index)
   local state = {
     players = players,
     wires = {},
@@ -62,8 +61,8 @@ local function make_state(players, seed)
     clues = {},
     cutWires = {},
     detonator = 0,
-    detonatorLimit = ERROR_LIMIT,
-    turn = (seed % #players) + 1,
+    detonatorLimit = #players,
+    turn = captain_index or (seed % #players) + 1,
     phase = "setup_info",
     setupInfoOrder = {},
     setupInfoIndex = 1,
@@ -71,6 +70,7 @@ local function make_state(players, seed)
     lastAction = nil,
     seed = seed,
   }
+  state.captainId = players[state.turn].id
   local deck = {}
   local wire_number = 0
   for value = 1, VALUE_COUNT do
@@ -242,9 +242,10 @@ function on_action(state, action, context)
 
   if action.type == "rematch" then
     if state.phase ~= "ended" then return reject("GAME_NOT_OVER", "The mission is still active") end
+    local captain_index = player_index(state, state.captainId or state.setupInfoOrder[1])
     return {
       accepted = true,
-      state = make_state(state.players, next_random(state)),
+      state = make_state(state.players, next_random(state), (captain_index % #state.players) + 1),
       events = {{type = "rematched", player = actor_id}},
     }
   end
@@ -417,7 +418,7 @@ function view(state, events, context)
     projected.racks[player.id] = {}
     for _, wire_id in ipairs(state.hands[player.id]) do
       local wire = state.wires[wire_id]
-      local revealed = state.phase == "ended" or player.id == viewer_id or state.clues[wire_id] == true
+      local revealed = state.phase == "ended" or player.id == viewer_id
       table.insert(projected.hands[player.id], {
         id = wire_id,
         kind = revealed and wire.kind or nil,

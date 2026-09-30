@@ -249,6 +249,34 @@ button.help-link {
   color: #483600;
 }
 
+.validation-tokens {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.2rem;
+  margin-top: 0.6rem;
+}
+
+.validation-token {
+  display: flex;
+  min-height: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.35rem;
+  color: var(--muted);
+  background: rgb(255 255 255 / 25%);
+  font-size: 0.65rem;
+}
+
+.validation-token.complete {
+  color: #fff;
+  background: var(--green);
+}
+
+.validation-token .icon {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
 .detonator {
   display: flex;
   align-items: center;

@@ -31,7 +31,7 @@ function currentLocalId() {
 function getVisibleGame() {
   if (embedded) return roomState;
   if (!localGame) return null;
-  return projectGame(localGame, currentLocalId());
+  return projectGame(localGame, localReady ? currentLocalId() : null);
 }
 
 function redraw() {
@@ -106,15 +106,7 @@ function redraw() {
         submitAction({ type: "reveal_red" });
       },
       onRestart() {
-        if (embedded) {
-          submitRoomAction({ type: "rematch" });
-          return;
-        }
-        localGame = null;
-        localReady = false;
-        selectedSourceId = null;
-        selectedInfoWireId = null;
-        redraw();
+        submitAction({ type: "rematch" });
       },
     }),
     app,
@@ -126,16 +118,19 @@ function submitAction(action) {
     submitRoomAction(action);
     return;
   }
-  const result = applyAction(localGame, currentLocalId(), action);
+  const actorId = currentLocalId();
+  const result = applyAction(localGame, actorId, action);
   if (!result.accepted) {
     localError = result.error;
     redraw();
     return;
   }
+  localGame = result.state;
   selectedSourceId = null;
   selectedInfoWireId = null;
   localError = "";
-  localReady = localGame.phase !== "setup_info";
+  localReady = localGame.phase === "ended" ||
+    (action.type !== "rematch" && currentLocalId() === actorId);
   redraw();
 }
 

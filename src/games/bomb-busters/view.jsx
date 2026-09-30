@@ -94,7 +94,7 @@ function Shell({ children, room }) {
 function Setup({ count, names, onCount, onName, onStart }) {
   return (
     <main className="setup-view">
-      <p className="eyebrow">基础任务</p>
+      <p className="eyebrow">简化练习局</p>
       <p className="setup-intro">合作剪开同值线缆，避开红线。</p>
       <div className="player-count" aria-label="选择玩家人数">
         {[2, 3, 4, 5].map((value) => (
@@ -336,6 +336,17 @@ function GameBoard({
     <main className="play-view">
       <MissionStatus game={game} cutWires={cutWires} />
       <SpecialCandidates candidates={game.specialCandidates} />
+      <div className="validation-tokens" aria-label="数字完成标记">
+        {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => {
+          const complete = cutWires.filter((wire) => wire.kind === "number" && wire.value === value).length === 4;
+          return (
+            <span className={"validation-token" + (complete ? " complete" : "")} key={value}
+              aria-label={value + (complete ? "：四根已全部剪断" : "：尚未全部剪断")}>
+              {value}{complete && <Icon name="check" />}
+            </span>
+          );
+        })}
+      </div>
       <div className="player-racks">
         {game.players.map((player) => (
           <Rack

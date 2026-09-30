@@ -1,6 +1,5 @@
 const WIRE_COUNT = 4;
 const VALUE_COUNT = 12;
-const ERROR_LIMIT = 4;
 
 function shuffled(items, random) {
   const result = items.slice();
@@ -33,7 +32,7 @@ function drawSpecialWires(kind, suffix, inPlay, candidateCount, random) {
   };
 }
 
-export function createGame(players, random = Math.random) {
+export function createGame(players, random = Math.random, captainId = null) {
   const wires = {};
   const deck = [];
   let wireNumber = 0;
@@ -73,7 +72,8 @@ export function createGame(players, random = Math.random) {
   for (const wireId of Object.keys(wires)) delete wires[wireId];
   Object.assign(wires, opaqueWires);
 
-  const turn = Math.floor(random() * players.length);
+  const captainIndex = players.findIndex((player) => player.id === captainId);
+  const turn = captainIndex >= 0 ? captainIndex : Math.floor(random() * players.length);
   const rackCounts = players.map((_, index) =>
     players.length === 2 || (players.length === 3 && index === turn) ? 2 : 1,
   );
@@ -115,7 +115,8 @@ export function createGame(players, random = Math.random) {
     setupInfoIndex: 0,
     cutWires: [],
     detonator: 0,
-    detonatorLimit: ERROR_LIMIT,
+    detonatorLimit: players.length,
+    captainId: players[turn].id,
     turn,
     outcome: null,
     lastAction: null,
@@ -176,6 +177,14 @@ function reject(message) {
 export function applyAction(state, actorId, action) {
   const actorIndex = state.players.findIndex((player) => player.id === actorId);
   if (actorIndex < 0) return reject("玩家不存在");
+  if (action.type === "rematch") {
+    if (state.phase !== "ended") return reject("游戏尚未结束");
+    const captainIndex = state.players.findIndex(
+      (player) => player.id === (state.captainId || state.setupInfoOrder[0]),
+    );
+    const captain = state.players[(captainIndex + 1) % state.players.length];
+    return { accepted: true, state: createGame(state.players, Math.random, captain.id) };
+  }
   if (state.phase === "setup_info") {
     if (action.type !== "place_info") return reject("请先放置信息标记");
     if (state.setupInfoOrder[state.setupInfoIndex] !== actorId) {
@@ -325,8 +334,7 @@ export function projectGame(state, viewerId) {
       const wire = state.wires[wireId];
       const revealed =
         state.phase === "ended" ||
-        player.id === viewerId ||
-        state.clues[wireId] === true;
+        player.id === viewerId;
       return {
         id: wire.id,
         kind: revealed ? wire.kind : null,
