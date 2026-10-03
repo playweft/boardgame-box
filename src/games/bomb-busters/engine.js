@@ -251,7 +251,7 @@ export function applyAction(state, actorId, action) {
     if (ids.every((id) => state.wires[id].kind === "red")) {
       state.phase = "ended";
       state.outcome = "failure";
-      state.lastAction = { type: "red", actorId, targetOwnerId: owner.id };
+      state.lastAction = { type: "red", actorId, targetOwnerId: owner.id, targetIds: ids.slice() };
     } else {
       state.pendingDetector = { actorId, sourceId: source.id, targetOwnerId: owner.id, targetIds: ids.slice() };
     }
@@ -284,7 +284,7 @@ export function applyAction(state, actorId, action) {
     } else if (target.kind === "red") {
       state.phase = "ended";
       state.outcome = "failure";
-      state.lastAction = { type: "red", actorId, targetOwnerId: targetOwner.id };
+      state.lastAction = { type: "red", actorId, targetOwnerId: targetOwner.id, targetIds: [target.id] };
       return { accepted: true, state };
     } else {
       state.detonator += 1;

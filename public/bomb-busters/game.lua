@@ -334,7 +334,7 @@ function on_action(state, action, context)
     if state.wires[ids[1]].kind == "red" and state.wires[ids[2]].kind == "red" then
       state.phase = "ended"
       state.outcome = "failure"
-      state.lastAction = {type = "red", actorId = actor_id, targetOwnerId = target_owner}
+      state.lastAction = {type = "red", actorId = actor_id, targetOwnerId = target_owner, targetIds = {ids[1], ids[2]}}
     else
       state.pendingDetector = {actorId = actor_id, sourceId = action.sourceId, targetOwnerId = target_owner, targetIds = {ids[1], ids[2]}}
     end
@@ -362,7 +362,7 @@ function on_action(state, action, context)
     elseif target.kind == "red" then
       state.phase = "ended"
       state.outcome = "failure"
-      state.lastAction = {type = "red", actorId = actor_id, targetOwnerId = target_owner}
+      state.lastAction = {type = "red", actorId = actor_id, targetOwnerId = target_owner, targetIds = {action.targetId}}
       return {accepted = true, state = state, events = {{type = "red_wire", player = actor_id}}}
     else
       state.detonator = state.detonator + 1

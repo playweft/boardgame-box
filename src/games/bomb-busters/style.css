@@ -226,17 +226,20 @@ button.help-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.25rem 0 1rem;
-  border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.8rem;
 }
 
 .special-candidates {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-  padding: 0.65rem 0 0.25rem;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
   color: #132c33;
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
@@ -244,16 +247,25 @@ button.help-link {
 
 .special-candidate {
   display: flex;
-  flex-wrap: wrap;
-  column-gap: 0.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.2rem;
 }
 
-.special-candidate-red strong {
-  color: #7d1721;
+.candidate-chip {
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-.special-candidate-yellow strong {
-  color: #483600;
+.special-candidate-red .candidate-chip {
+  background: var(--red);
+}
+
+.special-candidate-yellow .candidate-chip {
+  background: #987300;
 }
 
 .validation-tokens {
@@ -281,14 +293,9 @@ button.help-link {
 
 .detonator {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.65rem;
-}
-
-.detonator > .icon {
-  width: 1.1rem;
-  height: 1.1rem;
-  color: var(--red);
 }
 
 .detonator-track {
@@ -297,26 +304,13 @@ button.help-link {
 }
 
 .detonator-step {
-  width: 0.68rem;
-  height: 0.68rem;
-  border: 1px solid var(--red);
-  border-radius: 50%;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--red);
 }
 
 .detonator-step.filled {
-  background: var(--red);
-}
-
-.cut-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--green);
-}
-
-.cut-count svg {
-  width: 1rem;
-  height: 1rem;
+  fill: currentColor;
 }
 
 .player-racks {
@@ -326,6 +320,7 @@ button.help-link {
 }
 
 .player-rack {
+  position: relative;
   min-width: 0;
   padding: 0.9rem 0.85rem;
   border: 0;
@@ -346,14 +341,40 @@ button.help-link {
   }
 }
 
+.rack-heading-slot {
+  display: flex;
+  flex: 0 0 100%;
+  min-width: 0;
+  min-height: 2rem;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
 .rack-heading {
+  width: 9.4rem;
+  max-width: 100%;
   display: flex;
   min-height: 1.4rem;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.45rem;
-  margin-bottom: 0.55rem;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .rack-heading-slot {
+    flex-basis: 9.4rem;
+    max-width: 100%;
+  }
+}
+
+.rack-heading strong {
+  min-width: 0;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .active-rack .rack-heading {
@@ -363,15 +384,28 @@ button.help-link {
 .turn-icon {
   width: 0.95rem;
   height: 0.95rem;
+  flex-shrink: 0;
   color: #3c3509;
+  transform-origin: center;
+  animation: turn-heartbeat 1s ease-out infinite;
+}
+
+@keyframes turn-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-icon { animation: none; }
 }
 
 .wire-row {
+  --wire-gap: 0.3rem;
   display: flex;
   min-height: 2.25rem;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--wire-gap);
 }
 
 .player-stand + .player-stand {
@@ -390,9 +424,44 @@ button.help-link {
 .wire-slot .wire-cut {
   position: absolute;
   z-index: 1;
-  top: -0.35rem;
+  top: calc(var(--wire-gap) * -0.8);
   left: 0.06rem;
   opacity: 0.65;
+}
+
+.recent-action {
+  animation: recent-action-breathe 1.6s ease-in-out infinite;
+}
+
+.wire-cut.recent-action {
+  animation:
+    wire-cut-reveal 160ms ease-out,
+    cut-wire-breathe 1.6s ease-in-out 160ms infinite;
+}
+
+@keyframes wire-cut-reveal {
+  from {
+    transform: translate(-0.06rem, calc(var(--wire-gap) * 0.8));
+    opacity: 1;
+  }
+  to {
+    transform: translate(0, 0);
+    opacity: 0.65;
+  }
+}
+
+@keyframes cut-wire-breathe {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes recent-action-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-action, .wire-cut.recent-action { animation: none; }
 }
 
 .wire {
@@ -402,14 +471,23 @@ button.help-link {
   height: 2rem;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 0.45rem;
   font-size: 0.8rem;
   font-weight: 700;
-  background: var(--card-background);
   transition:
     opacity 140ms ease,
     background-color 140ms ease;
+}
+
+.wire-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--card-background);
 }
 
 button.wire {
@@ -430,12 +508,20 @@ button.wire {
 }
 
 .wire-hidden {
-  border-color: rgb(255 255 255 / 28%);
   color: #c6d5df;
 }
 
 .wire-hidden:disabled {
   cursor: default;
+}
+
+.wire-detector-blocked .wire-face::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: rgb(128 128 128 / 55%);
+  pointer-events: none;
 }
 
 .wire-hidden .icon {
@@ -492,7 +578,7 @@ button.wire {
 }
 
 .wire-solo {
-  box-shadow: 0 0 0 1px var(--green);
+  box-shadow: 0 0 0 2px #4ade80;
 }
 
 .wire-empty {
@@ -501,8 +587,28 @@ button.wire {
 }
 
 .action-bar {
+  position: relative;
+  display: flex;
   flex-shrink: 0;
-  padding: 0.8rem 0 0;
+  box-sizing: border-box;
+  height: 4rem;
+  padding: 0.75rem 0 0.25rem;
+}
+
+.action-bar button {
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+}
+
+.action-bar > .error-message {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  background: whitesmoke;
 }
 
 .own-player-dock {
@@ -525,7 +631,7 @@ button.wire {
 
 .action-options {
   display: flex;
-  flex-wrap: wrap;
+  height: 100%;
   gap: 0.5rem;
 }
 
@@ -588,7 +694,7 @@ button.wire {
 
 @media (max-width: 380px) {
   .wire-row {
-    gap: 0.22rem;
+    --wire-gap: 0.22rem;
   }
 
   .wire {
@@ -598,11 +704,13 @@ button.wire {
 }
 
 .detector-instruction {
-  margin-left: auto;
+  margin: 0 0 0.6rem;
   font-size: 0.7rem;
 }
 
 .action-notice {
+  opacity: 1;
+  transition: opacity 220ms ease-out;
   position: fixed;
   z-index: 10;
   top: 50%;
@@ -617,4 +725,12 @@ button.wire {
   font-size: 0.9rem;
   text-align: center;
   pointer-events: none;
+}
+
+.action-notice.fading-out {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-notice { transition: none; }
 }
