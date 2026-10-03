@@ -3,6 +3,7 @@ import "./style.css";
 import { h, render } from "preact";
 import { createPlayweftClient } from "../../shared/playweft-client.js";
 import { applyAction, createGame, projectGame } from "./engine.js";
+import { recentChanges, startsOwnTurn } from "./feedback.js";
 import BombBustersApp from "./view.jsx";
 
 const app = document.querySelector("#bomb-busters-app");
@@ -22,6 +23,7 @@ let roomReady = false;
 let roomState = null;
 let roomError = "";
 let roomBusy = false;
+let recentAction = recentChanges(null, null);
 
 function currentLocalId() {
   if (localGame?.pendingDetector) return localGame.pendingDetector.targetOwnerId;
@@ -59,6 +61,7 @@ function redraw() {
         : "",
       busy: roomBusy,
       notice,
+      recentAction,
       localReady,
       selectedSourceId,
       detectorEnabled,
@@ -91,6 +94,7 @@ function redraw() {
           name: name.trim() || "玩家 " + (index + 1),
         }));
         localGame = createGame(players);
+        recentAction = recentChanges(null, null);
         localReady = false;
         selectedSourceId = null;
         selectedInfoWireId = null;
@@ -160,6 +164,7 @@ function submitAction(action) {
     return;
   }
   const actorId = currentLocalId();
+  const previous = { cutWires: [...localGame.cutWires], clues: { ...localGame.clues } };
   const result = applyAction(localGame, actorId, action);
   if (!result.accepted) {
     localError = result.error;
@@ -169,6 +174,7 @@ function submitAction(action) {
   clearTimeout(noticeTimer);
   notice = "";
   localGame = result.state;
+  recentAction = action.type === "rematch" ? recentChanges(null, null) : recentChanges(previous, localGame);
   detectorEnabled = false;
   selectedTargetIds = [];
   selectedSourceId = null;
@@ -201,6 +207,8 @@ const roomClient = embedded
         redraw();
       },
       onState(state) {
+        const yourTurn = startsOwnTurn(roomState, state);
+        recentAction = recentChanges(roomState, state);
         clearTimeout(noticeTimer);
         notice = "";
         roomState = state;
@@ -209,7 +217,8 @@ const roomClient = embedded
         selectedSourceId = null;
         selectedInfoWireId = null;
         roomError = "";
-        redraw();
+        if (yourTurn) showNotice("你的回合");
+        else redraw();
       },
       onError(message) {
         roomError = message;
