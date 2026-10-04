@@ -1,7 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" fill="#176b63"/>
-  <circle cx="28" cy="36" r="16" fill="#ffdf28"/>
-  <path d="M25 19h7l4 5-12 1z" fill="#f4f4e9"/>
-  <path d="m18 38 7 7 14-17" fill="none" stroke="#105a54" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
-  <path d="m43 18 11 28M54 18 43 46" fill="none" stroke="#f4f4e9" stroke-linecap="round" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">炸弹克星图标设计</title>
+  <desc id="desc">青蓝背景，黑色炸弹，蓝黄红三色导线和白色剪刀。</desc>
+  <defs>
+    <clipPath id="bomb-body">
+      <circle cx="256" cy="292" r="180"/>
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="#6ba4ad"/>
+
+  <!-- Bomb: one circle, one rounded neck, and a curved fuse. -->
+  <path d="M272 100 Q285 39 339 32" fill="none" stroke="#030408" stroke-width="28" stroke-linecap="round"/>
+  <path d="M312 40 Q326 33 339 32" fill="none" stroke="#ffe071" stroke-width="28" stroke-linecap="round"/>
+  <rect x="219" y="85" width="84" height="55" rx="17" fill="#030408"/>
+  <circle cx="256" cy="292" r="180" fill="#030408"/>
+
+  <!-- Thick curves are clipped to the bomb; the blue wire has a cut gap. -->
+  <g clip-path="url(#bomb-body)" fill="none" stroke-width="22" stroke-linecap="round">
+    <path d="M77 256 Q132 213 193 204 M223 203 Q254 205 297 230 T413 267" stroke="#70c8ff"/>
+    <path d="M73 306 Q148 258 222 282 T421 331" stroke="#ffe071"/>
+    <path d="M76 347 Q149 301 223 336 T415 380" stroke="#ff858a"/>
+  </g>
+
+  <!-- Scissors: two tapered blades, two bridges, two circular handles. -->
+  <g fill="#f5f5f5">
+    <path d="M310 287 C278 270 247 220 230 180 C219 157 222 146 233 156 C263 181 287 224 315 268 Z"/>
+    <path d="M314 288 C273 279 224 261 203 239 C189 225 194 217 211 225 C244 238 274 257 309 264 Z"/>
+    <circle cx="303" cy="280" r="25"/>
+  </g>
+  <g fill="none" stroke="#f5f5f5" stroke-width="24" stroke-linecap="round">
+    <path d="M302 280 L365 273 M303 282 L317 349"/>
+  </g>
+  <g fill="#030408" stroke="#f5f5f5" stroke-width="22">
+    <circle cx="391" cy="269" r="35"/>
+    <circle cx="322" cy="378" r="35"/>
+  </g>
+  <circle cx="303" cy="280" r="10" fill="#030408"/>
 </svg>
