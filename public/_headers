@@ -2,20 +2,27 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
-/index.html
+/*.html
   Cache-Control: no-cache
 
-/avalon/*
+/*.lua
   Cache-Control: no-cache
 
 /*/playweft.json
   Access-Control-Allow-Origin: *
+  Cache-Control: no-cache
 
 /featured-games.json
   Access-Control-Allow-Origin: *
 
-/assets/*
+/*.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.js
   Cache-Control: public, max-age=31536000, immutable
 
-/avalon/assets/*
+/*.css
   Cache-Control: public, max-age=31536000, immutable
