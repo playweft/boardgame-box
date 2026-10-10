@@ -80,3 +80,21 @@ a {
   height: 1.1rem;
   margin-left: 0.5rem;
 }
+
+.secondary-button {
+  min-height: 3.25rem;
+  padding: 0.85rem 1.2rem;
+  border: 0;
+  border-radius: 0.8rem;
+  color: #143d38;
+  background: #f4f4e9;
+  box-shadow: 0 5px 0 #c5c4b9;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 160ms ease, transform 90ms ease, box-shadow 90ms ease;
+}
+
+.secondary-button:hover:not(:disabled) { filter: brightness(1.03); }
+.secondary-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 #c5c4b9; }
+.secondary-button:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://play.longern.com/schemas/game-manifest-v1.json",
+  "manifest_version": 1,
+  "id": "/halli-holdem/",
+  "version": "1.0.0",
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "start_url": "./index.html",
+  "help_url": "./help.html",
+  "name": "Halli Hold’em",
+  "name_localized": {
+    "zh-CN": "德州心脏病"
+  },
+  "description": "A poker deduction and bell-ringing game for 2–8 players. See everyone else's hole cards, but not your own.",
+  "description_localized": {
+    "zh-CN": "2–8 人扑克推理与抢铃游戏。看得到别人的底牌，看不到自己的底牌。"
+  },
+  "categories": [
+    "games",
+    "cards",
+    "party",
+    "deduction"
+  ],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "background_color": "#2f6b52",
+  "theme_color": "#153d36",
+  "orientation": "any",
+  "modes": {
+    "room": {
+      "players": {
+        "min": 2,
+        "max": 8
+      },
+      "server": {
+        "runtime": "lua",
+        "entry": "./game.lua",
+        "persistence": "durable"
+      }
+    }
+  }
+}

@@ -73,6 +73,10 @@ main > p:not(.eyebrow) {
   background: rgb(255 255 255 / 8%);
 }
 
+.game-card + .game-card {
+  margin-top: 0.75rem;
+}
+
 .game-icon {
   display: grid;
   width: 3.2rem;
@@ -88,6 +92,16 @@ main > p:not(.eyebrow) {
 .game-copy {
   display: grid;
   gap: 0.3rem;
+}
+
+.game-icon-halli {
+  background: transparent;
+}
+
+.game-icon-halli img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .game-copy strong {

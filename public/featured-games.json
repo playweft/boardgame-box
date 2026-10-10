@@ -4,5 +4,8 @@
   },
   {
     "manifestUrl": "./bomb-busters/playweft.json"
+  },
+  {
+    "manifestUrl": "./halli-holdem/playweft.json"
   }
 ]

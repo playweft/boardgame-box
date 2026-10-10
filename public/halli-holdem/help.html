@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#153d36" />
+  <title>德州心脏病 · 游戏规则</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Avenir Next", system-ui, sans-serif;
+      color: #f8f2e2;
+      background: #153d36;
+      line-height: 1.9;
+      font-size: 14px
+    }
+
+    body {
+      max-width: 680px;
+      margin: auto;
+      padding: 36px 24px 48px
+    }
+
+    h1 {
+      font-size: 28px;
+      line-height: 1.4;
+      margin: 0
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 30px 0 10px;
+      color: #edc878
+    }
+
+    h3 {
+      font-size: 15px;
+      color: #edc878;
+      margin: 22px 0 8px
+    }
+
+    p {
+      margin: 10px 0
+    }
+
+    ul {
+      padding-left: 22px
+    }
+
+    li {
+      margin: 10px 0
+    }
+
+    strong {
+      color: #f1d696
+    }
+
+    .subtitle {
+      color: #a5bcb1;
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 19px;
+      margin: 4px 0 24px
+    }
+
+    .note {
+      padding: 14px 16px;
+      border: 1px solid #edc87840;
+      border-radius: 8px;
+      color: #d3ddc9
+    }
+
+    .muted {
+      color: #a5bcb1;
+      font-size: 12px
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 13px
+    }
+
+    td,
+    th {
+      border-bottom: 1px solid #ffffff20;
+      text-align: left;
+      padding: 9px
+    }
+
+    th {
+      color: #edc878
+    }
+
+    a {
+      color: #edc878
+    }
+  </style>
+  <style>
+    details {
+      margin: 14px 0;
+      padding: 12px 16px;
+      border: 1px solid #edc87840;
+      border-radius: 8px
+    }
+
+    summary {
+      color: #edc878;
+      cursor: pointer;
+      font-weight: 600
+    }
+
+    summary:focus-visible {
+      outline: 2px solid #edc878;
+      outline-offset: 4px
+    }
+  </style>
+</head>
+
+<body>
+  <h1>德州心脏病</h1>
+  <p class="subtitle">Halli Hold’em</p>
+  <p>2–8 人的扑克推理与抢铃游戏。你看得到别人的底牌，却看不到自己的。轮流选牌加入动态公牌区，判断它搭配底牌后的最强牌力是否超过固定区的最强牌力；发现爆牌，抢先拍铃得分。</p>
+  <h2>准备</h2>
+  <p>使用一副去掉大小王的扑克牌和一只铃，将牌洗匀。</p>
+  <ul>
+    <li>每人发 2 张底牌，牌背朝自己。结算前不能查看自己的底牌。</li>
+    <li>翻开 5 张固定公牌，本轮不变。动态公牌区开始时为空。</li>
+    <li>剩余牌取三分之一（向上取整）作为单抽牌堆，其余为双抽牌堆，两堆都背面朝上。</li>
+    <li>双抽牌堆对应明弃区，弃牌公开；单抽牌堆对应暗弃区，弃牌不公开。</li>
+    <li>所有人从 0 分开始，第一轮随机决定首家。此后顺时针轮换。</li>
+  </ul>
+  <details>
+    <summary>查看各人数的牌堆张数</summary>
+    <table>
+      <thead>
+        <tr>
+          <th>人数</th>
+          <th>双抽牌堆</th>
+          <th>单抽牌堆</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2</td>
+          <td>28</td>
+          <td>15</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>27</td>
+          <td>14</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>26</td>
+          <td>13</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>24</td>
+          <td>13</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>23</td>
+          <td>12</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>22</td>
+          <td>11</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>20</td>
+          <td>11</td>
+        </tr>
+      </tbody>
+    </table>
+  </details>
+  <h2>牌力与爆牌</h2>
+  <p>牌力是按牌型、点数和踢脚比较后的完整结果。比较方式沿用德州扑克：至少 5 张时取最强的 5 张；不足 5 张时用全部牌比较，缺少的踢脚小于任何牌。</p>
+  <p>每名玩家分别用自己的底牌组牌，不能使用其他人的底牌：</p>
+  <ul>
+    <li><strong>固定牌力：</strong> 各自从自己的 2 张底牌和 5 张固定公牌中选出最强的 5 张，必须包含至少 1 张底牌（最多使用 4 张固定公牌），再取全场最强结果。</li>
+    <li><strong>动态牌力：</strong> 各自与全部动态公牌组牌，取全场最强结果。</li>
+  </ul>
+  <p>动态牌力严格大于固定牌力即为爆牌，平手不算。</p>
+  <details>
+    <summary>查看牌型与比较细则</summary>
+    <p>从高到低：同花顺、四条、葫芦、同花、顺子、三条、两对、一对、高牌。花色没有大小。A 可在 A-2-3-4-5 中作最小牌，该顺子的最高点数算 5；不能连接 K-A-2-3-4。同花、顺子、同花顺和葫芦至少需要 5 张。</p>
+    <p>先比牌型，同牌型再比点数和踢脚：</p>
+    <ul>
+      <li>同花顺、顺子：比较最高点数。</li>
+      <li>四条：先比四条点数，再比踢脚。</li>
+      <li>葫芦：先比三条点数，再比对子。</li>
+      <li>同花、高牌：按点数从大到小逐一比较。</li>
+      <li>三条：先比三条点数，再从大到小比踢脚。</li>
+      <li>两对：先比大对子，再比小对子，最后比踢脚。</li>
+      <li>一对：先比对子点数，再从大到小比踢脚。</li>
+    </ul>
+    <p>例如，带 A 踢脚的一对 K 大于只有两张牌的 KK。牌型更高时，张数较少仍可获胜，例如三条大于一对。完全相同则平手。</p>
+  </details>
+  <h2>回合与弃牌</h2>
+  <p>玩家顺时针轮流行动。</p>
+  <ol>
+    <li><strong>抽牌。</strong> 从双抽牌堆抽 2 张、单抽牌堆抽 1 张，只有当前玩家可以查看。</li>
+    <li><strong>己方拍铃或选牌。</strong> 抽到完整 3 张候选牌后，当前玩家可在放牌前拍铃。不拍铃则选择 1 张，正面朝上放入动态公牌区。</li>
+    <li><strong>弃牌与他人拍铃。</strong>
+      放牌后，除放牌者外的所有玩家都可拍铃。在此期间，当前玩家将双抽牌堆的未选牌公示后正面放入明弃区，单抽牌堆的未选牌背面放入暗弃区。当前玩家应以合理的节奏操作，在公示明弃牌前后，给其他玩家留出判断与拍铃的时间。</li>
+  </ol>
+  <h3>牌堆回收</h3>
+  <p>抽牌时，某个牌堆抽空，就将对应弃牌区的牌不公开地洗匀、背面朝上作为新牌堆，继续抽取。两种牌分别回收，不能互相补牌。</p>
+  <p>仍不足时少抽；一张也抽不到，则本轮不公开底牌、不计分，重新发牌，首家照常轮换。</p>
+  <h2>拍铃</h2>
+  <p>拍铃最快的一名玩家结算，立即结束本轮并检查判断。</p>
+  <h3>爆牌拍铃</h3>
+  <p>按拍铃时机判断：</p>
+  <ul>
+    <li><strong>放牌后：</strong> 除放牌者外的所有玩家，可在下家第一次触碰任一抽牌牌堆前拍铃。动态牌力严格大于固定牌力，判断正确。</li>
+    <li><strong>抽牌后、放牌前：</strong> 当前玩家抽到完整 3 张候选牌后可以拍铃。当前尚未爆牌，且任选一张放入都会爆牌，判断正确。候选牌不足 3 张不能在此时拍铃。</li>
+  </ul>
+  <p>漏拍不消除爆牌状态。下一张牌放入后重新开放拍铃窗口；若仍然爆牌，处罚最新放牌者，即使放牌前已经爆牌。</p>
+  <p>不在规定的拍铃时机拍铃视为无效。</p>
+  <h3>Lucky dog</h3>
+  <p>只能在自己的回合、抽牌前拍铃，并同时喊出“Lucky dog”。自己的固定牌力不弱于任何其他玩家（平手也算），且至少是<strong>顺子</strong>，判断正确。</p>
+  <h2>结算与胜利</h2>
+  <p>有效拍铃后公开所有底牌。若在放牌前拍铃，还要公开 3 张候选牌，分别检查放入每张牌后的动态牌力。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>结果</th>
+        <th>拍铃者</th>
+        <th>其他玩家</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>放牌后正确拍铃</td>
+        <td>按下表加分</td>
+        <td>最新放牌者按下表扣分，其余 0 分</td>
+      </tr>
+      <tr>
+        <td>放牌前正确拍铃，或正确宣告 Lucky dog</td>
+        <td>+人数</td>
+        <td>其余各 −1</td>
+      </tr>
+      <tr>
+        <td>3–8 人判断错误</td>
+        <td>−（人数−1）</td>
+        <td>其余各 +1</td>
+      </tr>
+      <tr>
+        <td>2 人判断错误</td>
+        <td>−2</td>
+        <td>对手 +2</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>分数可以为负。正确判断使全场总分增加 1 分；错误判断不改变全场总分。</p>
+  <p><strong>胜利目标＝7＋2×人数。</strong> 放牌后正确拍铃的奖罚也随人数调整：</p>
+  <table>
+    <thead>
+      <tr>
+        <th>人数</th>
+        <th>胜利目标</th>
+        <th>拍铃者加分</th>
+        <th>放牌者扣分</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2</td>
+        <td>11</td>
+        <td>+2</td>
+        <td>−1</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>13</td>
+        <td>+3</td>
+        <td>−2</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>15</td>
+        <td>+4</td>
+        <td>−3</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>17</td>
+        <td>+5</td>
+        <td>−4</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>19</td>
+        <td>+7</td>
+        <td>−6</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>21</td>
+        <td>+8</td>
+        <td>−7</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>23</td>
+        <td>+9</td>
+        <td>−8</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>每次结算后，有人达到或超过目标即结束，最高分者获胜；最高分并列则共同获胜。</p>
+  <p>尚未结束时，保留分数，收回全部牌重新发牌，由本轮首家的下家先手。</p>
+  <p class="muted"><a href="./rules.md">规则书</a>。</p>
+</body>
+
+</html>
