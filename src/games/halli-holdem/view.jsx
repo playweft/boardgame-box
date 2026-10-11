@@ -1,7 +1,6 @@
-import "@fontsource/roboto-slab/latin-700.css";
 import { h } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { ArrowLeft, CircleHelp, X } from "lucide";
+import { Layers, Trophy, X } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
 import { HAND_NAMES } from "./engine.js";
 
@@ -20,6 +19,10 @@ const handName = (hand) =>
     (hand.length > 1 ? " · " + hand.slice(1).map(rankName).join(" / ") : "")
     : "未知";
 const signed = (score) => (score > 0 ? "+" + score : String(score));
+const TABLE_TOOLS = [
+  { id: "decks", label: "牌堆与弃牌", icon: Layers },
+  { id: "scores", label: "积分榜", icon: Trophy },
+];
 
 function Icon({ nodes }) {
   return (
@@ -50,7 +53,7 @@ function Icon({ nodes }) {
   );
 }
 
-function BellIcon({ className = "", ...props }) {
+function BellIcon({ className = "", pressId = 0, ...props }) {
   return (
     <svg
       className={`bell-art ${className}`}
@@ -65,8 +68,10 @@ function BellIcon({ className = "", ...props }) {
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <path d="M76 30V20H84V30" fill="#ffdf28" />
-        <rect x="68" y="14" width="24" height="9" rx="4.5" fill="#ffdf28" />
+        <g key={pressId} className={`bell-plunger${pressId ? " is-pressed" : ""}`}>
+          <path d="M76 30V20H84V30" fill="#ffdf28" />
+          <rect x="68" y="14" width="24" height="9" rx="4.5" fill="#ffdf28" />
+        </g>
         <path
           d="M33 88C33 55 49 30 80 30C111 30 127 55 127 88Z"
           fill="#ffdf28"
@@ -122,6 +127,7 @@ function Card({ card, small = false, fresh = false, flip = false }) {
             </span>
             <span className="card-suit">{SUITS[card.suit]}</span>
           </span>
+          <span className="card-pip">{SUITS[card.suit]}</span>
         </span>
       )}
     </span>
@@ -147,7 +153,7 @@ function Entry({ launchUrl, onRules }) {
   );
 }
 
-function Board({ title, subtitle, cards, dynamic = false, wide = false, compact = false }) {
+function Board({ title, cards, dynamic = false, wide = false, compact = false }) {
   const boardRef = useRef(null);
 
   useEffect(() => {
@@ -156,18 +162,15 @@ function Board({ title, subtitle, cards, dynamic = false, wide = false, compact 
   }, [dynamic, cards.length, wide, compact]);
 
   // Keep each exposed left edge wide enough for a two-digit rank and its suit.
-  const rowSize = wide ? 10 : 7;
+  const rowSize = wide ? 9 : 7;
   const rows = dynamic ? Array.from({ length: Math.ceil(cards.length / rowSize) },
     (_, index) => cards.slice(index * rowSize, (index + 1) * rowSize)) : [];
 
   return (
     <section
       className={`board-zone ${dynamic ? "dynamic-zone" : "fixed-zone"}`}
+      aria-label={`${title}，${cards.length} 张`}
     >
-      <div className="zone-heading">
-        <h2>{title}</h2>
-        {subtitle && <span>{subtitle}</span>}
-      </div>
       <div
         className="board-cards"
         ref={boardRef}
@@ -223,6 +226,7 @@ function TableSeats({ game }) {
           <div
             key={player.id}
             className={`table-seat ${own ? "own-seat" : ""} ${active ? "active-seat" : ""}`}
+            aria-current={active ? "true" : undefined}
             style={{
               "--seat-x": `${x}%`,
               "--seat-y": `${y}%`,
@@ -239,9 +243,6 @@ function TableSeats({ game }) {
               ))}
             </div>
             <div className="seat-label">
-              <span className="seat-avatar" aria-hidden="true">
-                {player.seat}
-              </span>
               <span className="seat-player" title={player.name}>
                 {player.name}
                 {own && <small>你</small>}
@@ -250,7 +251,6 @@ function TableSeats({ game }) {
                 {game.scores[player.id]}
               </strong>
             </div>
-            {active && <span className="seat-turn" aria-label="当前玩家" />}
           </div>
         );
       })}
@@ -261,6 +261,7 @@ function TableSeats({ game }) {
 function PokerTable({ game, busy, onAction }) {
   const arenaRef = useRef(null);
   const [layout, setLayout] = useState(null);
+  const [bellPressId, setBellPressId] = useState(0);
   useLayoutEffect(() => {
     // Fit a logical DOM stage uniformly; game-state changes never resize its host.
     const observer = new ResizeObserver(([entry]) => {
@@ -268,7 +269,7 @@ function PokerTable({ game, busy, onAction }) {
       if (!width || !height) return;
       const wide = width / height >= 1.2;
       const designWidth = wide ? 760 : 380;
-      const designHeight = Math.max(wide ? 420 : width >= 560 ? 480 : 380,
+      const designHeight = Math.max(wide ? 420 : width >= 560 ? 520 : 380,
         Math.min(560, height / width * designWidth));
       setLayout({
         wide, width: designWidth, height: designHeight,
@@ -302,14 +303,16 @@ function PokerTable({ game, busy, onAction }) {
               className="physical-bell"
               aria-label="拍铃"
               disabled={busy || !canRing}
-              onClick={() => onAction({ type: "bell" })}
+              onClick={() => {
+                setBellPressId((id) => id + 1);
+                onAction({ type: "bell" });
+              }}
             >
-              <BellIcon />
+              <BellIcon pressId={bellPressId} />
             </button>
           </div>
           <Board
             title="动态公牌"
-            subtitle={game.dynamic.length ? `${game.dynamic.length}` : null}
             cards={game.dynamic}
             wide={layout?.wide}
             compact={compact}
@@ -341,22 +344,11 @@ function CandidateSlot({ card, flip = false }) {
 }
 
 function Actions({ game, busy, onAction }) {
-  const current = game.players.find(
-    (player) => player.id === game.currentPlayerId,
-  );
   const ownTurn = game.currentPlayerId === game.viewerId;
   const showDrawActions = ownTurn && game.canDraw;
   const showDiscards = game.phase === "before_draw" && Boolean(game.discardSlots?.length) && !showDrawActions;
-  const waitLabel = game.window?.stage === "hidden"
-    ? "待公开明弃牌"
-    : game.window?.stage === "revealed" ? "拍铃中" : null;
   return (
     <section className="action-panel">
-      <div className="turn-status">
-        <span className="live-dot" />
-        <strong>{ownTurn ? "轮到你" : `轮到${current?.name}`}</strong>
-        <span>{waitLabel || (game.phase === "choosing" ? "选牌" : "待抽牌")}</span>
-      </div>
       <div className="turn-actions">
         {game.phase === "choosing" && (
           <div className="candidate-row" aria-label="候选牌">
@@ -534,25 +526,24 @@ function Settlement({ game, busy, onAction, onClose }) {
 
 function Discards({ game }) {
   return (
-    <details className="discard-panel">
-      <summary>
-        牌堆与弃牌
-        <span>
-          双抽堆 {game.counts.ordinaryDeck} · 单抽堆 {game.counts.permanentDeck}
-        </span>
-      </summary>
-      <p className="subtle">
-        明弃区 {game.ordinaryDiscard.length} · 暗弃区{" "}
-        {game.counts.permanentDiscard}
-      </p>
-      <div className="discard-cards">
-        {game.ordinaryDiscard.map((card, index) => (
-          <Card key={index} card={card} small />
-        ))}
-      </div>
+    <>
+      <dl className="deck-counts">
+        <div><dt>双抽牌堆</dt><dd>{game.counts.ordinaryDeck}</dd></div>
+        <div><dt>单抽牌堆</dt><dd>{game.counts.permanentDeck}</dd></div>
+        <div><dt>明弃区</dt><dd>{game.ordinaryDiscard.length}</dd></div>
+        <div><dt>暗弃区</dt><dd>{game.counts.permanentDiscard}</dd></div>
+      </dl>
+      <h3>明弃牌</h3>
+      {game.ordinaryDiscard.length ? (
+        <div className="discard-cards">
+          {game.ordinaryDiscard.map((card, index) => (
+            <Card key={index} card={card} small />
+          ))}
+        </div>
+      ) : <p className="subtle">暂无明弃牌</p>}
       {game.recentOrdinaryDiscard.length > 0 && (
         <>
-          <p className="subtle">本回合公开弃牌</p>
+          <h3>本回合公开弃牌</h3>
           <div className="discard-cards">
             {game.recentOrdinaryDiscard.map((card, index) => (
               <Card key={index} card={card} small />
@@ -560,12 +551,35 @@ function Discards({ game }) {
           </div>
         </>
       )}
-    </details>
+    </>
+  );
+}
+
+function Scoreboard({ game }) {
+  const players = [...game.players].sort((a, b) => game.scores[b.id] - game.scores[a.id]);
+  return (
+    <>
+      <p className="scoreboard-target">胜利目标 <strong>{game.targetScore}</strong> 分</p>
+      <table className="scoreboard">
+        <thead><tr><th>排名</th><th>玩家</th><th>积分</th></tr></thead>
+        <tbody>
+          {players.map((player) => (
+            <tr key={player.id} className={player.id === game.viewerId ? "viewer-score" : ""}>
+              <td>{players.findIndex((p) => game.scores[p.id] === game.scores[player.id]) + 1}</td>
+              <th scope="row">{player.name}{player.id === game.viewerId && <small>你</small>}</th>
+              <td className={game.scores[player.id] < 0 ? "negative" : ""}>{game.scores[player.id]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
 export default function HalliHoldemApp(props) {
   const [helpOpen, setHelpOpen] = useState(false);
+  const [infoDialog, setInfoDialog] = useState({ kind: "decks", open: false });
+  const infoTitle = TABLE_TOOLS.find((tool) => tool.id === infoDialog.kind).label;
   const [result, setResult] = useState({ key: null, open: false });
   const resultTimer = useRef(null);
   const { game, room, launchUrl, error, busy, onAction } = props;
@@ -578,34 +592,26 @@ export default function HalliHoldemApp(props) {
     setResult({ key: settlementKey, open: false });
     if (!settlementKey) return;
     resultTimer.current = setTimeout(
-      () => setResult({ key: settlementKey, open: true }),
+      () => {
+        setInfoDialog((dialog) => ({ ...dialog, open: false }));
+        setResult({ key: settlementKey, open: true });
+      },
       game.settlement.reason === "bell" ? 2000 : 0,
     );
     return () => clearTimeout(resultTimer.current);
   }, [settlementKey]);
   function showResult(open) {
     clearTimeout(resultTimer.current);
+    if (open) setInfoDialog((dialog) => ({ ...dialog, open: false }));
     setResult({ key: settlementKey, open });
+  }
+  function closeInfo() {
+    setInfoDialog((dialog) => ({ ...dialog, open: false }));
   }
   return (
     <div className={`halli-shell${game ? " is-playing" : ""}`}>
       <header className="topbar">
-        {!room && (
-          <a className="back-link" href="../" aria-label="返回桌游盒">
-            <Icon nodes={ArrowLeft} />
-          </a>
-        )}
         <div className="topbar-title">德州心脏病</div>
-        {!room && (
-          <button
-            className="help-link"
-            type="button"
-            onClick={() => setHelpOpen(true)}
-            aria-label="查看游戏规则"
-          >
-            <Icon nodes={CircleHelp} />
-          </button>
-        )}
       </header>
       {error && (
         <p className="error-message" role="status">
@@ -623,10 +629,6 @@ export default function HalliHoldemApp(props) {
         )
       ) : (
         <main className="game-table">
-          <div className="round-heading">
-            <span>第 {game.round} 轮</span>
-            <small>目标 {game.targetScore} 分</small>
-          </div>
           <div className="table-workspace">
             <PokerTable game={game} busy={busy} onAction={onAction} />
             <aside className="player-controls" aria-label="回合操作与弃牌">
@@ -643,10 +645,47 @@ export default function HalliHoldemApp(props) {
               ) : (
                 <Actions game={game} busy={busy} onAction={onAction} />
               )}
-              <Discards game={game} />
+              <nav className="table-tools" aria-label="牌桌信息">
+                {TABLE_TOOLS.map((tool) => (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    className="table-tool"
+                    aria-label={tool.label}
+                    aria-haspopup="dialog"
+                    onClick={() => setInfoDialog({ kind: tool.id, open: true })}
+                  >
+                    <Icon nodes={tool.icon} />
+                  </button>
+                ))}
+              </nav>
             </aside>
           </div>
         </main>
+      )}
+      {game && (
+        <Dialog
+          open={infoDialog.open}
+          onClose={closeInfo}
+          className="settlement-dialog info-dialog"
+          aria-label={infoTitle}
+        >
+          <header className="info-dialog-header">
+            <h2>{infoTitle}</h2>
+            <button
+              className="help-dialog-close"
+              type="button"
+              onClick={closeInfo}
+              aria-label="关闭牌桌信息"
+            >
+              <Icon nodes={X} />
+            </button>
+          </header>
+          <div className="info-dialog-body">
+            {infoDialog.kind === "decks" && <Discards game={game} />}
+            {infoDialog.kind === "scores" && <Scoreboard game={game} />}
+          </div>
+        </Dialog>
       )}
       {settled && (
         <Dialog
