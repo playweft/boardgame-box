@@ -7,5 +7,8 @@
   },
   {
     "manifestUrl": "./halli-holdem/playweft.json"
+  },
+  {
+    "manifestUrl": "./azul/playweft.json"
   }
 ]

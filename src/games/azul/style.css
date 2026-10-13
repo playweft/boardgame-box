@@ -1,0 +1,174 @@
+@import "@fontsource/roboto-slab/latin-600.css";
+
+:root { color: #203b50; background: #f5f1e7; --muted: #607383; --gold: #edbd55; --tile: 28px; --blue: #254f76; }
+html, body { height: 100%; overflow: hidden; }
+body { background: radial-gradient(ellipse at 15% 0%, #e5ecea 0, transparent 45%), #f5f1e7; }
+#azul-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top); }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #ba7920; outline-offset: 3px; }
+h1, h2, h3, p { margin: 0; }
+.primary-button { color: #fff; background: #254f76; box-shadow: 0 3px 0 #163a5b; border-radius: 8px; min-height: 44px; }
+.primary-button:active:not(:disabled) { box-shadow: 0 1px 0 #163a5b; transform: translateY(2px); }
+.secondary-button { color: #254f76; background: #eee9dd; box-shadow: 0 3px 0 #d2cbbd; }
+.eyebrow { color: #8c6b35; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.azul-header { flex: 0 0 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(16px, calc((100vw - 1200px)/2)); border-bottom: 1px solid #d7dcd9; }
+.home-link { text-decoration: none; font-size: 13px; display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.brand { font-weight: 700; font-size: 15px; letter-spacing: .12em; }
+.brand small { margin-left: 8px; font: 600 11px "Roboto Slab", serif; letter-spacing: .15em; color: #8c6b35; }
+.rules-button { border: 0; background: transparent; padding: 10px 0 10px 10px; font-size: 12px; min-height: 44px; }
+.rules-button span { margin-left: 4px; border: 1px solid #b9c5c8; border-radius: 50%; display: inline-grid; width: 19px; height: 19px; place-items: center; }
+.tile { flex: 0 0 auto; display: inline-grid; place-items: center; width: var(--tile); height: var(--tile); border-radius: 4px; border: 1px solid #0002; box-shadow: inset 0 2px 1px #fff7, 0 2px 0 #0003; vertical-align: middle; }
+.tile svg { width: 83%; height: 83%; stroke: currentColor; stroke-width: 1.25; }
+.tile-0 { background: #3075b2; color: #e3f1ef; }
+.tile-1 { background: #efba45; color: #715219; }
+.tile-2 { background: #bc594d; color: #f9ded2; }
+.tile-3 { background: #263e4c; color: #bec9b8; }
+.tile-4 { background: #f7f4e6; color: #3a72a0; }
+.tile--1 { background: #ece3d0; color: #254f76; font: 600 16px "Roboto Slab", serif; border-radius: 50%; }
+.tile.ghost { opacity: .22; box-shadow: none; }
+.tile.preview { outline: 2px dashed #a07936; outline-offset: -2px; opacity: .72; }
+.empty-slot { border: 1px solid #c7cbc7; background: #e5e6de; box-shadow: inset 0 1px 3px #213b4510; }
+.entry { flex: 1; min-height: 0; width: min(100% - 32px, 420px); margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px 0; overflow: auto; text-align: center; }
+.entry-art { --tile: 30px; flex: 0 0 auto; display: grid; grid-template-columns: repeat(5, var(--tile)); gap: 4px; padding: 10px; margin-bottom: 12px; border: 1px solid #cac5b9; border-radius: 8px; background: #e9e2d4; transform: rotate(-7deg); box-shadow: 8px 10px 0 #254f760d; }
+.entry h1 { font-size: 34px; letter-spacing: .16em; }
+.entry-subtitle { font-size: 13px; color: #526d7d; }
+.entry-meta { font-size: 11px; color: #73818a; }
+.entry-start { margin-top: 16px; width: min(100%, 280px); }
+.room-link { font-size: 12px; color: #536e7c; text-underline-offset: 4px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+.setup-panel { padding: 20px; text-align: left; }
+.setup-note { font-size: 12px; color: var(--muted); }
+.count-picker { display: flex; gap: 8px; margin: 18px 0; }
+.count-picker button { flex: 1; min-height: 44px; padding: 10px; border: 1px solid #d6dcd7; border-radius: 7px; background: transparent; font-size: 13px; }
+.count-picker .selected { background: #254f76; border-color: #254f76; color: #fff; }
+.name-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.name-fields label > span { display: block; margin-bottom: 6px; font-size: 11px; color: var(--muted); }
+.name-fields input { width: 100%; min-height: 44px; padding: 11px; border: 1px solid #d6dcd7; border-radius: 6px; color: #203b50; background: #f5f5ee; font-size: 16px; }
+.start-button { margin-top: 22px; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+.connection-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 20px; }
+.connection-panel img { width: 100px; }
+.connection-panel p { color: var(--muted); }
+.game-layout { flex: 1; min-height: 0; width: 100%; max-width: 1240px; padding: 8px 20px max(12px, env(safe-area-inset-bottom)); margin: 0 auto; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.turn-banner { flex: 0 0 38px; display: flex; align-items: center; gap: 12px; }
+.round-pill { color: #8c6b35; font-size: 11px; padding: 5px 9px; background: #ece6d8; border-radius: 5px; white-space: nowrap; }
+.turn-banner h1 { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.overview-button { background: transparent; border: 0; padding: 8px 0 8px 10px; font-size: 12px; min-height: 36px; }
+.overview-button span { margin-left: 6px; }
+.player-strip { display: flex; justify-content: center; gap: 8px; flex: 0 0 38px; }
+.player-chip { flex: 1; max-width: 250px; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid #d8dcd6; border-radius: 7px; background: #eeeede; text-align: left; }
+.player-chip.active { border-color: #254f76; background: #fffcf6; box-shadow: inset 0 -2px #254f76; }
+.player-avatar { display: grid; place-items: center; width: 23px; height: 23px; flex: 0 0 auto; border-radius: 50%; background: #d5e1df; color: #254f76; font: 600 10px "Roboto Slab", serif; }
+.player-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; }
+.player-chip b { font: 600 17px "Roboto Slab", serif; }
+.game-arena { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.table-layout { display: grid; position: absolute; left: 50%; top: 50%; transform-origin: center; gap: 12px; }
+.table-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.table-portrait { grid-template-columns: 1fr; grid-template-rows: max-content 1fr; }
+.panel { border: 1px solid #d3d7ce; border-radius: 12px; background: #fffcf5; box-shadow: 0 3px 12px #213b4504; }
+.supply-panel, .board-panel { padding: 12px; min-width: 0; }
+.panel-heading, .floor-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.panel-heading h2 { font-size: 13px; font-weight: 600; }
+.panel-heading > span { color: var(--muted); font-size: 10px; }
+.factories { --tile: 18px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-items: center; gap: 8px 4px; padding: 12px 0; }
+.factory { position: relative; display: grid; place-items: center; width: 78px; height: 78px; padding: 0; background: #edf0e9; border: 1px solid #ccd7d4; border-radius: 50%; box-shadow: inset 0 0 0 4px #fffcf5, inset 0 0 0 5px #d2ded9; }
+.factory.empty { opacity: .45; }
+.factory:not(:disabled):hover { background: #dce6dd; border-color: #728f8d; }
+.factory.selected { border-color: #254f76; box-shadow: inset 0 0 0 4px #fffcf5, inset 0 0 0 6px #254f76; }
+.factory-number { position: absolute; top: 4px; font: 600 8px "Roboto Slab", serif; color: #67838a; }
+.factory-tiles { display: grid; grid-template-columns: repeat(2, var(--tile)); gap: 3px; padding-top: 8px; }
+.empty-factory { grid-column: 1 / 3; font-size: 26px; color: #93aba6; }
+.center-zone { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 54px; border: 1px solid #d8ded3; padding: 8px; border-radius: 7px; background: #f1f1e6; text-align: left; }
+.center-zone:not(:disabled):hover, .center-zone.selected { background: #e0e8da; border-color: #254f76; }
+.center-title { font-size: 11px; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.center-title .tile { --tile: 18px; font-size: 11px; }
+.center-tiles { --tile: 20px; display: flex; flex: 1; justify-content: flex-end; gap: 6px; align-items: center; min-width: 0; }
+.center-group { display: flex; align-items: center; gap: 2px; }
+.center-group b { font: 600 9px "Roboto Slab", serif; }
+.empty-center { color: #7c8c91; font-size: 10px; }
+.table-wide .supply-panel { display: flex; flex-direction: column; }
+.table-wide .factories { flex: 1; align-content: center; gap: 10px 4px; }
+.table-portrait .supply-panel { padding: 9px 12px; }
+.table-portrait .factories { --tile: 15px; gap: 6px 4px; padding: 8px 0; }
+.table-portrait .factory { width: 58px; height: 58px; }
+.table-portrait .factory-number { top: 3px; font-size: 7px; }
+.table-portrait .factory-tiles { gap: 2px; padding-top: 6px; }
+.table-portrait .center-zone { min-height: 42px; padding: 5px 7px; gap: 8px; }
+.table-portrait .center-tiles { --tile: 17px; gap: 4px; }
+.table-portrait .center-group b { font-size: 8px; }
+.board-score { font: 600 20px "Roboto Slab", serif; }
+.board-score small { font: 400 10px system-ui; }
+.board-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; color: var(--muted); font-size: 8px; padding: 8px 0 6px; text-align: right; }
+.board-labels span:last-child { text-align: center; }
+.workshop { display: flex; flex-direction: column; gap: 4px; }
+.workshop-row { display: grid; grid-template-columns: minmax(0, 1fr) 14px max-content; align-items: center; }
+.pattern-line { display: flex; justify-content: flex-end; align-items: center; gap: 3px; width: 100%; padding: 3px 1px 3px 0; border: 1px solid transparent; border-radius: 5px; background: transparent; min-height: 34px; position: relative; }
+.row-number { position: absolute; left: 0; color: #81908f; font: 600 9px "Roboto Slab", serif; }
+.pattern-line.allowed { border-color: #bdd0c8; background: #edf1e8; }
+.pattern-line.allowed:hover { background: #e0e9de; }
+.pattern-line.chosen, .floor-line.chosen { background: #e2eadc; border-color: #254f76; }
+.row-arrow { color: #b4bbae; font-size: 18px; text-align: center; }
+.wall-row { display: flex; gap: 3px; background: #ebece2; padding: 3px; border-radius: 4px; }
+.floor-heading { padding-top: 10px; padding-bottom: 5px; }
+.floor-heading h3 { font-size: 10px; }
+.floor-heading span { font-size: 8px; color: var(--muted); }
+.floor-line { display: flex; justify-content: center; width: 100%; gap: 8px; padding: 5px; border: 1px solid #ddd9ce; border-radius: 7px; background: #f0eee5; }
+.floor-line:not(:disabled):hover { border-color: #8b9e9d; }
+.floor-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.floor-slot small { color: #9b6351; font: 600 9px "Roboto Slab", serif; }
+.table-portrait .board-panel { --tile: 25px; padding: 10px 12px; }
+.table-portrait .workshop { gap: 2px; }
+.table-portrait .pattern-line { min-height: 31px; }
+.table-portrait .floor-heading { padding-top: 7px; }
+.table-portrait .floor-line { --tile: 22px; }
+.action-bar { flex: 0 0 66px; display: flex; align-items: center; justify-content: space-between; gap: 16px; z-index: 1; background: #fffcf5; border: 1px solid #c8d2c9; border-radius: 10px; padding: 10px 16px; box-shadow: 0 3px 12px #203b5009; }
+.action-bar > div { flex: 1; min-width: 0; }
+.action-bar strong { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-bar > div > span { display: block; color: var(--muted); font-size: 11px; margin-top: 5px; }
+.action-bar .primary-button { white-space: nowrap; min-width: 120px; font-size: 13px; padding: 10px 14px; }
+.report-link { padding: 0; border: 0; background: transparent; color: #254f76; text-decoration: underline; text-underline-offset: 3px; font-size: 11px; }
+.error-message { position: absolute; left: 20px; right: 20px; bottom: 88px; z-index: 3; padding: 12px; border: 1px solid #d8b0a5; border-radius: 8px; color: #9d4c39; background: #f9e9e1; font-size: 12px; }
+.app-dialog, .azul-help { width: min(540px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #c5cbbb; border-radius: 14px; background: #f5f1e7; color: #203b50; box-shadow: 0 12px 40px #16334633; overflow: hidden; }
+.app-dialog::backdrop, .azul-help::backdrop { background: #16334688; backdrop-filter: blur(4px); }
+.help-heading { height: 52px; display: flex; justify-content: space-between; align-items: center; padding: 0 16px; border-bottom: 1px solid #d5d9ce; font-size: 14px; flex: 0 0 auto; }
+.help-heading button { border: 0; border-radius: 50%; width: 36px; height: 36px; font-size: 24px; background: #e8eadd; }
+.azul-help { width: min(640px, calc(100vw - 24px)); height: min(780px, calc(100dvh - 32px)); }
+.azul-help iframe { width: 100%; height: calc(100% - 52px); border: 0; display: block; }
+.source-dialog, .setup-dialog { width: min(400px, calc(100vw - 24px)); }
+.source-options { padding: 14px; overflow-y: auto; max-height: calc(100dvh - 110px); }
+.source-option { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 10px; border: 1px solid #d3d7ce; border-radius: 8px; background: #fffcf5; margin-bottom: 8px; --tile: 32px; text-align: left; }
+.source-option:hover { background: #e7eddf; border-color: #9bab9b; }
+.source-option > b { flex: 1; font: 600 18px "Roboto Slab", serif; }
+.source-options p { margin: 14px 4px 4px; font-size: 11px; color: var(--muted); }
+.overview-dialog, .report-dialog { height: min(700px, calc(100dvh - 32px)); }
+.dialog-scroll { height: calc(100% - 52px); overflow: auto; padding: 14px; overscroll-behavior: contain; }
+.overview-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.overview-tabs button { flex: 1; min-width: 100px; padding: 10px; min-height: 44px; background: #e9ebdf; border: 1px solid #c8d2c9; border-radius: 7px; font-size: 12px; }
+.overview-tabs button.selected { background: #254f76; border-color: #254f76; color: #fff; }
+.overview-dialog .board-panel { --tile: clamp(19px, 5.7vw, 34px); }
+.overview-notes { font-size: 12px; line-height: 1.8; color: var(--muted); padding: 16px 4px; }
+.overview-notes p + p { margin-top: 7px; }
+.settlement { padding: 18px; background: #eaf0e7; }
+.settlement.final { border-color: #c6ad77; background: #f3eddd; }
+.settlement h2 { font-size: 22px; margin-top: 8px; overflow-wrap: anywhere; }
+.results { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 18px; }
+.result { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 14px; border-radius: 8px; background: #fffcf5; }
+.result > strong { font-size: 13px; overflow-wrap: anywhere; }
+.result > span { grid-row: 2; font-size: 11px; color: var(--muted); line-height: 1.7; }
+.result > b { grid-column: 2; grid-row: 1 / 3; text-align: right; font: 600 24px "Roboto Slab", serif; padding-left: 10px; }
+.result small { display: block; font: 400 10px system-ui; margin-top: 5px; }
+.settlement > p:not(.eyebrow) { margin-top: 14px; font-size: 12px; color: var(--muted); }
+.settlement-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+@media (max-width: 600px) {
+  .azul-header { flex-basis: 48px; padding: 0 12px; } .home-link span { display: none; } .brand { font-size: 13px; } .brand small { font-size: 10px; }
+  .game-layout { padding: 4px 10px max(10px, env(safe-area-inset-bottom)); gap: 6px; } .turn-banner { flex-basis: 36px; gap: 8px; } .turn-banner h1 { font-size: 14px; }
+  .player-strip { gap: 5px; flex-basis: 36px; } .player-chip { padding: 5px 6px; gap: 4px; } .player-avatar { width: 20px; height: 20px; font-size: 9px; } .player-name { font-size: 10px; } .player-chip b { font-size: 14px; }
+  .action-bar { flex-basis: 64px; gap: 10px; padding: 9px 11px; } .action-bar strong { font-size: 12px; } .action-bar > div > span { font-size: 10px; line-height: 1.5; } .action-bar .primary-button { min-width: 100px; font-size: 12px; padding: 10px; }
+  .error-message { left: 10px; right: 10px; bottom: 80px; } .entry h1 { font-size: 30px; } .entry-subtitle { font-size: 12px; } .entry-art { --tile: 27px; }
+}
+@media (max-height: 500px) {
+  .azul-header { flex-basis: 40px; } .game-layout { gap: 4px; padding-top: 2px; padding-bottom: 8px; } .turn-banner { flex-basis: 28px; } .player-strip { flex-basis: 28px; } .player-chip { padding: 3px 8px; } .action-bar { flex-basis: 52px; padding: 5px 12px; } .action-bar > div > span { margin-top: 2px; }
+  .entry { gap: 8px; padding: 12px; } .entry-art { --tile: 15px; margin-bottom: 0; } .entry h1 { font-size: 22px; } .entry-start { margin-top: 0; } .entry .eyebrow, .entry-meta { display: none; }
+  .setup-panel { max-height: calc(100dvh - 88px); overflow: auto; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; } }

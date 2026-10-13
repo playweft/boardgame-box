@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>花砖物语 · 游戏规则</title>
+  <style>
+    :root { font-family: "Avenir Next", "Noto Sans SC", system-ui, sans-serif; color: #203b50; background: #f5f1e7; }
+    * { box-sizing: border-box; } body { margin: 0; } main { max-width: 640px; margin: auto; padding: 24px 24px 40px; }
+    h1 { font-size: 26px; margin: 0 0 8px; } h2 { font-size: 16px; margin: 0 0 12px; color: #254f76; }
+    section { padding: 20px 0; border-top: 1px solid #d7d9cd; } p, li { font-size: 13px; line-height: 1.9; color: #516877; }
+    p { margin: 0 0 12px; } ul, ol { margin: 0; padding-left: 21px; } li + li { margin-top: 6px; }
+    .intro { margin-bottom: 24px; } .example { padding: 14px; border-radius: 8px; background: #e5eadd; }
+    table { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; } td { border: 1px solid #ccd3c6; padding: 10px 4px; }
+    a { color: #254f76; text-underline-offset: 3px; } .source { font-size: 11px; }
+  </style>
+</head>
+<body><main>
+  <h1>花砖物语 <small>Azul</small></h1><p class="intro">2–4 人 · 原版彩色墙面 · 目标是获得最高总分</p>
+  <section><h2>01 · 准备</h2><p>100 块花砖，五种颜色各 20 块。2／3／4 人使用 5／7／9 个工厂圆盘，每盘随机放 4 块。首轮第一位玩家先手，之后由拿到起始标记的人先手。</p><p>左侧五条花纹行容量依次为 1–5；右侧是墙面；下方七格是扣分的地板区。原版首轮由最近去过葡萄牙的人先手，可将其安排在第一位。</p></section>
+  <section><h2>02 · 拿砖与放砖</h2><ol>
+    <li>选择一个圆盘或桌面中央，拿走其中某颜色的<b>所有砖</b>。从圆盘拿时，其余颜色全部推到中央。</li>
+    <li>本轮首个从中央拿砖的人，也把“1”标记放进地板最左空位，下轮先手。标记不能单独拿；地板已满仍获得先手。</li>
+    <li>拿的砖只能放进<b>一条花纹行</b>，从右向左放，不能分到多行。行内只能有一种颜色，满行不能继续放。</li>
+    <li>对应墙面横行已有该颜色时，不能再用这条花纹行收集该颜色。</li>
+    <li>放不下的进地板，也可选择全部放地板。地板满后额外砖直接弃置，不额外扣分。</li>
+  </ol><p class="example">网页操作：点击圆盘或中央，在弹窗中选颜色，再点左侧花纹行或地板，查看预览后“确认拿砖”。只有一种颜色时自动选中，未确认时可随时改选。</p></section>
+  <section><h2>03 · 铺墙</h2><p>所有圆盘和中央的砖被拿完后自动结算。每位玩家从上到下检查花纹行：填满的行只移<b>一块</b>到墙面同一横行的同色位置，其余弃置。未填满的行全部保留到下轮。</p><ul>
+    <li>新砖没有上下左右相邻砖：+1 分。</li>
+    <li>横向有连接：经过新砖的连续横线有几块，就得几分，含新砖。</li>
+    <li>纵向有连接：连续竖线同样计分。</li>
+    <li>两向都有连接则相加，新砖分别计入两次。斜线、隔着空位的砖不计。</li>
+  </ul><p class="example">横向连成 3 块，纵向连成 2 块，得到 3 + 2 = 5 分。计分顺序从上到下，本轮刚铺上的砖也参与后续计分。</p></section>
+  <section><h2>04 · 地板扣分与补货</h2><p>起始标记与普通花砖一样占一格地板。先加铺墙分，再扣地板分，分数最低为 0。</p>
+    <table aria-label="地板各格扣分"><tr><td>−1</td><td>−1</td><td>−2</td><td>−2</td><td>−2</td><td>−3</td><td>−3</td></tr></table>
+    <p>结算后地板清空。点击“开始下一轮”，每盘补 4 块，标记回中央。袋子空了才把弃砖混洗入袋；两处都不足时，圆盘允许未补满。</p></section>
+  <section><h2>05 · 终局与奖励</h2><p>有人完成墙面一条横行时，所有人完成本轮铺墙和扣分后结束。每条完整横行 +2，每条完整竖列 +7，每种颜色集齐 5 块 +10。</p><p>总分最高者胜。同分比较完整横行数，再相同则共享胜利。完成一行只是触发终局，不保证获胜。</p></section>
+  <section><h2>游玩方式</h2><p>本地模式大家轮流在同一屏幕操作；在线模式通过 Playweft 房间游玩，只有轮到的玩家能拿砖，观战者只能查看。主棋盘随屏幕尺寸缩放，玩家卡片或“概览”打开其他工坊、砖袋统计和上一步操作；轮次结算在对话框显示，关闭后仍可查看棋盘。灰色墙面变体和扩展不在此版本中。</p>
+    <p class="source">规则依据：<a href="https://cdn.svc.asmodee.net/production-nextmove/uploads/sites/4/2024/06/EN-Azul-Rules-Next-Move-web.pdf" target="_blank" rel="noopener noreferrer">Next Move Games 原版官方说明书</a>。图标、花纹与界面为本项目绘制。</p></section>
+</main></body>
+</html>
