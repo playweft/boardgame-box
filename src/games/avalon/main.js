@@ -2,6 +2,8 @@ import "./style.css";
 import { h, render as renderPreact } from "preact";
 import { createPlayweftClient } from "../../shared/playweft-client.js";
 import AvalonApp from "./view.jsx";
+import { normalizeRoomState } from "./room-state.js";
+import { createMissionResultDisplay } from "./mission-result-display.js";
 
 const app = document.querySelector("#avalon-app");
 const questSizes = {
@@ -37,7 +39,7 @@ const roles = {
     name: "刺客",
     team: "evil",
     icon: "crosshair",
-    description: "若好人完成三次任务，你有机会刺杀梅林。",
+    description: "你可以随时发起刺杀；刺中梅林获胜，选错则好人获胜。",
   },
   morgana: {
     name: "莫甘娜",
@@ -63,10 +65,14 @@ const roles = {
 let state = createState();
 let roomContext = null;
 let roomState = null;
+let roomMatchId = null;
 let roomError = "";
 let roomBusy = false;
 let roomTeam = [];
-let openQuestIndex = null;
+let questDetails = { open: false, index: 0 };
+let localMissionResultTimer = null;
+let localMissionResultDeadline = null;
+const roomMissionResult = createMissionResultDisplay({ onChange: render });
 const roomProfiles = new Map();
 const roomProfileRequests = new Set();
 const pendingProfileRefreshes = new Set();
@@ -244,7 +250,8 @@ function render() {
     h(AvalonApp, {
       state,
       roomContext,
-      roomState,
+      roomMatchId,
+      roomState: roomMissionResult.state(roomState),
       roomError,
       roomBusy,
       roomTeam,
@@ -256,14 +263,23 @@ function render() {
       roleInfo,
       roomPlayerName,
       roomAvatarSource,
-      openQuestIndex,
+      questDetails,
       onCloseQuestDetails: closeQuestDetails,
+      onSelectQuestDetails: openQuestDetails,
+      onStartAssassination: async () => {
+        if (roomState?.phase === "assassinate") {
+          roomMissionResult.dismiss();
+          return true;
+        }
+        return sendRoomAction({ type: "start_assassination" });
+      },
     }),
     app,
   );
 }
 
 function startGame() {
+  clearTimeout(localMissionResultTimer);
   const names = Array.from(
     app.querySelectorAll("[data-player-name]"),
     (input, index) => input.value.trim() || "玩家 " + (index + 1),
@@ -280,6 +296,7 @@ function startGame() {
 }
 
 function resetToSetup() {
+  clearTimeout(localMissionResultTimer);
   const previousNames = state.players.map((player) => player.name);
   state = createState();
   state.playerCount =
@@ -297,21 +314,53 @@ function finishVote() {
   state.approved = approvals > state.players.length / 2;
   state.proposalHistory.push({
     quest: state.quest + 1,
+    leader: state.leader,
     team: state.missionTeam.slice(),
     votes: state.votes.slice(),
     approved: state.approved,
   });
-  if (state.approved) state.rejections = 0;
-  else {
+  if (state.approved) {
+    state.rejections = 0;
+    state.missionOrder = state.missionTeam.slice();
+    state.missionActions = Array(state.players.length).fill(null);
+    state.missionIndex = 0;
+  } else {
     state.rejections += 1;
     state.leader = (state.leader + 1) % state.players.length;
   }
-  state.phase = "vote-result";
+  state.phase = state.approved ? "mission" : "vote-result";
+  render();
+}
+
+function continueLocalMission() {
+  if (state.phase !== "mission-result") return;
+  clearTimeout(localMissionResultTimer);
+  localMissionResultTimer = null;
+  localMissionResultDeadline = null;
+  const successes = state.missions.filter((mission) => mission.passed).length;
+  const failures = state.missions.length - successes;
+  if (successes >= 3) state.phase = "assassinate";
+  else if (failures >= 3) {
+    state.winner = "evil";
+    state.endReason = "邪恶势力破坏了三个任务。";
+    state.phase = "over";
+  } else {
+    state.quest = state.missions.length;
+    state.leader = (state.leader + 1) % state.players.length;
+    state.rejections = 0;
+    state.selectedTeam = [];
+    state.phase = "propose";
+  }
+  render();
+}
+
+function openQuestDetails(index) {
+  questDetails = { open: true, index };
   render();
 }
 
 function closeQuestDetails() {
-  openQuestIndex = null;
+  questDetails = { ...questDetails, open: false };
   render();
 }
 
@@ -328,6 +377,9 @@ function finishMission() {
     passed: failures < threshold,
   });
   state.phase = "mission-result";
+  clearTimeout(localMissionResultTimer);
+  localMissionResultDeadline = Date.now() + 5000;
+  localMissionResultTimer = setTimeout(continueLocalMission, 5000);
   render();
 }
 
@@ -350,8 +402,7 @@ app.addEventListener("click", (event) => {
   const action = button.dataset.action;
 
   if (action === "open-quest-details") {
-    openQuestIndex = index;
-    render();
+    openQuestDetails(index);
     return;
   }
   if (action === "close-quest-details") {
@@ -426,23 +477,7 @@ app.addEventListener("click", (event) => {
     if (state.missionIndex >= state.missionOrder.length) finishMission();
     else render();
   }
-  if (action === "continue-mission") {
-    const successes = state.missions.filter((mission) => mission.passed).length;
-    const failures = state.missions.length - successes;
-    if (successes >= 3) state.phase = "assassinate";
-    else if (failures >= 3) {
-      state.winner = "evil";
-      state.endReason = "邪恶势力破坏了三个任务。";
-      state.phase = "over";
-    } else {
-      state.quest = state.missions.length;
-      state.leader = (state.leader + 1) % state.players.length;
-      state.rejections = 0;
-      state.selectedTeam = [];
-      state.phase = "propose";
-    }
-    render();
-  }
+  if (action === "continue-mission") continueLocalMission();
   if (action === "choose-assassin") {
     const hitMerlin = state.players[index].role === "merlin";
     state.winner = hitMerlin ? "evil" : "good";
@@ -459,7 +494,7 @@ let roomStageKey = "";
 let roomClient;
 
 async function sendRoomAction(action) {
-  if (!roomClient?.connected || roomBusy) return;
+  if (!roomClient?.connected || roomBusy) return false;
   roomBusy = true;
   roomError = "";
   render();
@@ -467,8 +502,10 @@ async function sendRoomAction(action) {
     const result = await roomClient.action(action);
     if (!result.accepted)
       throw new Error(result.error?.message || "平台没有接受这个操作。");
+    return true;
   } catch (error) {
     roomError = error instanceof Error ? error.message : "Playweft 操作失败。";
+    return false;
   } finally {
     roomBusy = false;
     render();
@@ -477,8 +514,13 @@ async function sendRoomAction(action) {
 
 app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-room-action]");
-  if (!button || roomBusy || roomContext?.mode !== "room") return;
+  if (!button || roomContext?.mode !== "room") return;
   const action = button.dataset.roomAction;
+  if (action === "dismiss-mission-result") {
+    roomMissionResult.dismiss();
+    return;
+  }
+  if (roomBusy) return;
   const playerId = button.dataset.playerId;
 
   if (action === "toggle-team") {
@@ -496,8 +538,6 @@ app.addEventListener("click", (event) => {
       type: "vote",
       approve: button.dataset.value === "yes",
     });
-  if (action === "begin-mission")
-    return void sendRoomAction({ type: "begin_mission" });
   if (action === "next-proposal")
     return void sendRoomAction({ type: "next_proposal" });
   if (action === "mission-choice")
@@ -505,8 +545,6 @@ app.addEventListener("click", (event) => {
       type: "mission_choice",
       choice: button.dataset.value,
     });
-  if (action === "continue-mission")
-    return void sendRoomAction({ type: "continue_mission" });
   if (action === "assassinate")
     return void sendRoomAction({ type: "assassinate", target: playerId });
   if (action === "rematch") return void sendRoomAction({ type: "rematch" });
@@ -520,7 +558,10 @@ roomClient = createPlayweftClient({
     requestRoomProfiles();
     render();
   },
-  onState(nextState) {
+  onState(nextState, update) {
+    nextState = normalizeRoomState(nextState);
+    roomMatchId = update.matchId;
+    roomMissionResult.update(nextState, update.matchId);
     const nextStageKey =
       nextState.phase + "|" + nextState.quest + "|" + nextState.leader;
     if (nextStageKey !== roomStageKey) roomTeam = [];
@@ -534,6 +575,16 @@ roomClient = createPlayweftClient({
     render();
   },
   onPlayerProfileChanged: handleRoomPlayerProfileChanged,
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (
+    state.phase === "mission-result" &&
+    Date.now() >= localMissionResultDeadline
+  )
+    continueLocalMission();
+  else render();
 });
 
 render();

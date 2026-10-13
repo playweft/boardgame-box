@@ -85,6 +85,22 @@ local function next_leader(state)
   return (state.leader % #state.players) + 1
 end
 
+local function advance_mission(state)
+  if count_result(state.missions, true) >= 3 then
+    state.phase = "assassinate"
+  elseif count_result(state.missions, false) >= 3 then
+    state.phase = "game-over"
+    state.winner = "evil"
+    state.endReason = "邪恶势力破坏了三个任务。"
+  else
+    state.quest = state.quest + 1
+    state.leader = next_leader(state)
+    state.selectedTeam = {}
+    state.missionActions = {}
+    state.phase = "propose"
+  end
+end
+
 local function role_hints(state, viewer_id)
   local role_id = state.roles[viewer_id]
   local hints = {}
@@ -200,6 +216,7 @@ function on_action(state, action, context)
       end
       table.insert(state.proposalHistory, {
         quest = state.quest,
+        leader = state.players[state.leader].id,
         team = proposal_team,
         votes = proposal_votes,
         approved = state.votePassed,
@@ -214,6 +231,9 @@ function on_action(state, action, context)
         state.phase = "game-over"
         state.winner = "evil"
         state.endReason = "连续五支队伍未获通过，邪恶势力趁乱得胜。"
+      elseif state.votePassed then
+        state.phase = "mission"
+        state.missionActions = {}
       else
         state.phase = "vote-result"
       end
@@ -225,7 +245,6 @@ function on_action(state, action, context)
   if action.type == "begin_mission" then
     if state.phase ~= "vote-result" or not state.votePassed then return reject("WRONG_PHASE", "The mission team has not been approved") end
     state.phase = "mission"
-    state.votes = {}
     state.missionActions = {}
     return {accepted = true, state = state, events = {{type = "mission_started", quest = state.quest}}}
   end
@@ -239,7 +258,9 @@ function on_action(state, action, context)
   end
 
   if action.type == "mission_choice" then
-    if state.phase ~= "mission" then return reject("WRONG_PHASE", "There is no active mission") end
+    if state.phase ~= "mission" and not (state.phase == "vote-result" and state.votePassed) then
+      return reject("WRONG_PHASE", "There is no active mission")
+    end
     local on_team = false
     for _, player_id in ipairs(state.selectedTeam) do
       if player_id == actor_id then on_team = true end
@@ -250,6 +271,7 @@ function on_action(state, action, context)
       return reject("LOYAL_CANNOT_FAIL", "Loyal players must choose mission success")
     end
     if state.missionActions[actor_id] ~= nil then return reject("ALREADY_CHOSEN", "Your mission card is already locked") end
+    state.phase = "mission"
     state.missionActions[actor_id] = action.choice
     if count_entries(state.missionActions) == #state.selectedTeam then
       local failures = 0
@@ -265,28 +287,27 @@ function on_action(state, action, context)
         passed = failures < threshold,
       }
       table.insert(state.missions, state.lastMission)
-      state.phase = "mission-result"
-      return {accepted = true, state = state, events = {{type = "mission_resolved", quest = state.quest, passed = state.lastMission.passed}}}
+      advance_mission(state)
+      return {accepted = true, state = state, events = {{type = "mission_resolved", quest = state.lastMission.number, passed = state.lastMission.passed}}}
     end
     return {accepted = true, state = state, events = {}}
   end
 
   if action.type == "continue_mission" then
     if state.phase ~= "mission-result" then return reject("WRONG_PHASE", "The current mission is not complete") end
-    if count_result(state.missions, true) >= 3 then
-      state.phase = "assassinate"
-    elseif count_result(state.missions, false) >= 3 then
-      state.phase = "game-over"
-      state.winner = "evil"
-      state.endReason = "邪恶势力破坏了三个任务。"
-    else
-      state.quest = state.quest + 1
-      state.leader = next_leader(state)
-      state.selectedTeam = {}
-      state.missionActions = {}
-      state.phase = "propose"
-    end
+    advance_mission(state)
     return {accepted = true, state = state, events = {{type = "mission_continued", phase = state.phase}}}
+  end
+
+  if action.type == "start_assassination" then
+    if state.roles[actor_id] ~= "assassin" then
+      return reject("NOT_ASSASSIN", "Only the assassin may start an assassination")
+    end
+    if state.phase == "game-over" or state.phase == "assassinate" then
+      return reject("WRONG_PHASE", "An assassination cannot be started now")
+    end
+    state.phase = "assassinate"
+    return {accepted = true, state = state, events = {{type = "assassination_started"}}}
   end
 
   if action.type == "assassinate" then
@@ -328,7 +349,7 @@ function view(state, events, context)
   local viewer_id = context.viewer.id
   local role_id = state.roles[viewer_id]
   local votes = nil
-  if state.phase == "vote-result" or state.phase == "game-over" then
+  if state.phase == "vote-result" or state.phase == "mission" or state.phase == "mission-result" or state.phase == "game-over" then
     votes = state.votes
   end
   local visible = {

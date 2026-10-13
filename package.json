@@ -9,8 +9,10 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "dev": "vite --host 127.0.0.1",
+    "dev:room": "node dev/room-lab/server.js",
     "build": "vite build",
     "check": "npm run build",
+    "check:room-bundle": "npm run build && node dev/room-lab/check-build.js",
     "deploy": "wrangler deploy"
   },
   "engines": {

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>阿瓦隆 · 本地联机测试台</title>
+  <link rel="stylesheet" href="/dev/room-lab/style.css" />
+</head>
+<body>
+  <header><div><strong>阿瓦隆联机测试台</strong><small>本地 Lua · 独立玩家身份 · 真实 MessagePort 接口</small></div>
+    <form id="setup"><label>人数 <select id="count"><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+      <label>种子 <input id="seed" placeholder="留空随机" maxlength="32" pattern="[a-fA-F0-9]{1,32}" /></label><button id="start">创建测试对局</button></form></header>
+  <div id="error" role="alert" hidden></div>
+  <section class="tools"><span id="status" role="status">创建对局后即可操作，不需要登录平台。</span><div>
+    <button id="layout" disabled>并排视角</button><button id="approve" disabled>未投票者全部赞成</button><button id="reject" disabled>未投票者全部反对</button><button id="success" disabled>未出牌者全部成功</button>
+    <label><input type="checkbox" id="roles" />显示调试身份</label></div></section>
+  <nav id="seats" aria-label="切换玩家视角"></nav>
+  <main id="frames"><p class="empty">一页模拟 5–10 个玩家。每个页面只收到自己的投影视图；可以逐个操作，也可以并排观察。</p></main>
+  <details><summary>操作记录（最多 80 条）</summary><pre id="log"></pre></details>
+  <script type="module" src="/dev/room-lab/main.js"></script>
+</body>
+</html>

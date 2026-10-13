@@ -1,19 +1,70 @@
 # Boardgame Box
 
-基于 Vite 的桌游网页项目，可部署到 Cloudflare Workers 静态资源。首页提供阿瓦隆、炸弹克星、德州心脏病和花砖物语入口，游戏分别部署在 `/avalon/`、`/bomb-busters/`、`/halli-holdem/` 与 `/azul/`。
+基于 Vite 和 Preact 的桌游网页合集，支持本地游玩与 Playweft 房间对局，可部署到 Cloudflare Workers 静态资源。
+
+## 游戏
+
+| 游戏 | 路径 | 人数 | 模式 | 规则 |
+| --- | --- | --- | --- | --- |
+| 阿瓦隆 | `/avalon/` | 5–10 | 本地传屏、房间 | [帮助页](public/avalon/help.html) |
+| 炸弹克星 | `/bomb-busters/` | 2–5 | 本地传屏、房间 | [规则](public/bomb-busters/rules.md) |
+| 德州心脏病（Halli Hold’em） | `/halli-holdem/` | 2–8 | 房间 | [规则](public/halli-holdem/rules.md) |
+| 花砖物语（Azul） | `/azul/` | 2–4 | 本地轮流操作、房间 | [规则](public/azul/rules.md) |
+
+花砖物语采用原版彩色墙面规则，不包含灰色墙面变体与扩展。
 
 ## 本地开发
 
-需要 Node.js 22.12 或更新版本。运行 `npm ci` 安装依赖，再运行 `npm run dev`，打开 http://127.0.0.1:9143/。
+需要 Node.js 22.12 或更新版本。
 
-阿瓦隆支持 5–10 人线下传屏和 Playweft 房间模式；炸弹克星支持 2–5 人合作传屏和房间模式。运行 npm run build 构建，npm run check 验证生产构建。
+```sh
+npm ci
+npm run dev
+```
 
-德州心脏病（Halli Hold’em）仅支持 2–8 人 Playweft 房间对局；独立打开游戏页面可查看规则或前往 Playweft 创建房间。自己的底牌始终隐藏，候选牌仅当前玩家可见；房间以服务端处理顺序判定拍铃与抽牌先后。每次放牌后，服务端通过持久化定时器等待 2 秒自动弃牌，再等 3 秒开放下家抽牌；两段等待均可拍铃。抽牌前，下家也能拍铃；放牌者、过晚的拍铃无效且不扣分。漏拍后的爆牌状态保留，下一位放牌者可能承担扣分。完整规则见 `public/halli-holdem/rules.md`。最高分并列时共同获胜。
+打开 [http://127.0.0.1:6960/](http://127.0.0.1:6960/)。
 
-每个游戏都有独立的 Vite 配置与 `dist/<game>/` 产物；`src/shared` 提供共用主题和 Playweft 客户端，每款游戏仍独立加载自己的资源。`public/<game>` 存放专属 Manifest、Lua 逻辑、帮助页和图标。
+## 测试与构建
 
-花砖物语（Azul）支持 2–4 人本地轮流操作和 Playweft 房间，采用原版彩色墙面规则。主棋盘适配屏幕的宽高，桌面并排、手机上下排列；玩家详情、砖袋统计、结算和规则收在对话框中。点击圆盘或中央选颜色，再选择花纹行或地板，确认前预览溢出和扣分；所有花砖拿完后自动按从上到下顺序铺墙、计分。支持起始标记、弃砖重洗、完整横行触发终局、终局奖励和同分判定。灰色墙面变体与扩展不包含在内。完整规则见 `public/azul/rules.md`。JavaScript 本地引擎与服务端 Lua 通过完整对局回放校验一致性。
+```sh
+npm test                  # 规则与联机逻辑测试
+npm run build             # 构建到 dist/
+npm run check:room-bundle # 构建并检查产物未包含本地测试工具
+```
+
+### 阿瓦隆本地联机测试
+
+```sh
+npm run dev:room
+```
+
+打开 [本地测试台](http://127.0.0.1:6967/__dev/avalon/)，选择 5–10 人并创建对局。测试台使用独立玩家身份、MessagePort 接口和游戏的 Lua 规则引擎，无需启动 Playweft 或登录账号。可通过 `ROOM_LAB_PORT` 调整端口。
+
+- 切换玩家或观战者视角，也可并排显示所有视角。
+- 批量完成队伍投票和任务出牌，或在各玩家页面手动操作。
+- 使用十六进制种子复现角色分配，勾选“显示调试身份”查看角色。
+- 刷新测试台恢复当前对局，点击“重新连接”重载单个玩家视角。
+
+测试台用于本地联机逻辑和界面测试，不模拟平台登录、网络断线或房间持久化。开发工具位于 `dev/room-lab/`，不包含在生产构建中。
+
+## 项目结构
+
+- `src/games/<game>/`：各游戏的界面、客户端逻辑与 Vite 配置。
+- `src/shared/`：共用主题、组件和 Playweft 客户端。
+- `public/<game>/`：游戏 Manifest、Lua 规则、帮助页和图标。
+- `tests/`：自动化测试。
+- `dev/room-lab/`：阿瓦隆本地联机测试工具。
+
+各游戏独立构建到 `dist/<game>/`。
 
 ## 部署
 
-运行 `npx wrangler deploy` 部署。Wrangler 会先执行 `npm run build`，并将 `dist/` 发布为静态资源。默认发布在站点根路径；若发布到子路径，可设置 `BASE_PATH=/boardgame-box/`。构建会将站点文件放入对应子目录，并把 `_headers` 保留在上传根目录且同步添加路径前缀。
+```sh
+npm run deploy
+```
+
+Wrangler 会先构建，再将 `dist/` 发布为静态资源。默认部署在站点根路径；部署到子路径时设置 `BASE_PATH`：
+
+```sh
+BASE_PATH=/boardgame-box/ npm run deploy
+```
