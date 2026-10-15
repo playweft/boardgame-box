@@ -165,6 +165,7 @@ test("only the assassin can interrupt any active phase, then confirm one valid t
         assert.equal(state.votes, undefined);
         assert.equal(state.missionActions, undefined);
         assert.equal(state.finalRoles, undefined);
+        assert.equal(state.assassinationTarget, undefined);
       }
       await reject(assassin, { type: "start_assassination" }, "WRONG_PHASE");
       await reject(other, { type: "assassinate", target: merlin }, "NOT_ASSASSIN");
@@ -174,6 +175,7 @@ test("only the assassin can interrupt any active phase, then confirm one valid t
       await reject(other, { type: "vote", approve: true }, "WRONG_PHASE");
       const hit = ["propose", "mission"].includes(phase);
       await act(assassin, { type: "assassinate", target: hit ? merlin : other });
+      for (const state of Object.values(snapshot.views)) assert.equal(state.assassinationTarget, hit ? merlin : other);
       assert.equal(view(snapshot).winner, hit ? "evil" : "good");
       assert.equal(view(snapshot).finalRoles.length, snapshot.players.length);
       await reject(assassin, { type: "start_assassination" }, "WRONG_PHASE");
@@ -251,11 +253,23 @@ test("complete local room replay exercises missions, assassination, rematch, sta
     ).snapshot;
     assert.equal(view(snapshot).winner, "evil");
     assert.equal(view(snapshot).finalRoles.length, 5);
-    snapshot = (await send(lab, snapshot, assassin, { type: "rematch" }))
-      .snapshot;
+    const owner = snapshot.players[0].id;
+    for (const [playerId, state] of Object.entries(snapshot.views)) {
+      assert.equal(state.canRematch, playerId === owner);
+      if (playerId === owner) continue;
+      const rejected = await send(lab, snapshot, playerId, { type: "rematch", isOwner: true });
+      assert.equal(rejected.result.error.code, playerId === "observer" ? "NOT_A_PLAYER" : "NOT_OWNER");
+      assert.equal(rejected.snapshot.version, snapshot.version);
+      assert.deepEqual(rejected.snapshot.views, snapshot.views);
+    }
+    const rematch = await send(lab, snapshot, owner, { type: "rematch" });
+    assert.equal(rematch.result.accepted, true);
+    snapshot = rematch.snapshot;
     assert.equal(view(snapshot).phase, "propose");
     assert.equal(view(snapshot).round, 2);
     assert.equal(view(snapshot).finalRoles, undefined);
+    assert.equal(view(snapshot).canRematch, false);
+    assert.equal(view(snapshot).assassinationTarget, undefined);
     await assert.rejects(lab.start({ count: 4 }), /5–10/);
     await assert.rejects(lab.start({ seed: "bad seed" }), /十六进制/);
     assert.equal((await lab.snapshot()).matchId, snapshot.matchId);

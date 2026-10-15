@@ -4,6 +4,7 @@ import { createPlayweftClient } from "../../shared/playweft-client.js";
 import AvalonApp from "./view.jsx";
 import { normalizeRoomState } from "./room-state.js";
 import { createMissionResultDisplay } from "./mission-result-display.js";
+import { createAssassinationDisplay } from "./assassination-display.js";
 
 const app = document.querySelector("#avalon-app");
 const questSizes = {
@@ -73,6 +74,7 @@ let questDetails = { open: false, index: 0 };
 let localMissionResultTimer = null;
 let localMissionResultDeadline = null;
 const roomMissionResult = createMissionResultDisplay({ onChange: render });
+const roomAssassination = createAssassinationDisplay({ onChange: render });
 const roomProfiles = new Map();
 const roomProfileRequests = new Set();
 const pendingProfileRefreshes = new Set();
@@ -251,7 +253,7 @@ function render() {
       state,
       roomContext,
       roomMatchId,
-      roomState: roomMissionResult.state(roomState),
+      roomState: roomAssassination.state(roomMissionResult.state(roomState)),
       roomError,
       roomBusy,
       roomTeam,
@@ -479,6 +481,7 @@ app.addEventListener("click", (event) => {
   }
   if (action === "continue-mission") continueLocalMission();
   if (action === "choose-assassin") {
+    state.assassinationTarget = index;
     const hitMerlin = state.players[index].role === "merlin";
     state.winner = hitMerlin ? "evil" : "good";
     state.endReason = hitMerlin
@@ -560,8 +563,11 @@ roomClient = createPlayweftClient({
   },
   onState(nextState, update) {
     nextState = normalizeRoomState(nextState);
+    if (nextState.phase === "game-over" && nextState.assassinationTarget != null && roomState?.phase !== "game-over")
+      questDetails = { ...questDetails, open: false };
     roomMatchId = update.matchId;
     roomMissionResult.update(nextState, update.matchId);
+    roomAssassination.update(nextState, update.matchId);
     const nextStageKey =
       nextState.phase + "|" + nextState.quest + "|" + nextState.leader;
     if (nextStageKey !== roomStageKey) roomTeam = [];

@@ -318,6 +318,7 @@ function on_action(state, action, context)
       return reject("INVALID_TARGET", "Choose another seated player")
     end
     local hit_merlin = state.roles[action.target] == "merlin"
+    state.assassinationTarget = action.target
     state.phase = "game-over"
     state.winner = hit_merlin and "evil" or "good"
     state.endReason = hit_merlin and "刺客识破并刺中了梅林。" or "刺客猜错了身份，梅林保护了亚瑟王。"
@@ -326,6 +327,7 @@ function on_action(state, action, context)
 
   if action.type == "rematch" then
     if state.phase ~= "game-over" then return reject("WRONG_PHASE", "The current game is still active") end
+    if context.actor.isOwner ~= true then return reject("NOT_OWNER", "Only the room owner may start a rematch") end
     state.round = state.round + 1
     state.quest = 1
     state.phase = "propose"
@@ -338,6 +340,7 @@ function on_action(state, action, context)
     state.missions = {}
     state.winner = nil
     state.endReason = nil
+    state.assassinationTarget = nil
     deal_roles(state, state.seed)
     return {accepted = true, state = state, events = {{type = "rematch", round = state.round}}}
   end
@@ -374,6 +377,8 @@ function view(state, events, context)
     roleHints = role_id and role_hints(state, viewer_id) or {},
     winner = state.winner,
     endReason = state.endReason,
+    assassinationTarget = state.phase == "game-over" and state.assassinationTarget or nil,
+    canRematch = state.phase == "game-over" and context.viewer.isOwner == true and player_index(state, viewer_id) ~= nil,
   }
   if state.phase == "game-over" then visible.finalRoles = final_role_list(state) end
   return {state = visible, events = events}

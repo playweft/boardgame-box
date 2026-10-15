@@ -96,8 +96,7 @@ p {
 }
 
 .setup-panel,
-.phase-panel,
-.result-panel {
+.phase-panel {
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -748,18 +747,64 @@ p {
   border: 1px solid #eacbc9;
   border-radius: 0.65rem;
   color: #b54844;
-  background: #fdf4f2;
+  background: transparent;
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
+  transition: background-color 120ms ease;
   touch-action: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
 
+.assassination-strike {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  pointer-events: none;
+}
+
+.assassination-strike.is-entering {
+  animation: assassination-strike-enter 400ms ease-out both;
+}
+
+.assassination-strike .icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  color: #b54844;
+  fill: currentColor;
+  filter: drop-shadow(0 1px 1px #fff);
+  transform: scaleX(-1);
+}
+
+@keyframes assassination-strike-enter {
+  from {
+    opacity: 0;
+    transform: translate(1.25rem, 1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assassination-strike.is-entering {
+    animation: none;
+  }
+}
+
 .assassination-hold:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+  outline: none;
+  background: #fdf4f2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .assassination-hold:hover:not(:disabled) {
+    background: #fdf4f2;
+  }
 }
 
 .assassination-hold:disabled {
@@ -815,8 +860,9 @@ p {
   overflow-wrap: anywhere;
 }
 
-.assassination-confirm-actions {
+.quest-dialog-actions {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid #e4e9e6;
 }
@@ -826,7 +872,7 @@ p {
   vertical-align: middle;
 }
 
-.assassination-confirm-actions button {
+.quest-dialog-actions button {
   min-height: 3.25rem;
   padding: 0.8rem;
   border: 0;
@@ -837,28 +883,83 @@ p {
   cursor: pointer;
 }
 
-.assassination-confirm-actions button + button {
+.quest-dialog-actions button + button {
   border-left: 1px solid #e4e9e6;
+  color: #2563eb;
+}
+
+.quest-dialog-actions .danger {
   color: #b54844;
 }
 
-.assassination-confirm-actions button:focus-visible {
+.quest-dialog-actions button:focus-visible {
   outline: none;
   background: #edf3ee;
 }
 
-.assassination-confirm-actions button:disabled {
+.quest-dialog-actions button:disabled {
   cursor: default;
   opacity: 0.6;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .assassination-confirm-actions button:hover:not(:disabled) {
+  .quest-dialog-actions button:hover:not(:disabled) {
     background: #edf3ee;
   }
-  .assassination-confirm-actions button:active:not(:disabled) {
+  .quest-dialog-actions button:active:not(:disabled) {
     background: #dce6df;
   }
+}
+
+.settlement-content.quest-dialog-content {
+  padding-top: 1.4rem;
+}
+
+.settlement-title {
+  margin: 0;
+  color: #2563eb;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.settlement-title.evil {
+  color: #b54844;
+}
+
+.settlement-reason {
+  margin: 0.5rem 0 0;
+  color: #6f7b76;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.settlement-grid {
+  row-gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.settlement-grid .player-tile {
+  color: #172824;
+  cursor: default;
+}
+
+.settlement-grid .player-tile > strong {
+  font-size: 0.85rem;
+}
+
+.settlement-grid .player-avatar {
+  width: 3rem;
+  font-size: 1.1rem;
+}
+
+.settlement-role {
+  color: #2563eb;
+  font-size: 0.8rem;
+}
+
+.settlement-role.evil {
+  color: #b54844;
 }
 
 .player-tile[aria-haspopup="dialog"] {
@@ -1303,49 +1404,6 @@ p {
   text-align: center;
 }
 
-.result-view {
-  padding-top: 2.6rem;
-}
-
-.result-panel {
-  width: 100%;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.result-mark {
-  display: grid;
-  width: 3.2rem;
-  aspect-ratio: 1;
-  margin: 0 auto 1rem;
-  place-items: center;
-  border-radius: 50%;
-  color: #153f39;
-  background: var(--green);
-  font-size: 1.4rem;
-  font-weight: 800;
-}
-
-.result-mark .icon {
-  width: 1.45rem;
-  height: 1.45rem;
-}
-
-.evil-mark {
-  color: #491e22;
-  background: var(--red);
-}
-
-.result-panel h1 {
-  margin-bottom: 0.35rem;
-  font-size: clamp(2rem, 8vw, 3rem);
-  letter-spacing: -0.05em;
-}
-
-.result-panel .quest-track {
-  text-align: left;
-}
-
 .quest-dialog {
   width: min(32rem, calc(100vw - 2rem));
   max-width: none;
@@ -1731,53 +1789,8 @@ p {
   font-size: 0.78rem;
 }
 
-.role-reveal-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 1rem;
-  margin: 1.2rem 0;
-  text-align: left;
-}
-
-.role-result-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  min-width: 0;
-  padding: 0.65rem 0;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  font-size: 0.75rem;
-}
-
-.role-result-row > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .mission-result .proposal-strip {
   text-align: left;
-}
-
-.game-over .role-reveal-list {
-  margin: 1.4rem 0;
-}
-
-.game-over .role-result-row {
-  font-size: 0.75rem;
-}
-
-.game-over .role-tag {
-  padding: 0;
-  font-size: 0.75rem;
-}
-
-.game-over .text-link {
-  display: inline-block;
-  margin-top: 1rem;
 }
 
 .reveal-view {

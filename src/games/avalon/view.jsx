@@ -4,6 +4,7 @@ import Dialog from "../../shared/dialog.jsx";
 import { createRoleIntroduction } from "./role-introduction.js";
 import { factionRoleMarks, loadPlayerRoleMarks, savePlayerRoleMarks } from "./player-role-marks.js";
 import { withProposalLeaders } from "./proposal-history.js";
+import { assassinationRevealDuration } from "./assassination-display.js";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
   Scale,
   Shield,
   Sparkles,
+  Sword,
   Swords,
   ThumbsDown,
   ThumbsUp,
@@ -45,6 +47,7 @@ const iconData = {
   scale: Scale,
   shield: Shield,
   sparkles: Sparkles,
+  sword: Sword,
   swords: Swords,
   "thumbs-down": ThumbsDown,
   "thumbs-up": ThumbsUp,
@@ -554,6 +557,10 @@ function LeaderMarker() {
   );
 }
 
+function AssassinationStrike({ animate = false }) {
+  return <span className={"assassination-strike" + (animate ? " is-entering" : "")} role="img" aria-label="被刺杀"><Icon name="sword" /></span>;
+}
+
 function ProposePage({ state, questSizes }) {
   const required = questSizes[state.players.length][state.quest];
   return (
@@ -750,38 +757,52 @@ function AssassinationPage({ state, playerName, questSizes }) {
   );
 }
 
-function GameOverPage({ state, roles }) {
-  const goodWon = state.winner === "good";
+function GameResultDialog({ winner, endReason, players, busy = false, canRematch = true, roomMode = true }) {
+  const [open, setOpen] = useState(true);
+  const close = () => { if (!busy) setOpen(false); };
   return (
-    <main className="play-view result-view">
-      <section className="result-panel game-over">
-        <span
-          className={"result-mark " + (goodWon ? "good-mark" : "evil-mark")}
-        >
-          <Icon name={goodWon ? "crown" : "swords"} />
-        </span>
-        <p className="eyebrow">
-          本局结束 · {goodWon ? "忠诚阵营胜利" : "邪恶阵营胜利"}
-        </p>
-        <h1>{goodWon ? "亚瑟王的胜利" : "莫德雷德的胜利"}</h1>
-        <p className="subtitle">{state.endReason}</p>
-        <div className="role-reveal-list">
-          {state.players.map((player, index) => (
-            <div className="role-result-row" key={player.name + index}>
-              <span>{player.name}</span>
-              <b className={"role-tag " + roles[player.role].team}>
-                {roles[player.role].name}
-              </b>
-            </div>
-          ))}
+    <>
+      <button className="secondary-button full-button" type="button" onClick={() => setOpen(true)}>查看结算</button>
+      <Dialog open={open} onClose={close} className="quest-dialog settlement-dialog" aria-labelledby="settlement-title">
+        <div className="quest-dialog-content settlement-content">
+          <h2 className={"settlement-title " + winner} id="settlement-title">{winner === "good" ? "正义阵营胜利" : "邪恶阵营胜利"}</h2>
+          {endReason && <p className="settlement-reason">{endReason}</p>}
+          <div className="player-grid settlement-grid" role="list" aria-label="玩家身份">
+            {players.map((player, index) => (
+              <div className="player-tile" role="listitem" key={player.id}>
+                <span className="player-avatar" role="img" aria-label={`${index + 1}`}>
+                  {player.name.slice(0, 1)}
+                  {player.avatar && <img src={player.avatar} alt="" onError={event => { event.currentTarget.hidden = true; }} />}
+                  <span className="player-number">{index + 1}</span>
+                </span>
+                <strong>{player.name}</strong>
+                <span className={"settlement-role " + player.team}>{player.roleName}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <button className="primary-button full-button" data-action="restart">
-          再开一局 <Icon name="arrow-right" />
-        </button>
-        <a className="text-link" href="../../">
-          返回桌游盒
-        </a>
-      </section>
+        <div className="quest-dialog-actions">
+          <button type="button" disabled={busy} onClick={close}>关闭</button>
+          <button type="button" disabled={busy || !canRematch} data-room-action={roomMode && canRematch ? "rematch" : undefined} data-action={roomMode ? undefined : "restart"}>{canRematch ? "再开一局" : "等待中"}</button>
+        </div>
+      </Dialog>
+    </>
+  );
+}
+
+function GameOverPage({ state, roles, questSizes, playerName }) {
+  const [revealing, setRevealing] = useState(state.assassinationTarget != null);
+  useEffect(() => {
+    if (!revealing) return;
+    const timer = window.setTimeout(() => setRevealing(false), assassinationRevealDuration);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const players = state.players.map((player, index) => ({ id: index, name: player.name, roleName: roles[player.role].name, team: roles[player.role].team }));
+  return (
+    <main className="play-view">
+      <QuestTrack count={players.length} missions={state.missions} quest={state.quest} questSizes={questSizes} stage={revealing ? "刺杀阶段" : "本局结束"} />
+      <RoomPlayerTiles roomState={{ players, leader: state.leader, phase: revealing ? "assassination-result" : "game-over", assassinationTarget: state.assassinationTarget }} selected={[]} mask="none" roomPlayerName={playerName} roomAvatarSource={() => undefined} />
+      {revealing ? <h2 className="room-vote-prompt" role="status">刺杀中</h2> : <GameResultDialog winner={state.winner} endReason={state.endReason} players={players} roomMode={false} />}
     </main>
   );
 }
@@ -876,9 +897,9 @@ function AssassinationConfirmDialog({ open, target, players, roomPlayerName, bus
   return (
     <Dialog open={open} onClose={() => { if (!busy) onClose(); }} className="quest-dialog assassination-confirm-dialog" role="alertdialog" aria-labelledby="assassination-confirm-prompt">
       <p className="assassination-confirm-prompt" id="assassination-confirm-prompt">确认刺杀 <span className="player-number assassination-confirm-number">{players.indexOf(player) + 1}</span> {roomPlayerName(target)}？</p>
-      <div className="assassination-confirm-actions">
+      <div className="quest-dialog-actions">
         <button type="button" disabled={busy} onClick={onClose}>取消</button>
-        <button type="button" disabled={busy} data-room-action={roomMode ? "assassinate" : undefined} data-player-id={roomMode ? target : undefined} data-action={roomMode ? undefined : "choose-assassin"} data-index={roomMode ? undefined : target}>刺杀</button>
+        <button className="danger" type="button" disabled={busy} data-room-action={roomMode ? "assassinate" : undefined} data-player-id={roomMode ? target : undefined} data-action={roomMode ? undefined : "choose-assassin"} data-index={roomMode ? undefined : target}>刺杀</button>
       </div>
     </Dialog>
   );
@@ -893,7 +914,7 @@ function RoomRoleCard({ roomState, roomMatchId, playerId, roles, roomPlayerName,
     setOpen(claimRoleIntroduction({ matchId: roomMatchId, round: roomState.round, playerId, hasRole, finished }));
   }, [roomMatchId, roomState.round, playerId, hasRole, finished]);
   useEffect(() => {
-    if (["assassinate", "game-over"].includes(roomState.phase)) setOpen(false);
+    if (["assassinate", "assassination-result", "game-over"].includes(roomState.phase)) setOpen(false);
   }, [roomState.phase]);
   const hintNames = (roomState.roleHints || []).map(roomPlayerName);
   let hint = "你没有额外的身份线索。";
@@ -912,7 +933,7 @@ function RoomRoleCard({ roomState, roomMatchId, playerId, roles, roomPlayerName,
   const roleDescription = roles[role?.id]?.description || "";
   return (
     <div className="room-role-card">
-      <button className="room-role-trigger" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <button className="room-role-trigger" type="button" disabled={roomState.phase === "assassination-result"} aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <span className="room-role-label">
           <Icon name="eye" />
           {role ? "查看身份" : "观战信息"}
@@ -944,7 +965,7 @@ function RoomTrack({ roomState, questSizes }) {
       quest={roomState.quest - 1}
       questSizes={questSizes}
       proposal={["vote-result", "mission", "mission-result"].includes(roomState.phase) ? roomState.proposalHistory.filter(item => item.quest === roomState.quest).length : roomState.consecutiveRejections + 1}
-      stage={roomState.phase === "propose" ? "队伍提名" : roomState.phase === "mission" ? "执行任务" : roomState.phase === "mission-result" ? "任务结果" : roomState.phase === "assassinate" ? "刺杀阶段" : "队伍表决"}
+      stage={roomState.phase === "propose" ? "队伍提名" : roomState.phase === "mission" ? "执行任务" : roomState.phase === "mission-result" ? "任务结果" : ["assassinate", "assassination-result"].includes(roomState.phase) ? "刺杀阶段" : roomState.phase === "game-over" ? "本局结束" : "队伍表决"}
     />
   );
 }
@@ -1008,6 +1029,7 @@ function RoomPlayerTiles({
                 {index + 1}
               </span>
               {isLeader && <LeaderMarker />}
+              {["assassination-result", "game-over"].includes(roomState.phase) && roomState.assassinationTarget === player.id && <AssassinationStrike animate={roomState.phase === "assassination-result"} />}
             </span>
             <strong>{playerName}</strong>
             {markedRole && <span className={"player-role-mark " + markedRole.team} aria-label={`标记身份：${markedRole.name}`}><Icon name={markedRole.icon} />{markedRole.name}</span>}
@@ -1114,6 +1136,10 @@ function RoomPage({
   const [marks, setMarks] = useState(() => loadPlayerRoleMarks(markScope, (roomState?.players || []).map(player => player.id), Object.keys(roles)));
   const [markDialog, setMarkDialog] = useState({ open: false, target: null });
   const [assassination, setAssassination] = useState({ open: false, target: null });
+  useEffect(() => {
+    if (["assassination-result", "game-over"].includes(roomState?.phase))
+      setMarkDialog(previous => ({ ...previous, open: false }));
+  }, [roomState?.phase]);
   const closeMarkDialog = () => setMarkDialog(previous => ({ ...previous, open: false }));
   const markRole = roleId => {
     setMarks(previous => {
@@ -1227,6 +1253,8 @@ function RoomPage({
                 下一位队长提名 <Icon name="arrow-right" />
               </button>
             </>
+          ) : !myRole ? (
+            <p className="private-prompt" role="status">等待队伍表决</p>
           ) : (
             <>
               <h2 className="room-vote-prompt">
@@ -1260,35 +1288,31 @@ function RoomPage({
         </section>
       </>
     );
-  } else if (roomState.phase === "game-over") {
-    const goodWon = roomState.winner === "good";
+  } else if (roomState.phase === "assassination-result") {
     content = (
-      <section className="result-panel game-over">
-        <span
-          className={"result-mark " + (goodWon ? "good-mark" : "evil-mark")}
-        >
-          <Icon name={goodWon ? "crown" : "swords"} />
-        </span>
-        <p className="eyebrow">
-          本局结束 · {goodWon ? "忠诚阵营胜利" : "邪恶阵营胜利"}
-        </p>
-        <h1>{goodWon ? "亚瑟王的胜利" : "莫德雷德的胜利"}</h1>
-        <p className="subtitle">{roomState.endReason || ""}</p>
-        <div className="role-reveal-list">
-          {(roomState.finalRoles || []).map((player) => (
-            <div className="role-result-row" key={player.playerId}>
-              <span>{roomPlayerName(player.playerId)}</span>
-              <b className={"role-tag " + player.team}>{player.roleName}</b>
-            </div>
-          ))}
-        </div>
-        <button
-          className="primary-button full-button"
-          data-room-action="rematch"
-        >
-          再开一局 <Icon name="arrow-right" />
-        </button>
-      </section>
+      <>
+        {track}
+        <section className="phase-panel">
+          <RoomPlayerTiles roomState={roomState} selected={[]} mask="none" roomPlayerName={roomPlayerName} roomAvatarSource={roomAvatarSource} />
+          <h2 className="room-vote-prompt" role="status">刺杀中</h2>
+        </section>
+      </>
+    );
+  } else if (roomState.phase === "game-over") {
+    const finalPlayers = roomState.players.map(player => ({
+      ...player,
+      name: roomPlayerName(player.id),
+      avatar: roomAvatarSource(player.id),
+      ...(roomState.finalRoles || []).find(role => role.playerId === player.id),
+    }));
+    content = (
+      <>
+        {track}
+        <section className="phase-panel">
+          <RoomPlayerTiles roomState={roomState} selected={[]} mask="none" roomPlayerName={roomPlayerName} roomAvatarSource={roomAvatarSource} />
+          <GameResultDialog winner={roomState.winner} endReason={roomState.endReason} players={finalPlayers} busy={roomBusy} canRematch={roomState.canRematch === true} />
+        </section>
+      </>
     );
   }
 
@@ -1379,7 +1403,7 @@ export default function AvalonApp(props) {
         <MissionPage state={state} roles={roles} playerName={playerName} questSizes={questSizes} />
       ),
       assassinate: <AssassinationPage state={state} playerName={playerName} questSizes={questSizes} />,
-      over: <GameOverPage state={state} roles={roles} />,
+      over: <GameOverPage state={state} roles={roles} questSizes={questSizes} playerName={playerName} />,
     };
     page = pages[state.phase];
   }
