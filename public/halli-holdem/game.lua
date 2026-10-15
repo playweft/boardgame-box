@@ -299,7 +299,7 @@ local function settle(state, actor_id, declaration)
   end
   if declaration == "lucky" then
     local own = state.fixedResults[actor_id]
-    correct = own[1] >= 4
+    correct = not burst and own[1] >= 4
     for _, player in ipairs(state.players) do
       if player.id ~= actor_id and compare_hands(own, state.fixedResults[player.id]) < 0 then correct = false end
     end

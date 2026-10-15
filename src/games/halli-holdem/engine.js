@@ -306,6 +306,7 @@ function settle(state, actorId, declaration) {
   if (declaration === "lucky") {
     const own = state.fixedResults[actorId];
     correct =
+      !burst &&
       own[0] >= 4 &&
       state.players.every(
         (player) =>

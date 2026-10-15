@@ -1103,6 +1103,68 @@ test("Lucky dog accepts highest ties but rejects lower ties and ties below a str
   }
 });
 
+test("Lucky dog requires no current burst for both unique and tied strongest hands in JS and Lua", async () => {
+  const lua = await openLua();
+  try {
+    await lua.doString(
+      await readFile(
+        new URL("../public/halli-holdem/game.lua", import.meta.url),
+        "utf8",
+      ),
+    );
+    for (const hands of [
+      ["7d Kh", "2c Qh", "3c Jh"],
+      ["7d Kh", "7c Qh", "3c Jh"],
+    ]) {
+      for (const [dynamic, comparison] of [
+        ["", -1],
+        ["3s 4d 5c 6h", 0],
+        ["8s 9d Tc Jc Qs", 1],
+      ]) {
+        const state = fixture({ fixed: "2s 3h 4c 5d 6s", hands, dynamic });
+        assert.equal(
+          compareHands(state.fixedResults.p0, state.fixedStrength),
+          0,
+        );
+        assert.equal(state.fixedResults.p0[0], 4);
+        assert.equal(
+          compareHands(state.dynamicStrength, state.fixedStrength),
+          comparison,
+        );
+        await lua.doString(`state=${luaLiteral(state)}`);
+        const action = {
+          type: "bell",
+          declaration: "lucky",
+          round: state.round,
+          step: state.step,
+        };
+        const result = applyAction(state, "p0", action);
+        assert.equal(result.accepted, true);
+        assert.equal(state.settlement.correct, comparison <= 0);
+        assert.equal(state.settlement.wasBurst, comparison > 0);
+        assert.deepEqual(
+          state.settlement.deltas,
+          comparison <= 0
+            ? { p0: 3, p1: -1, p2: -1 }
+            : { p0: -2, p1: 1, p2: 1 },
+        );
+        assert.deepEqual(
+          await lua.doString(
+            `return on_action(state,${luaLiteral(action)},{actor={id='p0'}})`,
+          ),
+          luaCompatible(result),
+        );
+        assert.deepEqual(
+          await lua.doString("return state.settlement"),
+          luaCompatible(state.settlement),
+        );
+      }
+    }
+  } finally {
+    lua.global.close();
+  }
+});
+
 test("duels allow only the opponent to ring after placement, until the opponent draws", async () => {
   const lua = await openLua();
   try {
