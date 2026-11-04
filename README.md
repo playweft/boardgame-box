@@ -10,8 +10,11 @@
 | 炸弹克星 | `/bomb-busters/` | 2–5 | 本地传屏、房间 | [规则](public/bomb-busters/rules.md) |
 | 德州心脏病（Halli Hold’em） | `/halli-holdem/` | 2–8 | 房间 | [规则](public/halli-holdem/rules.md) |
 | 花砖物语（Azul） | `/azul/` | 2–4 | 本地轮流操作、房间 | [规则](public/azul/rules.md) |
+| 璀璨宝石（Splendor） | `/splendor/` | 2–4 | 本地轮流操作、房间 | [规则](public/splendor/rules.md) |
 
 花砖物语采用原版彩色墙面规则，不包含灰色墙面变体与扩展。
+
+璀璨宝石采用基础版 90 张发展卡和 10 位贵族，支持黄金自选支付、超额宝石归还、贵族选择与完整末轮结算。本地模式自动保存进度，并通过交接屏幕保护预留牌；房间模式由 Lua 服务端校验操作并隐藏其他玩家的预留牌和牌堆顺序。数值牌表在 `src/games/splendor/data.js`，修改后运行 `node dev/sync-splendor-data.js` 同步 Lua 中的牌表，测试会检查两端一致性。
 
 ## 本地开发
 

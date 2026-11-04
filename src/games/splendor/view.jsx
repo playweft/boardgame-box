@@ -1,0 +1,256 @@
+import { h } from "preact";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { ArrowLeft, ArrowRight, CircleHelp, Crown, Gem as GemIcon, LockKeyhole, X } from "lucide";
+import Dialog from "../../shared/dialog.jsx";
+import { CARDS, COLORS, COLOR_NAMES, TOKEN_COLORS, costAfterBonuses, paymentFor, tokenCount } from "./engine.js";
+
+const icons = { back: ArrowLeft, arrow: ArrowRight, help: CircleHelp, crown: Crown, gem: GemIcon, lock: LockKeyhole, close: X };
+function Icon({ name, className = "icon" }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {(icons[name] || []).map(([tag, attributes], index) => h(tag, { ...attributes, key: index }))}
+  </svg>;
+}
+
+const gemShapes = {
+  white: "M5 3H15L19 8L10 19L1 8Z", blue: "M6 2H14L19 7V14L14 19H6L1 14V7Z",
+  green: "M5 2H15L18 5V16L15 19H5L2 16V5Z", red: "M10 1L19 10L10 20L1 10Z",
+  black: "M6 2H14L19 10L14 19H6L1 10Z", gold: "M10 1L13 7L20 8L15 13L16 20L10 16L4 20L5 13L0 8L7 7Z",
+};
+const gemLetters = { white: "白", blue: "蓝", green: "绿", red: "红", black: "黑", gold: "金" };
+export function Gem({ color, className = "", label = false }) {
+  return <span className={`gem gem-${color} ${className}`} title={COLOR_NAMES[color]}>
+    <svg viewBox="0 0 21 21" aria-hidden="true"><path d={gemShapes[color]} fill="currentColor" />
+      <path d="M5 5L10 9L15 5M10 9V16M4 10L10 9L17 10" fill="none" stroke="white" strokeOpacity=".38" strokeWidth=".9" /></svg>
+    {label && <small>{gemLetters[color]}</small>}
+  </span>;
+}
+const nameOf = (game, id) => game.players.find(p => p.id === id)?.name || "玩家";
+const listTokens = tokens => TOKEN_COLORS.filter(c => tokens[c]).map(c => `${gemLetters[c]}×${tokens[c]}`).join(" · ");
+const emptyTokens = () => Object.fromEntries(TOKEN_COLORS.map(c => [c, 0]));
+
+function Card({ card, onClick, affordable = false }) {
+  if (card.hidden) return <div className={`development-card card-back level-${card.level}`} aria-label={`${card.level} 级预留牌，牌面保密`}>
+    <Icon name="lock" /><span>{"•".repeat(card.level)}</span></div>;
+  return <button className={`development-card bonus-${card.bonus}${affordable ? " affordable" : ""}`}
+    onClick={onClick} aria-label={`${card.level}级${COLOR_NAMES[card.bonus]}发展卡，${card.points}分，费用${listTokens(card.cost)}${affordable ? "，可购买" : ""}`}>
+    <span className="card-top"><b className={card.points ? "" : "zero-points"}>{card.points || "·"}</b><Gem color={card.bonus} /></span>
+    <span className="card-watermark" aria-hidden="true"><Gem color={card.bonus} /></span><span className="card-costs">{COLORS.filter(c => card.cost[c]).map(c =>
+      <span className={`cost cost-${c}`} key={c}><Gem color={c} /><b>{card.cost[c]}</b></span>)}</span>
+    {affordable && <span className="affordable-dot" title="可购买" />}
+  </button>;
+}
+
+function Noble({ noble, eligible = false, onClick }) {
+  const content = <><span className="noble-top"><Icon name="crown" /><b>3<small> 分</small></b></span>
+    <span className="noble-costs">{COLORS.filter(c => noble.cost[c]).map(c => <span className={`cost cost-${c}`} key={c}><Gem color={c} /><b>{noble.cost[c]}</b></span>)}</span></>;
+  return onClick ? <button className={`noble${eligible ? " eligible" : ""}`} onClick={onClick}
+    aria-label={`选择贵族，要求${listTokens(noble.cost)}折扣，获得3分`}>{content}</button>
+    : <div className={`noble${eligible ? " eligible" : ""}`} title={`贵族：${listTokens(noble.cost)}折扣`}>{content}</div>;
+}
+
+function DialogHeading({ title, onClose }) {
+  return <div className="dialog-heading"><strong>{title}</strong>{onClose && <button className="icon-button" onClick={onClose} aria-label={`关闭${title}`}><Icon name="close" /></button>}</div>;
+}
+
+function Entry({ onStart, launchUrl }) {
+  const [count, setCount] = useState(2);
+  const [names, setNames] = useState(["玩家 1", "玩家 2", "玩家 3", "玩家 4"]);
+  return <main className="setup-view">
+      <form className="setup-form" onSubmit={event => { event.preventDefault(); onStart(names.slice(0, count)); }}>
+        <div className="section-heading"><div><p className="eyebrow">01 / 玩家</p><h2>谁来加入这场对局？</h2></div>
+          <label className="count-picker"><span>人数</span><select aria-label="选择玩家人数" value={count} onChange={event => setCount(Number(event.currentTarget.value))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} 人</option>)}</select></label></div>
+        <div className="name-grid">{names.slice(0, count).map((name, index) => <label key={index}><span>{String(index + 1).padStart(2, "0")}{index === 0 && " · 先手"}</span>
+          <input aria-label={`玩家 ${index + 1} 姓名`} value={name} maxLength={24} onInput={event => setNames(names.map((value, i) => i === index ? event.currentTarget.value : value))} /></label>)}</div>
+        <div className="setup-divider" /><div className="section-heading"><div><p className="eyebrow">02 / 配置</p><h2>基础版</h2></div><span>15 分 · 打完当轮</span></div>
+        <div className="setup-inventory"><span>{TOKEN_COLORS.map(color => <Gem key={color} color={color} />)}</span><span>90 张发展卡 · {count + 1} 位贵族</span></div>
+        <button type="submit" className="primary-button full-width">洗牌并开始 <Icon name="arrow" /></button>
+        <a className="room-link" href={launchUrl}>创建在线房间 ↗</a>
+      </form>
+  </main>;
+}
+
+function FittedTable({ children }) {
+  const arenaRef = useRef(null), tableRef = useRef(null);
+  const [layout, setLayout] = useState({ wide: false, width: 380, scale: 0 });
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver(() => {
+      const { width, height } = arenaRef.current.getBoundingClientRect();
+      const wide = width / height > 1.6;
+      const designWidth = wide ? 720 : 380;
+      const naturalHeight = tableRef.current.scrollHeight;
+      const scale = Math.min(width / designWidth, height / Math.max(1, naturalHeight), 1.24);
+      setLayout(previous => previous.wide === wide && previous.width === designWidth && Math.abs(previous.scale - scale) < .001
+        ? previous : { wide, width: designWidth, scale });
+    });
+    observer.observe(arenaRef.current); observer.observe(tableRef.current);
+    return () => observer.disconnect();
+  }, []);
+  return <div className="table-arena" ref={arenaRef}><div ref={tableRef} className={`fitted-table ${layout.wide ? "table-wide" : "table-portrait"}`}
+    style={{ width: layout.width, transform: `translate(-50%, -50%) scale(${layout.scale})`, visibility: layout.scale ? "visible" : "hidden" }}>{children}</div></div>;
+}
+
+function PlayerSummary({ game, player, index, onClick }) {
+  const board = game.boards[player.id], active = game.currentPlayerId === player.id && game.phase !== "ended";
+  return <button className={`player-summary${active ? " active" : ""}${game.viewerId === player.id ? " mine" : ""}`} onClick={onClick}
+    aria-label={`查看${player.name}的商会，${board.score}分，${tokenCount(board.tokens)}枚宝石，${board.purchased.length}张发展卡`}>
+    <span className="player-heading"><span className="player-avatar">{index + 1}</span><strong>{player.name}{game.viewerId === player.id && <small>你</small>}</strong>
+      {index === 0 && <span className="first-player" title="本局先手">Ⅰ</span>}<b className="player-score">{board.score}<small>/ 15</small></b></span>
+    <span className="resource-grid"><span className="resource-label">宝石</span>{TOKEN_COLORS.map(c => <span key={c}><Gem color={c} /><b>{board.tokens[c]}</b></span>)}
+      <span className="resource-label">折扣</span>{TOKEN_COLORS.map(c => <span className="bonus-number" key={c}>{c === "gold" ? "—" : board.bonuses[c]}</span>)}</span>
+    <span className="player-foot"><span>{board.purchased.length} 张发展卡</span><span>预留 {board.reserved.length}/3</span><span><Icon name="crown" /> {board.nobles.length}</span></span>
+  </button>;
+}
+
+function CardChoice({ game, choice, busy, onAction, onClose }) {
+  const board = game.boards[game.viewerId], card = choice.card;
+  const [payment, setPayment] = useState(() => board && card ? paymentFor(board, card) : null);
+  const active = game.canAct && game.phase === "playing" && !busy;
+  const due = board && card ? costAfterBonuses(board, card) : null;
+  const isReserved = card && board?.reserved.some(c => c.id === card.id);
+  const inMarket = card && game.market.some(row => row.some(c => c.id === card.id));
+  const canReserve = active && board.reserved.length < 3 && (card ? inMarket : true);
+  const gold = game.bank.gold > 0;
+  const submit = action => { onAction(action); };
+  return <Dialog open onClose={onClose} className="app-dialog card-dialog" aria-label={card ? "发展卡详情" : "预留牌堆顶牌"}>
+    <DialogHeading title={card ? `${isReserved ? "我的预留" : "公开市场"} · ${card.level} 级发展卡` : `预留 ${choice.level} 级牌堆顶牌`} onClose={onClose} />
+    <div className="dialog-body">
+      {card ? <>
+        <div className="card-detail"><Card card={card} /><div><h2>{COLOR_NAMES[card.bonus]} +1</h2><p>{card.points} 分</p></div></div>
+        {due && <><div className="section-heading"><h3>本次支付</h3><span>已扣除永久折扣</span></div>
+          <div className="payment-rows">{COLORS.filter(c => due[c] > 0).map(c => <div className="payment-row" key={c}><Gem color={c} /><span>{COLOR_NAMES[c]} <small>需 {due[c]}</small></span>
+            {payment ? <div className="stepper"><button aria-label={`少付一枚${COLOR_NAMES[c]}，改用黄金`} disabled={!active || payment[c] === 0 || payment.gold >= board.tokens.gold}
+              onClick={() => setPayment({ ...payment, [c]: payment[c] - 1, gold: payment.gold + 1 })}>−</button><b>{payment[c]}</b>
+              <button aria-label={`多付一枚${COLOR_NAMES[c]}，少用黄金`} disabled={!active || payment[c] >= Math.min(due[c], board.tokens[c])}
+                onClick={() => setPayment({ ...payment, [c]: payment[c] + 1, gold: payment.gold - 1 })}>+</button></div>
+              : <span className="shortfall">持有 {board.tokens[c]}</span>}</div>)}</div>
+          {payment ? <p className="payment-note">{tokenCount(payment) === 0 ? "折扣已覆盖全部费用，可免费购买。" : <><Gem color="gold" />使用 {payment.gold} 枚黄金 · 共支付 {tokenCount(payment)} 枚宝石</>}</p>
+            : <p className="payment-note shortfall">宝石不足</p>}</>}
+        <div className="choice-actions"><button className="primary-button" disabled={!active || !payment || (!inMarket && !isReserved)} onClick={() => submit({ type: "buy", cardId: card.id, payment })}>确认购买 <Icon name="arrow" /></button>
+          {inMarket && <button className="secondary-button" disabled={!canReserve} onClick={() => submit({ type: "reserve", cardId: card.id })}>预留{gold ? " · 黄金 +1" : " · 黄金已空"}</button>}</div>
+        {!isReserved && board?.reserved.length >= 3 && <p className="muted small">预留已满，请先购买手中的预留牌。</p>}
+      </> : <><div className={`blind-illustration level-${choice.level}`}><Icon name="lock" /><span>{"•".repeat(choice.level)}</span></div>
+        <h2 className="centered">盲抽预留</h2><p className="muted centered">抽取牌堆顶的一张牌，只有你能看到牌面。<br />{gold ? "同时获得 1 枚黄金，可替代任意颜色支付。" : "黄金已取完，仍可正常预留。"}</p>
+        <button className="primary-button full-width" disabled={!canReserve} onClick={() => submit({ type: "reserve", blind: true, level: choice.level })}>确认预留 <Icon name="arrow" /></button></>}
+    </div>
+  </Dialog>;
+}
+
+function ReturnTokens({ game, busy, onAction }) {
+  const board = game.boards[game.viewerId], excess = tokenCount(board.tokens) - 10;
+  const [returned, setReturned] = useState(emptyTokens);
+  const selected = tokenCount(returned);
+  return <Dialog open className="app-dialog return-dialog" aria-label="归还超出的宝石">
+    <DialogHeading title={`归还 ${excess} 枚宝石`} /><div className="dialog-body">
+      <p className="muted">回合结束最多保留 10 枚，包含黄金。可以归还刚刚拿取的宝石。</p>
+      <div className="return-options">{TOKEN_COLORS.map(c => <div className="return-option" key={c}><Gem color={c} /><span>{COLOR_NAMES[c]} <small>持有 {board.tokens[c]}</small></span>
+        <div className="stepper"><button disabled={busy || !returned[c]} aria-label={`少归还一枚${COLOR_NAMES[c]}`} onClick={() => setReturned({ ...returned, [c]: returned[c] - 1 })}>−</button>
+          <b>{returned[c]}</b><button disabled={busy || returned[c] >= board.tokens[c] || selected >= excess} aria-label={`多归还一枚${COLOR_NAMES[c]}`} onClick={() => setReturned({ ...returned, [c]: returned[c] + 1 })}>+</button></div></div>)}</div>
+      <button className="primary-button full-width" disabled={busy || selected !== excess} onClick={() => onAction({ type: "return_tokens", tokens: returned })}>确认归还 · {selected}/{excess} <Icon name="arrow" /></button>
+    </div>
+  </Dialog>;
+}
+
+function lastMoveText(game, move) {
+  const actor = nameOf(game, move.playerId);
+  const card = move.cardId && CARDS.find(card => card.id === move.cardId);
+  let text = move.type === "take" ? `${actor} 拿取 ${listTokens(move.tokens)}`
+    : move.type === "reserve" ? `${actor} ${move.blind ? "盲抽" : "预留"} ${move.level} 级牌${move.gold ? "，黄金 +1" : ""}`
+      : `${actor} 购买${card ? COLOR_NAMES[card.bonus] : ""}发展卡${card?.points ? `，声望 +${card.points}` : ""}`;
+  if (move.returned) text += `，归还 ${listTokens(move.returned)}`;
+  if (move.nobleId) text += "，获得贵族 +3 分";
+  return text;
+}
+
+export default function SplendorApp({ room, game, busy, error, handoff, onStart, onReady, onExit, onAction, launchUrl }) {
+  const [help, setHelp] = useState(false), [mode, setMode] = useState("different");
+  const [taken, setTaken] = useState([]), [choice, setChoice] = useState(null);
+  const [inspected, setInspected] = useState(null), [history, setHistory] = useState(false), [report, setReport] = useState(false);
+  const [exit, setExit] = useState(false);
+  useEffect(() => {
+    setTaken([]); setChoice(null); setInspected(null); setHistory(false); setExit(false);
+    setReport(game?.phase === "ended");
+  }, [game?.step, game?.viewerId]);
+  // A handoff screen replaces the board, keeping the next player's private hand out of the DOM.
+  const visible = game && !handoff;
+  const active = visible && game.canAct && game.phase === "playing" && !busy;
+  const board = visible && game.boards[game.viewerId];
+  const required = game ? mode === "pair" ? 2 : Math.min(3, COLORS.filter(c => game.bank[c] > 0).length) : 3;
+  const canTake = active && required > 0 && taken.length === required;
+  const chooseGem = color => {
+    if (mode === "pair") setTaken(taken[0] === color ? [] : [color, color]);
+    else setTaken(taken.includes(color) ? taken.filter(c => c !== color) : taken.length < required ? [...taken, color] : taken);
+  };
+  const inspectedPlayer = visible && game.players.find(p => p.id === inspected);
+  const inspectBoard = inspectedPlayer && game.boards[inspectedPlayer.id];
+  const showCard = card => setChoice({ card });
+  return <div className="splendor-shell">
+    <header className="topbar"><a className="back-link" href="../" aria-label="返回桌游盒子"><Icon name="back" /></a>
+      <div className="topbar-title">璀璨宝石</div>
+      <button className="help-link" onClick={() => setHelp(true)} aria-label="游戏规则"><Icon name="help" /></button></header>
+    {!game ? room ? <main className="connection-view"><Icon name="gem" /><h1>璀璨宝石</h1><p role="status">{error || "正在连接房间…"}</p></main>
+      : <Entry onStart={onStart} launchUrl={launchUrl} />
+      : handoff ? <main className="handoff-view"><div className="handoff-symbol"><Icon name="lock" /></div><p className="eyebrow">第 {game.round} 轮 · 本地轮流</p>
+        <h1>请交给 {nameOf(game, game.currentPlayerId)}</h1>
+        <button className="primary-button" onClick={onReady}>我已准备好 <Icon name="arrow" /></button></main>
+        : <main className="play-view">
+          <div className="turn-strip" aria-live="polite"><span className="round-label">第 {game.round} 轮</span><h1>{game.phase === "ended" ? "本局已结束" : game.canAct ? `${nameOf(game, game.currentPlayerId)}的回合` : `等待 ${nameOf(game, game.currentPlayerId)}`}</h1>
+            {game.endingRound !== null && <span className="final-round">最终轮</span>}
+            <button className="text-button" onClick={() => setHistory(true)}>记录</button>{!room && <button className="text-button" onClick={() => setExit(true)}>退出</button>}</div>
+          <nav className="player-strip" aria-label="玩家商会">{game.players.map((player, index) => <button key={player.id} className={`player-chip${game.currentPlayerId === player.id ? " active" : ""}`} onClick={() => setInspected(player.id)} aria-label={`查看${player.name}的商会，${game.boards[player.id].score}分`}>
+            <span className="player-avatar">{index + 1}</span><span className="player-name">{player.name}</span>{index === 0 && <span className="first-player" title="先手">Ⅰ</span>}<b>{game.boards[player.id].score}</b></button>)}</nav>
+          <FittedTable>
+            <section className="nobles-section" aria-label="贵族区"><div className="nobles-row">{game.nobles.map(noble => <Noble noble={noble} key={noble.id} eligible={game.eligibleNobleIds.includes(noble.id)}
+              onClick={game.phase === "choose_noble" && game.canAct && !busy && game.eligibleNobleIds.includes(noble.id) ? () => onAction({ type: "choose_noble", nobleId: noble.id }) : null} />)}</div></section>
+            <section className="market-section" aria-label="发展卡市场">
+              {[3, 2, 1].map(level => <div className="market-row" key={level}>
+                <button className={`deck level-${level}`} disabled={!active || !game.counts[level - 1] || board.reserved.length >= 3} onClick={() => setChoice({ level })} aria-label={`盲抽预留${level}级牌，牌堆剩余${game.counts[level - 1]}张`}>
+                  <Icon name="gem" /><span className="deck-dots">{"•".repeat(level)}</span><b>{game.counts[level - 1]}</b></button>
+                {game.market[level - 1].map(card => <Card card={card} key={card.id} onClick={() => showCard(card)} affordable={!!(active && board && paymentFor(board, card))} />)}
+                {Array.from({ length: 4 - game.market[level - 1].length }, (_, index) => <div className="empty-card" key={`empty-${index}`} />)}
+              </div>)}
+            </section>
+            <section className="bank-section" aria-label="宝石供应区"><div className="bank-row">{TOKEN_COLORS.map(color => { const count = taken.filter(c => c === color).length; return <button key={color} className={`token token-${color}${count ? " selected" : ""}`} disabled={!active || color === "gold" || (mode === "pair" ? game.bank[color] < 4 : !game.bank[color])}
+              aria-label={`${COLOR_NAMES[color]}，供应${game.bank[color]}枚${count ? `，已选${count}枚` : ""}`} aria-pressed={!!count} onClick={() => chooseGem(color)}>
+              <Gem color={color} /><b>{game.bank[color]}</b>{count > 0 && <span className="take-count">+{count}</span>}</button>; })}</div>
+              <div className="take-mode" role="group" aria-label="拿取方式"><button className={mode === "different" ? "selected" : ""} aria-pressed={mode === "different"} disabled={!active} onClick={() => { setMode("different"); setTaken([]); }}>三枚异色</button>
+                <button className={mode === "pair" ? "selected" : ""} aria-pressed={mode === "pair"} disabled={!active} onClick={() => { setMode("pair"); setTaken([]); }}>两枚同色</button></div>
+            </section>
+          </FittedTable>
+          {board && <section className="my-resources" aria-label="我的资源"><div className="resource-grid"><span className="resource-label">宝石</span>{TOKEN_COLORS.map(c => <span key={c}><Gem color={c} /><b>{board.tokens[c]}</b></span>)}
+            <span className="resource-label">折扣</span>{TOKEN_COLORS.map(c => <span className="bonus-number" key={c}>{c === "gold" ? "—" : board.bonuses[c]}</span>)}</div>
+            <button className="text-button reserved-trigger" onClick={() => setInspected(game.viewerId)} aria-label={`查看我的预留牌，${board.reserved.length}张`}><Icon name="lock" /><span>预留 {board.reserved.length}/3</span></button></section>}
+          {error && <p className="error-message" role="alert">{error}</p>}
+          <footer className="action-bar"><span className="action-status" role="status">{game.phase === "ended" ? `${game.winners.map(id => nameOf(game, id)).join("、")}获胜`
+            : game.phase === "choose_noble" ? "选择贵族" : game.phase === "return_tokens" ? "归还宝石" : taken.length ? taken.map(c => gemLetters[c]).join(" · ") : game.canAct ? "选择宝石或发展卡" : "等待操作"}</span>
+            {game.phase === "ended" ? <button className="primary-button" onClick={() => setReport(true)}>查看结算 <Icon name="arrow" /></button>
+              : <button className="primary-button" disabled={!canTake || busy} onClick={() => onAction({ type: "take", colors: taken })}>{busy ? "提交中…" : "确认拿取"} <Icon name="arrow" /></button>}</footer>
+        </main>}
+    {visible && choice && <CardChoice key={`${game.step}-${choice.card?.id || choice.level}`} game={game} choice={choice} busy={busy} onAction={onAction} onClose={() => setChoice(null)} />}
+    {visible && game.phase === "return_tokens" && game.canAct && <ReturnTokens key={game.step} game={game} busy={busy} onAction={onAction} />}
+    <Dialog open={!!inspectedPlayer} onClose={() => setInspected(null)} className="app-dialog overview-dialog" aria-label="商会详情">
+      <DialogHeading title={`${inspectedPlayer?.name || ""}的商会`} onClose={() => setInspected(null)} />
+      {inspectBoard && <div className="dialog-body"><div className="overview-stats"><span><b>{inspectBoard.score}</b> 声望</span><span><b>{inspectBoard.purchased.length}</b> 发展卡</span><span><b>{inspectBoard.nobles.length}</b> 贵族</span></div>
+        <PlayerSummary game={game} player={inspectedPlayer} index={game.players.findIndex(p => p.id === inspected)} onClick={() => {}} /><h3>已购买的发展卡</h3><div className="owned-cards">{inspectBoard.purchased.map(card => <Card key={card.id} card={card} onClick={() => { setInspected(null); showCard(card); }} />)}</div>
+        {!inspectBoard.purchased.length && <p className="muted">尚未购买发展卡。</p>}
+        <h3>预留牌 · {inspectBoard.reserved.length}/3</h3><div className="owned-cards">{inspectBoard.reserved.map((card, index) => <Card key={card.id || index} card={card} onClick={() => { setInspected(null); showCard(card); }} />)}</div>
+        {inspected !== game.viewerId && <p className="muted small">预留牌面仅持有者可见。</p>}
+        {inspectBoard.nobles.length > 0 && <><h3>已到访的贵族</h3><div className="nobles-row">{inspectBoard.nobles.map(noble => <Noble noble={noble} key={noble.id} />)}</div></>}
+      </div>}
+    </Dialog>
+    <Dialog open={history && !!visible} onClose={() => setHistory(false)} className="app-dialog" aria-label="对局记录"><DialogHeading title="对局记录" onClose={() => setHistory(false)} />
+      <div className="dialog-body">{visible && game.history.length ? <ol className="history-list">{[...game.history].reverse().map((move, index) => <li key={index}><small>第 {move.round} 轮</small><p>{lastMoveText(game, move)}</p></li>)}</ol> : <p className="muted">对局刚刚开始。</p>}</div>
+    </Dialog>
+    <Dialog open={report && !!visible && game.phase === "ended"} onClose={() => setReport(false)} className="app-dialog result-dialog" aria-label="本局结算">
+      <DialogHeading title="本局结算" onClose={() => setReport(false)} />{visible && <div className="dialog-body"><div className="winner-crown"><Icon name="crown" /></div>
+        <h2 className="winner-name">{game.winners.map(id => nameOf(game, id)).join("、")}{game.winners.length > 1 ? "共同获胜" : "获胜"}</h2>
+        <div className="result-list">{[...game.players].sort((a, b) => game.boards[b.id].score - game.boards[a.id].score || game.boards[a.id].purchased.length - game.boards[b.id].purchased.length).map(player => <div className={game.winners.includes(player.id) ? "winner" : ""} key={player.id}>
+          <strong>{player.name}</strong><span>{game.boards[player.id].purchased.length} 张发展卡 · {game.boards[player.id].nobles.length} 位贵族</span><b>{game.boards[player.id].score}<small> 分</small></b></div>)}</div>
+        <p className="muted small">同分时，已购买发展卡更少者获胜；仍相同则共享胜利。再来一局将轮换先手。</p>
+        <div className="choice-actions"><button className="primary-button" disabled={busy || !game.canRematch} onClick={() => onAction({ type: "rematch" })}>再来一局 <Icon name="arrow" /></button>
+          {!room && <button className="secondary-button" onClick={onExit}>更换玩家</button>}</div></div>}
+    </Dialog>
+    <Dialog open={exit && !!visible && !room} onClose={() => setExit(false)} className="app-dialog" aria-label="退出本局"><DialogHeading title="退出本局" onClose={() => setExit(false)} />
+      <div className="dialog-body"><p className="muted">退出将清除这场本地对局。若想稍后继续，直接关闭页面即可，进度会自动保存。</p><button className="secondary-button full-width" onClick={onExit}>结束本局并返回</button></div></Dialog>
+    <Dialog open={help} onClose={() => setHelp(false)} className="help-dialog" aria-label="璀璨宝石规则"><div className="help-dialog-content"><button className="help-dialog-close" aria-label="关闭规则" onClick={() => setHelp(false)}><Icon name="close" /></button><iframe className="help-frame" title="璀璨宝石完整规则" src="./help.html" /></div></Dialog>
+  </div>;
+}

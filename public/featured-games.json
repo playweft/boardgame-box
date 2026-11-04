@@ -10,5 +10,8 @@
   },
   {
     "manifestUrl": "./azul/playweft.json"
+  },
+  {
+    "manifestUrl": "./splendor/playweft.json"
   }
 ]
