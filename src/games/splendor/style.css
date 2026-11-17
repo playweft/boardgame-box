@@ -264,53 +264,27 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .mode-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(100%, 18rem);
+  margin-inline: auto;
 }
 
 .mode-list h1 {
-  margin-bottom: 16px;
+  margin-bottom: 4px;
+  text-align: center;
 }
 
 .mode-entry {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 58px;
-  padding: 8px 2px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  background: none;
-  color: inherit;
+  justify-content: center;
+  gap: 8px;
   font-size: 0.9375rem;
-  text-align: left;
+  text-align: center;
   text-decoration: none;
 }
 
-.mode-entry > span {
-  flex: 1;
-}
-
-.mode-entry small {
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.mode-entry .icon {
-  color: var(--gold);
-  width: 17px;
-  height: 17px;
-}
-
-.mode-entry:hover:not(:disabled) > span {
-  color: var(--gold);
-}
-
-.mode-entry:disabled {
-  opacity: .5;
-}
-
 .resume-game {
-  margin-top: 24px;
+  margin-top: 12px;
 }
 
 .save-notice {

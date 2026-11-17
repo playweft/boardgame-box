@@ -200,10 +200,10 @@ function DialogHeading({ title, onClose }) {
   );
 }
 
-const localModes = {
-  normal: { label: "普通人机", hint: "评分" },
-  hard: { label: "困难人机", hint: "搜索" },
-  local: { label: "本地多人" },
+const localModeLabels = {
+  normal: "普通人机",
+  hard: "困难人机",
+  local: "本地多人",
 };
 
 function Entry({
@@ -223,45 +223,42 @@ function Entry({
       <main className="setup-view">
         <section className="mode-list" aria-labelledby="mode-heading">
           <h1 id="mode-heading">选择模式</h1>
-          {Object.entries(localModes).map(([id, { label, hint }]) => (
+          {Object.entries(localModeLabels).map(([id, label]) => (
             <button
               key={id}
-              className="mode-entry"
+              type="button"
+              className="secondary-button mode-entry"
               disabled={busy}
               onClick={() => setMode(id)}
             >
-              <span>{label}</span>
-              {hint && <small>{hint}</small>}
-              <Icon name="arrow" />
+              {label}
             </button>
           ))}
           {launchUrl ? (
-            <a className="mode-entry" href={launchUrl}>
-              <span>联机多人</span>
-              <small>Playweft</small>
-              <Icon name="arrow" />
+            <a className="secondary-button mode-entry" href={launchUrl}>
+              联机多人
             </a>
           ) : (
             <button
-              className="mode-entry"
+              type="button"
+              className="secondary-button mode-entry"
               disabled={busy || !onCreateRoom}
               onClick={onCreateRoom}
             >
-              <span>联机多人</span>
-              {busy && <small>正在创建房间…</small>}
-              <Icon name="arrow" />
+              {busy ? "正在创建房间…" : "联机多人"}
+            </button>
+          )}
+          {savedMode && (
+            <button
+              type="button"
+              className="secondary-button mode-entry resume-game"
+              disabled={busy}
+              onClick={onResume}
+            >
+              继续对局 <small>{localModeLabels[savedMode]}</small>
             </button>
           )}
         </section>
-        {savedMode && (
-          <button
-            className="secondary-button full-width resume-game"
-            disabled={busy}
-            onClick={onResume}
-          >
-            继续对局 <small>{localModes[savedMode].label}</small>
-          </button>
-        )}
         {error && (
           <p className="error-message" role="alert">
             {error}
@@ -286,7 +283,7 @@ function Entry({
         }}
       >
         <div className="section-heading">
-          <h1>{localModes[mode].label}</h1>
+          <h1>{localModeLabels[mode]}</h1>
           <label className="count-picker">
             <span>人数</span>
             <select
