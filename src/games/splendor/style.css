@@ -475,7 +475,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   --chip-red: #a34c54;
   --chip-black: #43454f;
   --chip-gold: #d7b568;
-  --purchase: #356c52;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -677,7 +676,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-weight: 600;
 }
 
-.round-label, .text-button, .purchase-legend {
+.round-label, .text-button {
   color: var(--muted);
   font-size: 0.75rem;
   white-space: nowrap;
@@ -692,12 +691,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .text-button:hover {
   color: var(--gold);
-}
-
-.purchase-legend {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .market-area {
@@ -765,7 +758,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .market-section .development-card:not(.affordable) {
-  opacity: 0.95;
+  opacity: 0.85;
 }
 
 button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
@@ -807,7 +800,6 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
   flex: 1;
   min-height: 0;
   align-items: flex-end;
-  gap: 2cqmin;
 }
 
 .play-view, .overview-dialog {
@@ -879,28 +871,6 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
 .token-gold {
   background: var(--chip-gold);
   color: #29394a;
-}
-
-.purchase-mark {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 1em;
-  height: 1em;
-  font-size: 0.875rem;
-  border-radius: 50%;
-  background: var(--purchase, #356c52);
-  color: white;
-}
-
-.card-bottom .purchase-mark {
-  font-size: max(0.875rem, 18cqmin);
-}
-
-.purchase-mark .icon {
-  width: 0.785em;
-  height: 0.785em;
-  stroke-width: 2.4;
 }
 
 .deck {
@@ -1104,6 +1074,55 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
 
 .action-bar .primary-button:active:not(:disabled) {
   box-shadow: none;
+}
+
+@property --splendor-turn-ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 120deg;
+}
+
+.turn-ring {
+  --turn-ring-duration: 2s;
+  --turn-ring-dark: currentColor;
+  --turn-ring-light: color-mix(in srgb, currentColor 30%, transparent);
+  --turn-ring-sweep: var(--turn-ring-dark);
+  --turn-ring-track: var(--turn-ring-light);
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--turn-ring-sweep) var(--splendor-turn-ring-angle),
+    var(--turn-ring-track) 0
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.75px), #000 calc(100% - 1.25px));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .turn-ring {
+    animation:
+      turn-ring-fill var(--turn-ring-duration) linear infinite,
+      turn-ring-colors calc(2 * var(--turn-ring-duration)) step-end infinite;
+  }
+}
+
+@keyframes turn-ring-fill {
+  from { --splendor-turn-ring-angle: 0deg; }
+  to { --splendor-turn-ring-angle: 360deg; }
+}
+
+@keyframes turn-ring-colors {
+  /* Use each completed sweep as the track for the next one. */
+  0% {
+    --turn-ring-sweep: var(--turn-ring-dark);
+    --turn-ring-track: var(--turn-ring-light);
+  }
+
+  50%, 100% {
+    --turn-ring-sweep: var(--turn-ring-light);
+    --turn-ring-track: var(--turn-ring-dark);
+  }
 }
 
 .error-message {

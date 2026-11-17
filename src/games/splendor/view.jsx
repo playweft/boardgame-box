@@ -2,7 +2,6 @@ import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import {
   ArrowRight,
-  Check,
   ChevronLeft,
   CircleHelp,
   Crown,
@@ -41,7 +40,6 @@ const icons = {
   lock: LockKeyhole,
   pause: Pause,
   close: X,
-  check: Check,
   flag: Flag,
   history: History,
   reserve: Layers,
@@ -107,14 +105,6 @@ function TierMark({ level }) {
   return <span className="tier-mark">{tierMarks[level - 1]}</span>;
 }
 
-function PurchaseMark() {
-  return (
-    <span className="purchase-mark" aria-hidden="true">
-      <Icon name="check" />
-    </span>
-  );
-}
-
 function Costs({ cost, className }) {
   return (
     <span className={className}>
@@ -159,7 +149,6 @@ function Card({ card, onClick, affordable = false }) {
         </span>
         <span className="card-bottom">
           <Costs className="card-costs" cost={card.cost} />
-          {affordable && <PurchaseMark />}
         </span>
       </span>
     </button>
@@ -911,10 +900,6 @@ export default function SplendorApp({
                   {game.endingRound !== null ? "最终轮" : `第 ${game.round} 轮`}
                 </span>
                 <h1 aria-live="polite">{turnLabel}</h1>
-                <span className="purchase-legend">
-                  <PurchaseMark />
-                  可购买
-                </span>
               </div>
               <section className="market-area" aria-label="发展卡市场">
                 <div className="market-section">
@@ -1044,7 +1029,12 @@ export default function SplendorApp({
                   disabled={!canTake}
                   onClick={() => onAction({ type: "take", colors: taken })}
                 >
-                  {busy ? "提交中…" : "确认拿取"}
+                  {!game.canAct
+                    ? "等待对手"
+                    : busy
+                      ? "提交中…"
+                      : "确认拿取"}
+                  {game.canAct && <span className="turn-ring" aria-hidden="true" />}
                 </button>
               )}
             </div>
