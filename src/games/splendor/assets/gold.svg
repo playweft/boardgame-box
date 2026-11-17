@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>黄金</title>
+  <defs>
+    <linearGradient id="bevel-light" gradientUnits="userSpaceOnUse" x1="610" y1="610" x2="651" y2="651">
+      <stop offset="0" stop-color="#faca48"/>
+      <stop offset="0.2" stop-color="#f6c242"/>
+      <stop offset="0.5" stop-color="#db9a22"/>
+      <stop offset="0.8" stop-color="#b87708"/>
+      <stop offset="1" stop-color="#b16f02"/>
+    </linearGradient>
+  </defs>
+  <rect id="silhouette" x="204" y="209" width="845" height="836" rx="28" fill="url(#bevel-light)"/>
+  <rect id="face" x="269" y="273" width="715" height="711" rx="18" fill="#f4a502"/>
+</svg>

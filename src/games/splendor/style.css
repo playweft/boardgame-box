@@ -191,14 +191,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   vertical-align: middle;
 }
 
-.gem svg, .gem img {
+.gem img {
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
-}
-
-.gem img {
   filter: drop-shadow(0 1px 1px #101a2a99);
 }
 
@@ -768,7 +765,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .market-section .development-card:not(.affordable) {
-  background-color: color-mix(in srgb, var(--card-surface) 95%, var(--shell-background));
+  opacity: 0.95;
 }
 
 button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {

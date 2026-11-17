@@ -18,6 +18,7 @@ import {
 import Dialog from "../../shared/dialog.jsx";
 import diamond from "./assets/diamond.svg";
 import emerald from "./assets/emerald.svg";
+import gold from "./assets/gold.svg";
 import onyx from "./assets/onyx.svg";
 import ruby from "./assets/ruby.svg";
 import sapphire from "./assets/sapphire.svg";
@@ -71,6 +72,7 @@ const gemAssets = {
   green: emerald,
   red: ruby,
   black: onyx,
+  gold,
 };
 const gemLetters = {
   white: "白",
@@ -81,29 +83,12 @@ const gemLetters = {
   gold: "金",
 };
 export function Gem({ color, className = "", label = false }) {
-  const asset = gemAssets[color];
   return (
     <span
       className={`gem gem-${color} ${className}`}
       title={COLOR_NAMES[color]}
     >
-      {asset ? (
-        <img src={asset} alt="" />
-      ) : (
-        <svg viewBox="0 0 21 21" aria-hidden="true">
-          <path
-            d="M10 1L13 7L20 8L15 13L16 20L10 16L4 20L5 13L0 8L7 7Z"
-            fill="currentColor"
-          />
-          <path
-            d="M5 5L10 9L15 5M10 9V16M4 10L10 9L17 10"
-            fill="none"
-            stroke="white"
-            strokeOpacity=".38"
-            strokeWidth=".9"
-          />
-        </svg>
-      )}
+      <img src={gemAssets[color]} alt="" />
       {label && <small>{gemLetters[color]}</small>}
     </span>
   );
