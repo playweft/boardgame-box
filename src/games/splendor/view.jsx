@@ -27,6 +27,7 @@ export function Gem({ color, className = "", label = false }) {
 const nameOf = (game, id) => game.players.find(p => p.id === id)?.name || "玩家";
 const listTokens = tokens => TOKEN_COLORS.filter(c => tokens[c]).map(c => `${gemLetters[c]}×${tokens[c]}`).join(" · ");
 const emptyTokens = () => Object.fromEntries(TOKEN_COLORS.map(c => [c, 0]));
+const isGemPair = colors => colors.length === 2 && colors[0] === colors[1];
 
 function Card({ card, onClick, affordable = false }) {
   if (card.hidden) return <div className={`development-card card-back level-${card.level}`} aria-label={`${card.level} 级预留牌，牌面保密`}>
@@ -198,7 +199,7 @@ export default function SplendorApp({
   room, standalone, connecting, waitingForRoom, game, busy, error, handoff, computerGame, savedMode,
   onStart, onResume, onCreateRoom, onReady, onBack, onExit, onRetryComputer, onAction, launchUrl,
 }) {
-  const [help, setHelp] = useState(false), [mode, setMode] = useState("different");
+  const [help, setHelp] = useState(false);
   const [taken, setTaken] = useState([]), [choice, setChoice] = useState(null);
   const [inspected, setInspected] = useState(null), [history, setHistory] = useState(false), [report, setReport] = useState(false);
   const [exit, setExit] = useState(false);
@@ -212,12 +213,20 @@ export default function SplendorApp({
   const computerTurn = visible && computerGame && !game.canAct && game.phase !== "ended";
   const active = visible && game.canAct && game.phase === "playing" && !busy;
   const board = visible && game.boards[game.viewerId];
-  const required = game ? mode === "pair" ? 2 : Math.min(3, COLORS.filter(c => game.bank[c] > 0).length) : 3;
-  const canTake = active && required > 0 && taken.length === required;
-  const chooseGem = color => {
-    if (mode === "pair") setTaken(taken[0] === color ? [] : [color, color]);
-    else setTaken(taken.includes(color) ? taken.filter(c => c !== color) : taken.length < required ? [...taken, color] : taken);
-  };
+  const required = game ? Math.min(3, COLORS.filter(c => game.bank[c] > 0).length) : 0;
+  const pair = isGemPair(taken);
+  const selectionLocked = pair || (required > 0 && taken.length === required);
+  const canTake = active && (pair ? game.bank[taken[0]] >= 4
+    : required > 0 && taken.length === required && taken.every(c => game.bank[c] > 0));
+  const canSelectGem = (color, selected = taken) => active && color !== "gold" && game.bank[color] > 0
+    && (selected.includes(color) || (!isGemPair(selected) && selected.length < required));
+  const chooseGem = color => setTaken(selected => {
+    if (!canSelectGem(color, selected)) return selected;
+    if (!selected.includes(color)) return [...selected, color];
+    if (selected.length === 1 && game.bank[color] >= 4) return [color, color];
+    return selected.filter(c => c !== color);
+  });
+  const selectionText = pair ? `${gemLetters[taken[0]]}×2` : taken.map(c => gemLetters[c]).join(" · ");
   const inspectedPlayer = visible && game.players.find(p => p.id === inspected);
   const inspectBoard = inspectedPlayer && game.boards[inspectedPlayer.id];
   const showCard = card => setChoice({ card });
@@ -254,11 +263,14 @@ export default function SplendorApp({
                 {Array.from({ length: 4 - game.market[level - 1].length }, (_, index) => <div className="empty-card" key={`empty-${index}`} />)}
               </div>)}
             </section>
-            <section className="bank-section" aria-label="宝石供应区"><div className="bank-row">{TOKEN_COLORS.map(color => { const count = taken.filter(c => c === color).length; return <button key={color} className={`token token-${color}${count ? " selected" : ""}`} disabled={!active || color === "gold" || (mode === "pair" ? game.bank[color] < 4 : !game.bank[color])}
-              aria-label={`${COLOR_NAMES[color]}，供应${game.bank[color]}枚${count ? `，已选${count}枚` : ""}`} aria-pressed={!!count} onClick={() => chooseGem(color)}>
-              <Gem color={color} /><b>{game.bank[color]}</b>{count > 0 && <span className="take-count">+{count}</span>}</button>; })}</div>
-              <div className="take-mode" role="group" aria-label="拿取方式"><button className={mode === "different" ? "selected" : ""} aria-pressed={mode === "different"} disabled={!active} onClick={() => { setMode("different"); setTaken([]); }}>三枚异色</button>
-                <button className={mode === "pair" ? "selected" : ""} aria-pressed={mode === "pair"} disabled={!active} onClick={() => { setMode("pair"); setTaken([]); }}>两枚同色</button></div>
+            <section className="bank-section" aria-label="宝石供应区">
+              <div className={`bank-row${selectionLocked ? " selection-locked" : ""}`}>{TOKEN_COLORS.map(color => {
+                const count = taken.filter(c => c === color).length;
+                return <button key={color} className={`token token-${color}${count ? " selected" : ""}`} disabled={!canSelectGem(color)}
+                  aria-label={`${COLOR_NAMES[color]}，供应${game.bank[color]}枚${count ? `，已选${count}枚` : ""}`} aria-pressed={!!count} onClick={() => chooseGem(color)}>
+                  <Gem color={color} /><b>{game.bank[color]}</b>{count > 0 && <span className="take-count">+{count}</span>}
+                </button>;
+              })}</div>
             </section>
           </FittedTable>
           {board && <section className="my-resources" aria-label="我的资源"><div className="resource-grid"><span className="resource-label">宝石</span>{TOKEN_COLORS.map(c => <span key={c}><Gem color={c} /><b>{board.tokens[c]}</b></span>)}
@@ -266,7 +278,7 @@ export default function SplendorApp({
             <button className="text-button reserved-trigger" onClick={() => setInspected(game.viewerId)} aria-label={`查看我的预留牌，${board.reserved.length}张`}><Icon name="lock" /><span>预留 {board.reserved.length}/3</span></button></section>}
           {error && <p className="error-message" role="alert">{error}</p>}
           <footer className="action-bar"><span className="action-status" role="status">{game.phase === "ended" ? `${game.winners.map(id => nameOf(game, id)).join("、")}获胜`
-            : computerTurn ? (error ? "AI 回合暂停" : "AI 思考中…") : game.canPass ? "无可用操作" : game.phase === "choose_noble" ? "选择贵族" : game.phase === "return_tokens" ? "归还宝石" : taken.length ? taken.map(c => gemLetters[c]).join(" · ") : game.canAct ? "选择宝石或发展卡" : "等待操作"}</span>
+            : computerTurn ? (error ? "AI 回合暂停" : "AI 思考中…") : game.canPass ? "无可用操作" : game.phase === "choose_noble" ? "选择贵族" : game.phase === "return_tokens" ? "归还宝石" : taken.length ? selectionText : game.canAct ? "选择宝石或发展卡" : "等待操作"}</span>
             {game.phase === "ended" ? <button className="primary-button" onClick={() => setReport(true)}>查看结算 <Icon name="arrow" /></button>
               : computerTurn ? (error && <button className="primary-button" onClick={onRetryComputer}>重试</button>)
                 : game.canPass ? <button className="primary-button" disabled={busy} onClick={() => onAction({ type: "pass" })}>跳过回合 <Icon name="arrow" /></button>
