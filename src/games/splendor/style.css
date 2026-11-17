@@ -8,9 +8,11 @@ button { cursor: pointer; } button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 .icon { display: inline-block; width: 20px; height: 20px; flex-shrink: 0; vertical-align: middle; }
 .splendor-shell { display: flex; flex-direction: column; width: min(100%, 32rem); height: 100dvh; margin: 0 auto; overflow: hidden; padding-top: env(safe-area-inset-top); }
-.topbar { position: relative; flex: 0 0 60px; height: 60px; padding: 0 8px; background: transparent; }
+.topbar { position: relative; flex: 0 0 60px; height: 60px; background: transparent; }
 .topbar-title { font-size: 16px; font-weight: 400; }
-.back-link, .help-link { color: var(--muted); }
+.topbar .back-link, .topbar .help-link { width: 48px; height: 48px; }
+.topbar .back-link { margin-left: -12px; }
+.topbar button.back-link { padding: 0; border: 0; background: transparent; }
 .primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px; border-radius: 12px; padding: 13px 19px; font-size: 13px; }
 .primary-button { color: #23364b; background: var(--gold); box-shadow: 0 4px 0 #ae8644; }
 .primary-button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #ae8644; }
@@ -124,6 +126,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .card-detail > .development-card { height: 150px; }.owned-cards .development-card { height: 110px; }.card-back { display: flex; align-items: center; justify-content: center; gap: 12px; }.card-back .icon { width: 26px; height: 26px; }.overview-dialog .player-summary { margin: 18px 0; background: none; border: 0; border-block: 1px solid var(--line); border-radius: 0; box-shadow: none; padding: 14px 0; pointer-events: none; }
 @media (max-width: 370px) { .play-view { padding-inline: 12px; }.player-strip { gap: 8px; }.player-chip { gap: 4px; }.player-avatar { width: 18px; height: 18px; font-size: 9px; }.player-name { font-size: 9px; }.first-player { display: none; }.resource-grid { grid-template-columns: 22px repeat(6, 1fr); gap: 6px 2px; }.resource-grid > span { gap: 1px; font-size: 11px; }.resource-grid .gem { width: 12px; height: 12px; }.reserved-trigger { padding-left: 8px; font-size: 8px; }.action-bar .primary-button { min-width: 135px; }.name-grid { gap: 0 14px; }.name-grid label { gap: 6px; }.setup-inventory { font-size: 10px; }.setup-inventory > span:first-child { gap: 4px; } }
 @media (max-height: 700px) { .topbar { flex-basis: 48px; height: 48px; }.turn-strip { flex-basis: 32px; }.player-strip { flex-basis: 33px; }.table-arena { margin-block: 9px; }.my-resources { flex-basis: 54px; }.action-bar { flex-basis: 66px; }.primary-button { min-height: 44px; }.setup-view { padding-top: 16px; } }
-@media (max-height: 450px) { .topbar { flex-basis: 38px; height: 38px; }.turn-strip { flex-basis: 28px; }.player-strip { flex-basis: 28px; }.table-arena { margin-block: 5px; }.my-resources { flex-basis: 47px; padding-block: 5px; }.action-bar { flex-basis: 52px; }.action-bar .primary-button { min-height: 38px; padding-block: 8px; } }
+@media (max-height: 450px) { .turn-strip { flex-basis: 28px; }.player-strip { flex-basis: 28px; }.table-arena { margin-block: 5px; }.my-resources { flex-basis: 47px; padding-block: 5px; }.action-bar { flex-basis: 52px; }.action-bar .primary-button { min-height: 38px; padding-block: 8px; } }
 @media (max-width: 600px) { .owned-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }.dialog-body { padding: 20px; }.card-detail { gap: 16px; }.card-detail > .development-card { width: 108px; }.card-detail h2 { font-size: 17px; }.choice-actions { gap: 8px; }.choice-actions > button { font-size: 11px; padding: 12px 10px; }.overview-stats { gap: 16px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 1ms !important; } }

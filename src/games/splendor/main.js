@@ -69,11 +69,21 @@ function normalizeView(state) {
   return state;
 }
 
+function returnToOpening({ discard = false } = {}) {
+  stopComputer();
+  if (!discard) save();
+  localGame = null; localViewerId = null; humanId = null; localMode = null;
+  handoff = false; error = "";
+  if (discard) save();
+  redraw();
+}
+
 function redraw() {
   const room = hostMode === "room";
   const game = room ? roomState : localGame && projectGame(localGame, localViewerId);
   render(h(SplendorApp, {
-    room, connecting: hostMode === null, waitingForRoom: roomPresence?.phase === "lobby", game, busy, error,
+    room, standalone: !embedded, connecting: hostMode === null, waitingForRoom: roomPresence?.phase === "lobby",
+    game, busy, error,
     handoff: !room && handoff, computerGame: !room && !!humanId, launchUrl: embedded ? null : launchUrl.href,
     savedMode: savedGame?.mode, onCreateRoom: canCreateRoom ? createOnlineRoom : null,
     onStart(names, mode) {
@@ -82,10 +92,8 @@ function redraw() {
     },
     onResume() { if (savedGame) startLocal(savedGame); },
     onReady() { handoff = false; redraw(); },
-    onExit() {
-      stopComputer();
-      localGame = null; humanId = null; localMode = null; handoff = false; error = ""; save(); redraw();
-    },
+    onBack() { returnToOpening(); },
+    onExit() { returnToOpening({ discard: true }); },
     onRetryComputer() { error = ""; queueComputer(); redraw(); },
     onAction: submitAction,
   }), root);

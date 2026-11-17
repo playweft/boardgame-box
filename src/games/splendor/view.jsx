@@ -1,10 +1,10 @@
 import { h } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { ArrowLeft, ArrowRight, CircleHelp, Crown, Gem as GemIcon, LockKeyhole, X } from "lucide";
+import { ArrowRight, ChevronLeft, CircleHelp, Crown, Gem as GemIcon, LockKeyhole, X } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
 import { CARDS, COLORS, COLOR_NAMES, TOKEN_COLORS, costAfterBonuses, paymentFor, tokenCount } from "./engine.js";
 
-const icons = { back: ArrowLeft, arrow: ArrowRight, help: CircleHelp, crown: Crown, gem: GemIcon, lock: LockKeyhole, close: X };
+const icons = { back: ChevronLeft, arrow: ArrowRight, help: CircleHelp, crown: Crown, gem: GemIcon, lock: LockKeyhole, close: X };
 function Icon({ name, className = "icon" }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {(icons[name] || []).map(([tag, attributes], index) => h(tag, { ...attributes, key: index }))}
@@ -195,8 +195,8 @@ function lastMoveText(game, move) {
 }
 
 export default function SplendorApp({
-  room, connecting, waitingForRoom, game, busy, error, handoff, computerGame, savedMode,
-  onStart, onResume, onCreateRoom, onReady, onExit, onRetryComputer, onAction, launchUrl,
+  room, standalone, connecting, waitingForRoom, game, busy, error, handoff, computerGame, savedMode,
+  onStart, onResume, onCreateRoom, onReady, onBack, onExit, onRetryComputer, onAction, launchUrl,
 }) {
   const [help, setHelp] = useState(false), [mode, setMode] = useState("different");
   const [taken, setTaken] = useState([]), [choice, setChoice] = useState(null);
@@ -205,7 +205,8 @@ export default function SplendorApp({
   useEffect(() => {
     setTaken([]); setChoice(null); setInspected(null); setHistory(false);
     setReport(game?.phase === "ended");
-  }, [game?.step, game?.viewerId]);
+    if (!game && !room) setExit(false);
+  }, [game?.step, game?.viewerId, room]);
   // A handoff screen replaces the board, keeping the next player's private hand out of the DOM.
   const visible = game && !handoff;
   const computerTurn = visible && computerGame && !game.canAct && game.phase !== "ended";
@@ -220,10 +221,15 @@ export default function SplendorApp({
   const inspectedPlayer = visible && game.players.find(p => p.id === inspected);
   const inspectBoard = inspectedPlayer && game.boards[inspectedPlayer.id];
   const showCard = card => setChoice({ card });
+  const canReturnToOpening = !connecting && !room && !!game;
   return <div className="splendor-shell">
-    <header className="topbar"><a className="back-link" href="../" aria-label="返回桌游盒子"><Icon name="back" /></a>
+    <header className="topbar">
+      {canReturnToOpening
+        ? <button type="button" className="back-link" onClick={onBack} aria-label="返回模式选择"><Icon name="back" /></button>
+        : !room && standalone && <a className="back-link" href="../" aria-label="返回桌游盒子"><Icon name="back" /></a>}
       <div className="topbar-title">璀璨宝石</div>
-      <button className="help-link" onClick={() => setHelp(true)} aria-label="游戏规则"><Icon name="help" /></button></header>
+      {standalone && <button className="help-link" onClick={() => setHelp(true)} aria-label="游戏规则"><Icon name="help" /></button>}
+    </header>
     {!game ? room || connecting ? <main className="connection-view"><Icon name="gem" />
       <p role="status">{error || (waitingForRoom ? "等待房间开始…" : "正在连接 Playweft…")}</p></main>
       : <Entry onStart={onStart} onResume={onResume} savedMode={savedMode} onCreateRoom={onCreateRoom} launchUrl={launchUrl} busy={busy} error={error} />
@@ -234,7 +240,7 @@ export default function SplendorApp({
           <div className="turn-strip" aria-live="polite"><span className="round-label">第 {game.round} 轮</span><h1>{game.phase === "ended" ? "本局已结束"
             : game.canAct || computerTurn ? `${nameOf(game, game.currentPlayerId)}的回合` : `等待 ${nameOf(game, game.currentPlayerId)}`}</h1>
             {game.endingRound !== null && <span className="final-round">最终轮</span>}
-            <button className="text-button" onClick={() => setHistory(true)}>记录</button>{!room && <button className="text-button" onClick={() => setExit(true)}>退出</button>}</div>
+            <button className="text-button" onClick={() => setHistory(true)}>记录</button>{!room && <button className="text-button" onClick={() => setExit(true)}>放弃</button>}</div>
           <nav className="player-strip" aria-label="玩家商会">{game.players.map((player, index) => <button key={player.id} className={`player-chip${game.currentPlayerId === player.id ? " active" : ""}`} onClick={() => setInspected(player.id)} aria-label={`查看${player.name}的商会，${game.boards[player.id].score}分`}>
             <span className="player-avatar">{index + 1}</span><span className="player-name">{player.name}</span>{index === 0 && <span className="first-player" title="先手">Ⅰ</span>}<b>{game.boards[player.id].score}</b></button>)}</nav>
           <FittedTable>
@@ -290,8 +296,13 @@ export default function SplendorApp({
         <div className="choice-actions"><button className="primary-button" disabled={busy || !game.canRematch} onClick={() => onAction({ type: "rematch" })}>再来一局 <Icon name="arrow" /></button>
           {!room && <button className="secondary-button" onClick={onExit}>更换模式</button>}</div></div>}
     </Dialog>
-    <Dialog open={exit && !!visible && !room} onClose={() => setExit(false)} className="app-dialog" aria-label="退出本局"><DialogHeading title="退出本局" onClose={() => setExit(false)} />
-      <div className="dialog-body"><p className="muted">退出将清除这场本地对局。若想稍后继续，直接关闭页面即可，进度会自动保存。</p><button className="secondary-button full-width" onClick={() => { setExit(false); onExit(); }}>结束本局并返回</button></div></Dialog>
+    <Dialog open={exit && !!visible && !room} onClose={() => setExit(false)} className="app-dialog" aria-label="放弃本局">
+      <DialogHeading title="放弃本局" onClose={() => setExit(false)} />
+      <div className="dialog-body">
+        <p className="muted">放弃会清除这场本地对局。点顶栏返回可以保留进度。</p>
+        <button className="secondary-button full-width" onClick={() => { setExit(false); onExit(); }}>放弃并返回</button>
+      </div>
+    </Dialog>
     <Dialog open={help} onClose={() => setHelp(false)} className="help-dialog" aria-label="璀璨宝石规则"><div className="help-dialog-content"><button className="help-dialog-close" aria-label="关闭规则" onClick={() => setHelp(false)}><Icon name="close" /></button><iframe className="help-frame" title="璀璨宝石完整规则" src="./help.html" /></div></Dialog>
   </div>;
 }
