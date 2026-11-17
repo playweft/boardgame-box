@@ -777,28 +777,26 @@ button.development-card:hover, .deck:not(:disabled):hover {
 .card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding-inline: 1px;
   font-size: 1.3125rem;
 }
 
 .card-top > b {
-  color: #243547;
+  color: #fff;
+  font-style: italic;
   font-weight: 600;
   line-height: 1;
+  text-shadow: 0 1px 1px #000, 0 0 2px #000;
 }
 
 .market-row .card-top {
   font-size: max(0.75rem, var(--card-width) * 0.24);
 }
 
-.card-top .zero-points {
-  color: #65717a;
-}
-
 .card-top > .gem {
   width: 21px;
   height: 21px;
+  margin-inline-start: auto;
 }
 
 .market-row .card-top > .gem {
@@ -860,6 +858,14 @@ button.development-card:hover, .deck:not(:disabled):hover {
   line-height: 1;
 }
 
+.card-costs .cost {
+  block-size: 1.375em;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px #fff;
+  -webkit-text-stroke: 0.1em #000;
+  paint-order: stroke fill;
+}
+
 .market-row .card-bottom {
   container-type: inline-size;
 }
@@ -877,6 +883,9 @@ button.development-card:hover, .deck:not(:disabled):hover {
 
 .cost-white {
   background: #f8fafc;
+}
+
+.noble-costs .cost-white {
   color: #29394a;
 }
 
