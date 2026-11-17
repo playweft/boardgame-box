@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   CircleHelp,
   Crown,
-  Flag,
   Gem as GemIcon,
   History,
   Layers,
@@ -40,7 +39,6 @@ const icons = {
   lock: LockKeyhole,
   pause: Pause,
   close: X,
-  flag: Flag,
   history: History,
   reserve: Layers,
   skip: SkipForward,
@@ -842,18 +840,16 @@ export default function SplendorApp({
                   key={player.id}
                   className={`player-chip${current ? " active" : ""}`}
                   onClick={() => setInspected(player.id)}
-                  aria-label={`查看${player.name}的商会，${score}分${index === 0 ? "，先手" : ""}`}
+                  aria-label={`查看 ${index + 1} 号玩家 ${player.name} 的商会，${score}分${index === 0 ? "，先手" : ""}`}
                   aria-current={current ? "true" : undefined}
                 >
                   <span className="player-avatar" aria-hidden="true">
                     {Array.from(player.name)[0]}
-                    <b className="player-prestige">{score}</b>
-                    {index === 0 && (
-                      <span className="player-first" title="先手">
-                        <Icon name="flag" />
-                      </span>
-                    )}
+                    <span className="player-number" title={index === 0 ? "先手" : undefined}>
+                      {index + 1}
+                    </span>
                   </span>
+                  <b className="player-prestige">{score}</b>
                   <span className="player-name">{player.name}</span>
                 </button>
               );

@@ -459,33 +459,33 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .player-strip {
+  grid-area: players;
   display: flex;
   justify-content: center;
   flex: none;
+  gap: 4px;
   padding-top: calc(var(--vertical-space) / 30);
 }
 
 .player-chip {
-  position: relative;
+  container: player-chip / inline-size;
   display: grid;
-  justify-items: center;
-  gap: calc(3px + var(--vertical-space) / 120);
+  grid-template-columns: minmax(0, max-content) max-content;
+  place-content: center;
+  place-items: center;
+  gap: 2px 6px;
   flex: 1;
   min-width: 0;
-  max-width: 128px;
-  padding: 0 4px calc(5px + var(--vertical-space) / 80);
+  max-width: 144px;
+  min-height: 44px;
+  padding: 5px 6px;
   border: 0;
+  border-radius: 10px;
   background: none;
 }
 
-.player-chip.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  width: 20px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--gold);
+.player-chip.active {
+  background: #ffffff1a;
 }
 
 .player-avatar {
@@ -503,8 +503,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .player-chip .player-avatar {
-  width: calc(30px + var(--vertical-space) / 15);
-  height: calc(30px + var(--vertical-space) / 15);
+  grid-area: 1 / 1;
+  width: calc(28px + var(--vertical-space) / 40);
+  height: auto;
+  aspect-ratio: 1;
+  font-size: 1rem;
 }
 
 .player-chip:nth-child(2) .player-avatar {
@@ -520,6 +523,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .player-name {
+  grid-area: 2 / 1;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -527,35 +532,42 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 0.75rem;
 }
 
-.player-prestige, .player-first {
+.player-number {
   position: absolute;
-  top: -3px;
+  top: -2px;
+  right: -3px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: #233043;
-}
-
-.player-prestige {
-  left: -5px;
-  min-width: 20px;
-  height: 20px;
-  padding-inline: 4px;
-  color: #f4f1e7;
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.player-first {
-  right: -3px;
   width: 16px;
   height: 16px;
+  border-radius: 50%;
+  background: #233043;
+  color: #f4f1e7;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.player-chip:first-child .player-number {
   color: var(--gold);
 }
 
-.player-first .icon {
-  width: 10px;
-  height: 10px;
+.player-prestige {
+  grid-area: 1 / 2;
+  font-size: 0.875rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@container player-chip (width < 64px) {
+  .player-name {
+    display: none;
+  }
+}
+
+@media (max-height: 560px) {
+  .player-name {
+    display: none;
+  }
 }
 
 .first-player {
@@ -960,6 +972,7 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
 }
 
 .play-footer {
+  grid-area: footer;
   display: grid;
   gap: calc(6px + var(--vertical-space) / 60);
   flex: none;
@@ -1590,40 +1603,38 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
 
 @media (orientation: portrait), (width < 560px) {
   .play-view {
+    --section-gap: 12px;
     display: grid;
+    align-content: safe center;
     grid-template: "players" auto
-      "." minmax(0, 1fr)
       "nobles" auto
       "turn" auto
       "market" minmax(calc(var(--min-market-height) + var(--section-gap)), max-content)
       "bank" auto
       "error" auto
-      "." minmax(0, 1fr)
       "footer" auto
       / minmax(0, 1fr);
     gap: 0;
   }
 
-  .player-strip {
-    grid-area: players;
+  .player-strip,
+  .nobles-section,
+  .market-area,
+  .bank-section,
+  .play-view > .error-message {
     margin-bottom: var(--section-gap);
   }
 
-  .board-table > :not(.bank-section) {
-    margin-bottom: var(--section-gap);
-  }
-
-  .bank-section {
-    margin-bottom: var(--section-gap);
+  .turn-strip {
+    margin-bottom: min(var(--section-gap), calc(4px + var(--vertical-space) / 120));
   }
 
   .play-view > .error-message {
     grid-area: error;
-    margin-bottom: var(--section-gap);
   }
 
   .play-footer {
-    grid-area: footer;
+    row-gap: max(6px, var(--section-gap));
   }
 }
 
@@ -1650,17 +1661,6 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
 
   .player-strip {
     max-width: calc(100% - var(--sidebar-width) - var(--sidebar-gap));
-  }
-
-  .player-chip {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-  }
-
-  .player-chip.active::after {
-    right: calc(50% - 10px);
   }
 
   .board-frame {
@@ -1749,19 +1749,16 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
   }
 
   .player-strip {
-    grid-area: players;
     max-width: none;
   }
 
   .player-chip {
-    display: grid;
-    gap: 2px;
-    padding: 0 2px 3px;
+    column-gap: 4px;
+    padding-inline: 2px;
   }
 
   .player-chip .player-avatar {
     width: 28px;
-    height: 28px;
     font-size: 0.9375rem;
   }
 
@@ -1786,7 +1783,6 @@ button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
   }
 
   .play-footer {
-    grid-area: footer;
     margin-top: var(--section-gap);
   }
 
