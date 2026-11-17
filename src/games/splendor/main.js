@@ -11,28 +11,51 @@ const embedded = window.parent !== window;
 const storageKey = "boardgame-box:splendor:v1";
 const launchUrl = new URL("https://play.longern.com/");
 launchUrl.searchParams.set("game", new URL("./playweft.json", window.location.href).href);
-let localGame = null, roomState = null, ready = false, busy = false, error = "";
-let localViewerId = null;
-let handoff = false;
+const roomOptions = {
+  minPlayers: 2,
+  maxPlayers: 4,
+  lobby: "platform",
+  server: { runtime: "lua", entry: "./game.lua", persistence: "durable" },
+};
+let hostMode = embedded ? null : "solo", canCreateRoom = false;
+let localGame = null, roomState = null, roomPresence = null, busy = false, error = "";
+let localViewerId = null, humanId = null, localMode = null, handoff = false;
+let botWorker = null, botJob = null;
+let savedGame = embedded ? null : readSave();
 
-if (!embedded) {
+function readSave() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
     if (saved?.schema === 1 && saved.state?.players?.length >= 2 && saved.state?.players?.length <= 4) {
-      // The saved game contains private cards, so reveal it only after the handoff screen.
-      projectGame(saved.state, saved.state.players[saved.state.turn].id);
-      localGame = saved.state;
-      localViewerId = localGame.players[localGame.turn].id;
-      handoff = localGame.phase !== "ended";
+      const { state } = saved;
+      projectGame(state, state.players[state.turn].id);
+      const playerId = state.players.some(player => player.id === saved.humanId) ? saved.humanId : null;
+      // Older computer games used search by default.
+      const mode = playerId ? (saved.mode === "normal" ? "normal" : "hard") : "local";
+      return { schema: 1, state, humanId: playerId, mode };
     }
   } catch { /* A blocked storage area or an obsolete save must not prevent playing. */ }
+  return null;
 }
 
 function save() {
+  savedGame = localGame ? { schema: 1, state: localGame, humanId, mode: localMode } : null;
   try {
-    if (localGame) localStorage.setItem(storageKey, JSON.stringify({ schema: 1, state: localGame }));
+    if (savedGame) localStorage.setItem(storageKey, JSON.stringify(savedGame));
     else localStorage.removeItem(storageKey);
   } catch { /* Local play remains available without persistence. */ }
+}
+
+function startLocal({ state, mode, humanId: playerId }) {
+  localGame = state;
+  localMode = mode;
+  humanId = playerId;
+  localViewerId = humanId ?? state.players[state.turn].id;
+  handoff = !humanId && state.phase !== "ended";
+  error = "";
+  save();
+  redraw();
+  queueComputer();
 }
 
 function normalizeView(state) {
@@ -47,37 +70,118 @@ function normalizeView(state) {
 }
 
 function redraw() {
-  const game = embedded ? (ready ? roomState : null) : localGame && projectGame(localGame, localViewerId);
+  const room = hostMode === "room";
+  const game = room ? roomState : localGame && projectGame(localGame, localViewerId);
   render(h(SplendorApp, {
-    room: embedded, game, busy, error, handoff, launchUrl: launchUrl.href,
-    onStart(names) {
-      localGame = createGame(names.map((name, index) => ({ id: `local-${index}`, name: name.trim() || `玩家 ${index + 1}` })));
-      localViewerId = localGame.players[0].id; handoff = true; error = ""; save(); redraw();
+    room, connecting: hostMode === null, waitingForRoom: roomPresence?.phase === "lobby", game, busy, error,
+    handoff: !room && handoff, computerGame: !room && !!humanId, launchUrl: embedded ? null : launchUrl.href,
+    savedMode: savedGame?.mode, onCreateRoom: canCreateRoom ? createOnlineRoom : null,
+    onStart(names, mode) {
+      const state = createGame(names.map((name, index) => ({ id: `local-${index}`, name: name.trim() || `玩家 ${index + 1}` })));
+      startLocal({ state, mode, humanId: mode === "local" ? null : state.players[0].id });
     },
+    onResume() { if (savedGame) startLocal(savedGame); },
     onReady() { handoff = false; redraw(); },
-    onExit() { localGame = null; handoff = false; error = ""; save(); redraw(); },
+    onExit() {
+      stopComputer();
+      localGame = null; humanId = null; localMode = null; handoff = false; error = ""; save(); redraw();
+    },
+    onRetryComputer() { error = ""; queueComputer(); redraw(); },
     onAction: submitAction,
   }), root);
 }
 
-async function submitAction(intent) {
-  const game = embedded ? roomState : localGame;
-  if (!game || busy || handoff || (embedded && (!ready || !roomClient?.connected))) return;
-  const action = { ...intent, round: game.round, step: game.step };
+async function createOnlineRoom() {
+  if (busy || !canCreateRoom) return;
+  busy = true; error = ""; redraw();
+  try {
+    const presence = await roomClient.createRoom(roomOptions);
+    if (hostMode === "solo") enterRoom(presence);
+  } catch (cause) {
+    error = cause instanceof Error ? cause.message : "无法打开联机房间";
+  } finally {
+    busy = false; redraw();
+  }
+}
+
+function enterRoom(presence) {
+  if (presence.roomId !== roomPresence?.roomId || presence.phase !== "playing") roomState = null;
+  roomPresence = presence;
+  hostMode = "room";
   error = "";
-  if (!embedded) {
-    const previousId = localViewerId;
-    const result = applyAction(localGame, localViewerId, action);
-    if (!result.accepted) error = result.error.message;
-    else {
-      localGame = result.state;
-      // Keep the acting player's view for the end screen, then rotate on a rematch.
-      if (localGame.phase !== "ended") localViewerId = localGame.players[localGame.turn].id;
-      handoff = localGame.phase !== "ended" && (previousId !== localViewerId || action.type === "rematch");
-      save();
+  redraw();
+}
+
+function stopComputer() {
+  clearTimeout(botJob?.timer);
+  botJob = null;
+  botWorker?.terminate();
+  botWorker = null;
+}
+
+function applyLocalAction(actorId, action) {
+  const result = applyAction(localGame, actorId, { ...action, round: localGame.round, step: localGame.step });
+  if (!result.accepted) return result.error.message;
+  localGame = result.state;
+  // Local humans hand off between seats. In a computer game the view stays on the human.
+  if (!humanId && localGame.phase !== "ended") {
+    const nextId = localGame.players[localGame.turn].id;
+    handoff = actorId !== nextId || action.type === "rematch";
+    localViewerId = nextId;
+  }
+  save();
+  return "";
+}
+
+function queueComputer(delay = 225) {
+  if (!localGame || !humanId || botJob || localGame.phase === "ended") return;
+  const actorId = localGame.players[localGame.turn].id;
+  if (actorId === humanId) return;
+  const job = { view: projectGame(localGame, actorId), mode: localMode };
+  botJob = job;
+  const finish = action => {
+    if (botJob !== job) return;
+    botJob = null;
+    error = action ? applyLocalAction(actorId, action) : "AI 暂时无法出手";
+    if (!error) queueComputer(localGame.players[localGame.turn].id === actorId ? 0 : undefined);
+    redraw();
+  };
+  const fallback = async () => {
+    if (botJob !== job) return;
+    botWorker?.terminate();
+    botWorker = null;
+    try {
+      const { chooseBotAction } = await import("./bot.js");
+      if (botJob === job) finish(chooseBotAction(job.view, job.mode));
+    } catch {
+      finish(null);
     }
+  };
+  job.timer = setTimeout(() => {
+    try {
+      botWorker ??= new Worker(new URL("./bot-worker.js", import.meta.url), { type: "module" });
+      botWorker.onmessage = ({ data }) => data.error ? fallback() : finish(data.action);
+      botWorker.onerror = fallback;
+      botWorker.postMessage({ view: job.view, mode: job.mode });
+    } catch {
+      fallback();
+    }
+  }, delay);
+}
+
+async function submitAction(intent) {
+  const room = hostMode === "room";
+  const game = room ? roomState : localGame;
+  if (!game || busy || (room ? !roomClient?.connected : handoff)) return;
+  if (!room) {
+    const isHumanTurn = !humanId || localGame.players[localGame.turn].id === humanId;
+    if (!isHumanTurn && intent.type !== "rematch") return;
+    error = applyLocalAction(localViewerId, intent);
+    if (!error) queueComputer();
     redraw(); return;
   }
+  const action = { ...intent, round: game.round, step: game.step };
+  error = "";
   busy = true; redraw();
   try {
     const result = await roomClient.action(action);
@@ -87,8 +191,24 @@ async function submitAction(intent) {
 }
 
 const roomClient = embedded ? createPlayweftClient({
-  onInitialize(context) { ready = context.mode === "room"; if (!ready) error = "请在 Playweft 房间中游玩"; redraw(); },
-  onState(state) { roomState = normalizeView(state); error = ""; redraw(); },
+  onInitialize(context) {
+    if (context.mode === "solo" || context.mode === "room") {
+      hostMode = context.mode;
+      canCreateRoom = context.capabilities?.includes("rooms.create") ?? false;
+      if (hostMode === "solo") savedGame = readSave();
+      else roomPresence = context.room ?? null;
+    } else error = "无法识别 Playweft 游戏模式";
+    redraw();
+  },
+  onState(state) {
+    if (hostMode === "solo") return;
+    roomState = normalizeView(state); error = ""; redraw();
+  },
+  onRoomState: enterRoom,
+  onRoomClosed() {
+    hostMode = "solo";
+    roomPresence = null; roomState = null; error = ""; redraw();
+  },
   onError(message) { error = message; redraw(); },
 }) : null;
 redraw();

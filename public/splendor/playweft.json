@@ -9,16 +9,10 @@
   "name": "Splendor",
   "name_localized": { "zh-CN": "璀璨宝石" },
   "description": "Collect gems, develop your trade empire and attract nobles. Base Splendor for 2–4 players.",
-  "description_localized": { "zh-CN": "2–4 人基础版璀璨宝石。收集宝石、购买发展卡、获得贵族青睐，支持本地轮流与在线房间。" },
+  "description_localized": { "zh-CN": "2–4 人基础版璀璨宝石。收集宝石、购买发展卡、获得贵族青睐，支持人机、本地多人和联机多人。" },
   "categories": ["games", "strategy", "cards"],
   "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }],
   "background_color": "#182e46",
   "theme_color": "#182e46",
-  "orientation": "any",
-  "modes": {
-    "room": {
-      "players": { "min": 2, "max": 4 },
-      "server": { "runtime": "lua", "entry": "./game.lua", "persistence": "durable" }
-    }
-  }
+  "orientation": "any"
 }

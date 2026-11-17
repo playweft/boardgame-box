@@ -52,19 +52,51 @@ function DialogHeading({ title, onClose }) {
   return <div className="dialog-heading"><strong>{title}</strong>{onClose && <button className="icon-button" onClick={onClose} aria-label={`关闭${title}`}><Icon name="close" /></button>}</div>;
 }
 
-function Entry({ onStart, launchUrl }) {
+const localModes = {
+  normal: { label: "普通人机", hint: "评分" },
+  hard: { label: "困难人机", hint: "搜索" },
+  local: { label: "本地多人" },
+};
+
+function Entry({ onStart, onResume, savedMode, onCreateRoom, launchUrl, busy, error }) {
+  const [mode, setMode] = useState(null);
   const [count, setCount] = useState(2);
   const [names, setNames] = useState(["玩家 1", "玩家 2", "玩家 3", "玩家 4"]);
+  if (!mode) return <main className="setup-view">
+    <section className="mode-list" aria-labelledby="mode-heading">
+      <h1 id="mode-heading">选择模式</h1>
+      {Object.entries(localModes).map(([id, { label, hint }]) =>
+        <button key={id} className="mode-entry" disabled={busy} onClick={() => setMode(id)}>
+          <span>{label}</span>{hint && <small>{hint}</small>}<Icon name="arrow" />
+        </button>)}
+      {launchUrl
+        ? <a className="mode-entry" href={launchUrl}><span>联机多人</span><small>Playweft</small><Icon name="arrow" /></a>
+        : <button className="mode-entry" disabled={busy || !onCreateRoom} onClick={onCreateRoom}>
+          <span>联机多人</span>{busy && <small>正在创建房间…</small>}<Icon name="arrow" />
+        </button>}
+    </section>
+    {savedMode && <button className="secondary-button full-width resume-game" disabled={busy} onClick={onResume}>
+      继续对局 <small>{localModes[savedMode].label}</small>
+    </button>}
+    {error && <p className="error-message" role="alert">{error}</p>}
+  </main>;
+
+  const computerGame = mode !== "local";
+  const seats = names.slice(0, count).map((name, index) => computerGame && index > 0
+    ? count === 2 ? "AI" : `AI ${index}` : name);
   return <main className="setup-view">
-      <form className="setup-form" onSubmit={event => { event.preventDefault(); onStart(names.slice(0, count)); }}>
-        <div className="section-heading"><div><p className="eyebrow">01 / 玩家</p><h2>谁来加入这场对局？</h2></div>
+      <form className="setup-form" onSubmit={event => { event.preventDefault(); onStart(seats, mode); }}>
+        <div className="section-heading">
+          <h1>{localModes[mode].label}</h1>
           <label className="count-picker"><span>人数</span><select aria-label="选择玩家人数" value={count} onChange={event => setCount(Number(event.currentTarget.value))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} 人</option>)}</select></label></div>
-        <div className="name-grid">{names.slice(0, count).map((name, index) => <label key={index}><span>{String(index + 1).padStart(2, "0")}{index === 0 && " · 先手"}</span>
-          <input aria-label={`玩家 ${index + 1} 姓名`} value={name} maxLength={24} onInput={event => setNames(names.map((value, i) => i === index ? event.currentTarget.value : value))} /></label>)}</div>
-        <div className="setup-divider" /><div className="section-heading"><div><p className="eyebrow">02 / 配置</p><h2>基础版</h2></div><span>15 分 · 打完当轮</span></div>
+        <div className="name-grid">{seats.map((name, index) => <label key={index}><span>{String(index + 1).padStart(2, "0")}{index === 0 && " · 先手"}</span>
+          {computerGame && index > 0 ? <strong>{name}</strong> : <input aria-label={`玩家 ${index + 1} 姓名`} value={name} maxLength={24}
+            onInput={event => setNames(names.map((value, i) => i === index ? event.currentTarget.value : value))} />}</label>)}</div>
+        <div className="setup-divider" /><div className="section-heading"><h2>基础版</h2><span>15 分 · 打完当轮</span></div>
         <div className="setup-inventory"><span>{TOKEN_COLORS.map(color => <Gem key={color} color={color} />)}</span><span>90 张发展卡 · {count + 1} 位贵族</span></div>
+        {savedMode && <p className="muted small save-notice">开始新局会替换已有的本地存档。</p>}
         <button type="submit" className="primary-button full-width">洗牌并开始 <Icon name="arrow" /></button>
-        <a className="room-link" href={launchUrl}>创建在线房间 ↗</a>
+        <button type="button" className="text-button setup-back" onClick={() => setMode(null)}>返回模式选择</button>
       </form>
   </main>;
 }
@@ -155,23 +187,28 @@ function lastMoveText(game, move) {
   const card = move.cardId && CARDS.find(card => card.id === move.cardId);
   let text = move.type === "take" ? `${actor} 拿取 ${listTokens(move.tokens)}`
     : move.type === "reserve" ? `${actor} ${move.blind ? "盲抽" : "预留"} ${move.level} 级牌${move.gold ? "，黄金 +1" : ""}`
+      : move.type === "pass" ? `${actor} 无可用操作，跳过回合`
       : `${actor} 购买${card ? COLOR_NAMES[card.bonus] : ""}发展卡${card?.points ? `，声望 +${card.points}` : ""}`;
   if (move.returned) text += `，归还 ${listTokens(move.returned)}`;
   if (move.nobleId) text += "，获得贵族 +3 分";
   return text;
 }
 
-export default function SplendorApp({ room, game, busy, error, handoff, onStart, onReady, onExit, onAction, launchUrl }) {
+export default function SplendorApp({
+  room, connecting, waitingForRoom, game, busy, error, handoff, computerGame, savedMode,
+  onStart, onResume, onCreateRoom, onReady, onExit, onRetryComputer, onAction, launchUrl,
+}) {
   const [help, setHelp] = useState(false), [mode, setMode] = useState("different");
   const [taken, setTaken] = useState([]), [choice, setChoice] = useState(null);
   const [inspected, setInspected] = useState(null), [history, setHistory] = useState(false), [report, setReport] = useState(false);
   const [exit, setExit] = useState(false);
   useEffect(() => {
-    setTaken([]); setChoice(null); setInspected(null); setHistory(false); setExit(false);
+    setTaken([]); setChoice(null); setInspected(null); setHistory(false);
     setReport(game?.phase === "ended");
   }, [game?.step, game?.viewerId]);
   // A handoff screen replaces the board, keeping the next player's private hand out of the DOM.
   const visible = game && !handoff;
+  const computerTurn = visible && computerGame && !game.canAct && game.phase !== "ended";
   const active = visible && game.canAct && game.phase === "playing" && !busy;
   const board = visible && game.boards[game.viewerId];
   const required = game ? mode === "pair" ? 2 : Math.min(3, COLORS.filter(c => game.bank[c] > 0).length) : 3;
@@ -187,13 +224,15 @@ export default function SplendorApp({ room, game, busy, error, handoff, onStart,
     <header className="topbar"><a className="back-link" href="../" aria-label="返回桌游盒子"><Icon name="back" /></a>
       <div className="topbar-title">璀璨宝石</div>
       <button className="help-link" onClick={() => setHelp(true)} aria-label="游戏规则"><Icon name="help" /></button></header>
-    {!game ? room ? <main className="connection-view"><Icon name="gem" /><h1>璀璨宝石</h1><p role="status">{error || "正在连接房间…"}</p></main>
-      : <Entry onStart={onStart} launchUrl={launchUrl} />
-      : handoff ? <main className="handoff-view"><div className="handoff-symbol"><Icon name="lock" /></div><p className="eyebrow">第 {game.round} 轮 · 本地轮流</p>
+    {!game ? room || connecting ? <main className="connection-view"><Icon name="gem" />
+      <p role="status">{error || (waitingForRoom ? "等待房间开始…" : "正在连接 Playweft…")}</p></main>
+      : <Entry onStart={onStart} onResume={onResume} savedMode={savedMode} onCreateRoom={onCreateRoom} launchUrl={launchUrl} busy={busy} error={error} />
+      : handoff ? <main className="handoff-view"><div className="handoff-symbol"><Icon name="lock" /></div><p className="eyebrow">第 {game.round} 轮 · 本地多人</p>
         <h1>请交给 {nameOf(game, game.currentPlayerId)}</h1>
         <button className="primary-button" onClick={onReady}>我已准备好 <Icon name="arrow" /></button></main>
         : <main className="play-view">
-          <div className="turn-strip" aria-live="polite"><span className="round-label">第 {game.round} 轮</span><h1>{game.phase === "ended" ? "本局已结束" : game.canAct ? `${nameOf(game, game.currentPlayerId)}的回合` : `等待 ${nameOf(game, game.currentPlayerId)}`}</h1>
+          <div className="turn-strip" aria-live="polite"><span className="round-label">第 {game.round} 轮</span><h1>{game.phase === "ended" ? "本局已结束"
+            : game.canAct || computerTurn ? `${nameOf(game, game.currentPlayerId)}的回合` : `等待 ${nameOf(game, game.currentPlayerId)}`}</h1>
             {game.endingRound !== null && <span className="final-round">最终轮</span>}
             <button className="text-button" onClick={() => setHistory(true)}>记录</button>{!room && <button className="text-button" onClick={() => setExit(true)}>退出</button>}</div>
           <nav className="player-strip" aria-label="玩家商会">{game.players.map((player, index) => <button key={player.id} className={`player-chip${game.currentPlayerId === player.id ? " active" : ""}`} onClick={() => setInspected(player.id)} aria-label={`查看${player.name}的商会，${game.boards[player.id].score}分`}>
@@ -221,9 +260,11 @@ export default function SplendorApp({ room, game, busy, error, handoff, onStart,
             <button className="text-button reserved-trigger" onClick={() => setInspected(game.viewerId)} aria-label={`查看我的预留牌，${board.reserved.length}张`}><Icon name="lock" /><span>预留 {board.reserved.length}/3</span></button></section>}
           {error && <p className="error-message" role="alert">{error}</p>}
           <footer className="action-bar"><span className="action-status" role="status">{game.phase === "ended" ? `${game.winners.map(id => nameOf(game, id)).join("、")}获胜`
-            : game.phase === "choose_noble" ? "选择贵族" : game.phase === "return_tokens" ? "归还宝石" : taken.length ? taken.map(c => gemLetters[c]).join(" · ") : game.canAct ? "选择宝石或发展卡" : "等待操作"}</span>
+            : computerTurn ? (error ? "AI 回合暂停" : "AI 思考中…") : game.canPass ? "无可用操作" : game.phase === "choose_noble" ? "选择贵族" : game.phase === "return_tokens" ? "归还宝石" : taken.length ? taken.map(c => gemLetters[c]).join(" · ") : game.canAct ? "选择宝石或发展卡" : "等待操作"}</span>
             {game.phase === "ended" ? <button className="primary-button" onClick={() => setReport(true)}>查看结算 <Icon name="arrow" /></button>
-              : <button className="primary-button" disabled={!canTake || busy} onClick={() => onAction({ type: "take", colors: taken })}>{busy ? "提交中…" : "确认拿取"} <Icon name="arrow" /></button>}</footer>
+              : computerTurn ? (error && <button className="primary-button" onClick={onRetryComputer}>重试</button>)
+                : game.canPass ? <button className="primary-button" disabled={busy} onClick={() => onAction({ type: "pass" })}>跳过回合 <Icon name="arrow" /></button>
+                  : <button className="primary-button" disabled={!canTake || busy} onClick={() => onAction({ type: "take", colors: taken })}>{busy ? "提交中…" : "确认拿取"} <Icon name="arrow" /></button>}</footer>
         </main>}
     {visible && choice && <CardChoice key={`${game.step}-${choice.card?.id || choice.level}`} game={game} choice={choice} busy={busy} onAction={onAction} onClose={() => setChoice(null)} />}
     {visible && game.phase === "return_tokens" && game.canAct && <ReturnTokens key={game.step} game={game} busy={busy} onAction={onAction} />}
@@ -247,10 +288,10 @@ export default function SplendorApp({ room, game, busy, error, handoff, onStart,
           <strong>{player.name}</strong><span>{game.boards[player.id].purchased.length} 张发展卡 · {game.boards[player.id].nobles.length} 位贵族</span><b>{game.boards[player.id].score}<small> 分</small></b></div>)}</div>
         <p className="muted small">同分时，已购买发展卡更少者获胜；仍相同则共享胜利。再来一局将轮换先手。</p>
         <div className="choice-actions"><button className="primary-button" disabled={busy || !game.canRematch} onClick={() => onAction({ type: "rematch" })}>再来一局 <Icon name="arrow" /></button>
-          {!room && <button className="secondary-button" onClick={onExit}>更换玩家</button>}</div></div>}
+          {!room && <button className="secondary-button" onClick={onExit}>更换模式</button>}</div></div>}
     </Dialog>
     <Dialog open={exit && !!visible && !room} onClose={() => setExit(false)} className="app-dialog" aria-label="退出本局"><DialogHeading title="退出本局" onClose={() => setExit(false)} />
-      <div className="dialog-body"><p className="muted">退出将清除这场本地对局。若想稍后继续，直接关闭页面即可，进度会自动保存。</p><button className="secondary-button full-width" onClick={onExit}>结束本局并返回</button></div></Dialog>
+      <div className="dialog-body"><p className="muted">退出将清除这场本地对局。若想稍后继续，直接关闭页面即可，进度会自动保存。</p><button className="secondary-button full-width" onClick={() => { setExit(false); onExit(); }}>结束本局并返回</button></div></Dialog>
     <Dialog open={help} onClose={() => setHelp(false)} className="help-dialog" aria-label="璀璨宝石规则"><div className="help-dialog-content"><button className="help-dialog-close" aria-label="关闭规则" onClick={() => setHelp(false)}><Icon name="close" /></button><iframe className="help-frame" title="璀璨宝石完整规则" src="./help.html" /></div></Dialog>
   </div>;
 }

@@ -124,6 +124,14 @@ function validTokens(value) {
     && Object.keys(value).every(c => TOKEN_COLORS.includes(c))
     && TOKEN_COLORS.every(c => value[c] === undefined || (Number.isInteger(value[c]) && value[c] >= 0));
 }
+
+function canPass(state, board) {
+  if (COLORS.some(color => state.bank[color] > 0)) return false;
+  if (board.reserved.length < 3 && (state.decks.some(deck => deck.length) || state.market.some(row => row.length))) return false;
+  return !state.market.some(row => row.some(card => paymentFor(board, card)))
+    && !board.reserved.some(card => paymentFor(board, card));
+}
+
 const reject = message => ({ accepted: false, error: { code: "INVALID_ACTION", message } });
 
 export function applyAction(state, actorId, action) {
@@ -152,6 +160,10 @@ export function applyAction(state, actorId, action) {
     const noble = eligibleNobles(state, actorId).find(n => n.id === action.nobleId);
     if (action.type !== "choose_noble" || !noble) return reject("请选择一位满足条件的贵族");
     claimNoble(state, noble); finishTurn(state);
+  } else if (action.type === "pass") {
+    if (!canPass(state, board)) return reject("还有可用操作，不能跳过回合");
+    state.lastMove = { playerId: actorId, type: "pass", round: state.round };
+    checkNobles(state);
   } else if (action.type === "take") {
     if (!Array.isArray(action.colors) || action.colors.length < 1 || action.colors.length > 3
       || action.colors.some(c => !COLORS.includes(c))) return reject("请选择宝石颜色");
@@ -204,6 +216,7 @@ export function applyAction(state, actorId, action) {
 
 export function projectGame(state, viewerId) {
   const seated = state.players.some(p => p.id === viewerId);
+  const canAct = seated && state.phase !== "ended" && state.players[state.turn].id === viewerId;
   return {
     players: state.players,
     boards: Object.fromEntries(state.players.map(p => [p.id, {
@@ -213,7 +226,7 @@ export function projectGame(state, viewerId) {
     bank: state.bank, market: state.market, nobles: state.nobles,
     counts: state.decks.map(deck => deck.length), round: state.round, step: state.step,
     phase: state.phase, endingRound: state.endingRound, currentPlayerId: state.players[state.turn].id,
-    viewerId, canAct: seated && state.phase !== "ended" && state.players[state.turn].id === viewerId,
+    viewerId, canAct, canPass: canAct && state.phase === "playing" && canPass(state, state.boards[viewerId]),
     canRematch: seated && state.phase === "ended", winners: state.winners,
     eligibleNobleIds: state.phase === "choose_noble" ? eligibleNobles(state, state.players[state.turn].id).map(n => n.id) : [],
     lastMove: state.lastMove, history: state.history,

@@ -31,6 +31,18 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .section-heading h3 { font-size: 13px; font-weight: 500; }
 .section-heading > span { font-size: 11px; color: var(--muted); }
 .setup-view { flex: 1; min-height: 0; overflow: auto; padding: 24px 16px; }
+.setup-view h1 { font-size: 21px; font-weight: 600; }
+.mode-list { display: grid; }
+.mode-list h1 { margin-bottom: 16px; }
+.mode-entry { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 8px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; color: inherit; font-size: 15px; text-align: left; text-decoration: none; }
+.mode-entry > span { flex: 1; }
+.mode-entry small { color: var(--muted); font-size: 11px; }
+.mode-entry .icon { color: var(--gold); width: 17px; height: 17px; }
+.mode-entry:hover:not(:disabled) > span { color: var(--gold); }
+.mode-entry:disabled { opacity: .5; }
+.resume-game { margin-top: 24px; }
+.save-notice { margin-bottom: 8px; }
+.setup-back { display: block; min-height: 44px; margin: 12px auto 0; }
 .setup-form { padding: 0; border: 0; background: none; }
 .count-picker { display: grid; gap: 5px; color: var(--muted); font-size: 11px; }
 .count-picker select { min-width: 75px; padding: 7px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: #f4f1e7; }
@@ -39,11 +51,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .name-grid label { display: flex; align-items: center; min-width: 0; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .name-grid label > span { flex-shrink: 0; font-size: 10px; color: var(--muted); }
 .name-grid input { min-width: 0; width: 100%; min-height: 28px; padding: 5px 0; border: 0; background: transparent; color: #f4f1e7; font-size: 14px; }
+.name-grid strong { min-height: 28px; display: flex; align-items: center; font-size: 14px; font-weight: 500; }
 .setup-divider { height: 1px; background: var(--line); margin: 28px 0; }
 .setup-inventory { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 22px 0 30px; color: var(--muted); font-size: 11px; }
 .setup-inventory > span:first-child { display: flex; gap: 7px; }.setup-inventory .gem { width: 21px; height: 21px; }
-.room-link { display: flex; justify-content: center; align-items: center; min-height: 48px; margin-top: 12px; color: var(--muted); font-size: 12px; text-decoration: none; }
-.room-link:hover { color: var(--gold); }
 .connection-view, .handoff-view { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px 16px; text-align: center; }
 .connection-view > .icon { width: 48px; height: 48px; color: var(--gold); }
 .handoff-view h1 { max-width: 100%; font-size: 23px; overflow-wrap: anywhere; font-weight: 600; }

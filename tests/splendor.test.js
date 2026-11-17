@@ -203,7 +203,7 @@ function invalidCases(state) {
     ["p0", { ...valid, type: "buy", cardId: state.market[0][0].id, payment: { white: "3" } }],
     ["p0", { ...valid, type: "buy", cardId: state.market[0][0].id, payment: { purple: 5 } }],
     ["p0", { ...valid, type: "return_tokens", tokens: {} }], ["p0", { ...valid, type: "choose_noble", nobleId: state.nobles[0].id }],
-    ["p0", { ...valid, type: "rematch" }],
+    ["p0", { ...valid, type: "rematch" }], ["p0", { ...valid, type: "pass" }],
   ];
 }
 
@@ -221,7 +221,7 @@ test("both runtimes reject forged, stale, out-of-turn and spectator actions with
   } finally { lua.global.close(); }
 });
 
-test("Lua matches gold substitution, exhausted decks, pending noble choices and final-round ties", async () => {
+test("Lua matches gold substitution, forced passes, pending noble choices and final-round ties", async () => {
   const lua = await openLua();
   async function check(state, intent) {
     const before = structuredClone(state), actor = state.players[state.turn].id;
@@ -239,6 +239,19 @@ test("Lua matches gold substitution, exhausted decks, pending noble choices and 
     assert.equal((await check(payment, { type: "buy", cardId: card.id, payment: { red: 0, black: 1, gold: 2 } })).accepted, true);
     assert.equal(payment.market[0].length, 3);
     assert.equal((await check(payment, { type: "reserve", blind: true, level: 1 })).accepted, false);
+    const blocked = createGame(players(3), "abcd");
+    for (const color of COLORS) blocked.bank[color] = 0;
+    const board = blocked.boards.p0;
+    assert.equal((await check(blocked, { type: "pass" })).accepted, false); // Can reserve.
+    for (let i = 0; i < 3; i++) board.reserved.push(blocked.decks[2].pop());
+    board.tokens.gold = 5;
+    assert.equal((await check(blocked, { type: "pass" })).accepted, false); // Can buy.
+    board.tokens.gold = 0;
+    assert.equal(projectGame(blocked, "p0").canPass, true);
+    assert.equal(projectGame(blocked, "p1").canPass, false);
+    assert.equal((await check(blocked, { type: "pass" })).accepted, true);
+    assert.equal(blocked.turn, 1);
+    assert.equal(blocked.history[0].type, "pass");
     const pending = createGame(players(2), "abcd");
     free(pending.boards.p0); pending.boards.p0.score = 12;
     Object.assign(pending.boards.p0.tokens, { white: 4, blue: 3, green: 3 });

@@ -3,6 +3,8 @@ export function createPlayweftClient({
   onState,
   onError,
   onPlayerProfileChanged,
+  onRoomState,
+  onRoomClosed,
 }) {
   let port = null;
   let probe = null;
@@ -46,6 +48,16 @@ export function createPlayweftClient({
     }
     if (message.method === "platform.error") {
       onError(message.params?.error?.message || "Playweft 平台发生错误。");
+      return;
+    }
+    if (message.method === "room.stateChanged") {
+      onRoomState?.(message.params);
+      return;
+    }
+    if (message.method === "room.closed") {
+      matchId = null;
+      latestVersion = -1;
+      onRoomClosed?.();
       return;
     }
     if (message.method === "room.players.profileChanged") {
@@ -101,6 +113,9 @@ export function createPlayweftClient({
   }
 
   return {
+    createRoom(options) {
+      return call("rooms.create", options);
+    },
     action(action) {
       return call("room.action", { action });
     },

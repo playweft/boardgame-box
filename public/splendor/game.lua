@@ -275,6 +275,18 @@ local function reject(message)
   return {accepted=false, error={code="INVALID_ACTION", message=message}}
 end
 
+local function can_pass(state, board)
+  for _, color in ipairs(COLORS) do if state.bank[color] > 0 then return false end end
+  if #board.reserved < 3 then
+    for level, row in ipairs(state.market) do if #row > 0 or #state.decks[level] > 0 then return false end end
+  end
+  for _, row in ipairs(state.market) do
+    for _, card in ipairs(row) do if payment_for(board, card) then return false end end
+  end
+  for _, card in ipairs(board.reserved) do if payment_for(board, card) then return false end end
+  return true
+end
+
 function on_action(state, action, context)
   local actor = context.actor.id
   if not player_index(state, actor) then return reject("只有入座玩家可以操作") end
@@ -304,6 +316,10 @@ function on_action(state, action, context)
     for _, candidate in ipairs(eligible_nobles(state, actor)) do if candidate.id == action.nobleId then noble = candidate end end
     if action.type ~= "choose_noble" or not noble then return reject("请选择一位满足条件的贵族") end
     claim_noble(state, noble); finish_turn(state)
+  elseif action.type == "pass" then
+    if not can_pass(state, board) then return reject("还有可用操作，不能跳过回合") end
+    state.lastMove = {playerId=actor,type="pass",round=state.round}
+    check_nobles(state)
   elseif action.type == "take" then
     if type(action.colors) ~= "table" or #action.colors < 1 or #action.colors > 3 then return reject("请选择宝石颜色") end
     local counts, distinct, available = empty_tokens(), 0, 0
@@ -367,6 +383,7 @@ end
 function view(state, events, context)
   local viewer, boards, counts, eligible = context.viewer.id, {}, {}, {}
   local seated = player_index(state, viewer) ~= nil
+  local can_act = seated and state.phase ~= "ended" and state.players[state.turn + 1].id == viewer
   for _, player in ipairs(state.players) do
     local b = state.boards[player.id]
     local reserved = {}
@@ -381,7 +398,7 @@ function view(state, events, context)
     players=state.players,boards=boards,bank=state.bank,market=state.market,nobles=state.nobles,counts=counts,
     round=state.round,step=state.step,phase=state.phase,endingRound=state.endingRound,
     currentPlayerId=state.players[state.turn + 1].id,viewerId=viewer,
-    canAct=seated and state.phase ~= "ended" and state.players[state.turn + 1].id == viewer,
+    canAct=can_act,canPass=can_act and state.phase == "playing" and can_pass(state, state.boards[viewer]),
     canRematch=seated and state.phase == "ended",winners=state.winners,eligibleNobleIds=eligible,
     lastMove=state.lastMove,history=state.history,
   },events={}}
