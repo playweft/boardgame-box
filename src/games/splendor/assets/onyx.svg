@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>缟玛瑙</title>
+  <polygon id="silhouette" fill="#6e4e3a" points="329,321 922,321 1154,626 928,931 324,931 100,626"/>
+  <polygon id="facet-1" fill="#86654d" points="329,321 922,321 1154,626 1004,626 866,446 384,446"/>
+  <polygon id="facet-2" fill="#583d32" points="1154,626 928,931 867,808 1004,626"/>
+  <polygon id="facet-3" fill="#3d2c24" points="928,931 324,931 384,808 867,808"/>
+  <polygon id="facet-4" fill="#583d31" points="324,931 100,626 246,626 384,808"/>
+  <polygon id="facet-5" fill="#ab8469" points="100,626 329,321 384,446 246,626"/>
+</svg>

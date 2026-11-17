@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>红宝石</title>
+  <polygon id="silhouette" fill="#c46d76" points="626,146 1103,628 789,937 622,1103 454,934 146,626"/>
+  <polygon id="facet-1" fill="#e3a3a3" points="626,146 626,330 327,627 146,626"/>
+  <polygon id="facet-2" fill="#ab4c5c" points="626,146 1103,628 919,628 626,330"/>
+  <polygon id="facet-3" fill="#853343" points="1103,628 789,937 698,847 919,628"/>
+  <polygon id="facet-4" fill="#b95a67" points="146,626 327,627 544,846 454,934"/>
+  <polygon id="facet-5" fill="#6c2b3a" points="454,934 544,846 621,923 698,847 789,937 622,1103"/>
+</svg>

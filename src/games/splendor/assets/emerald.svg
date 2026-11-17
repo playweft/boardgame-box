@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>祖母绿</title>
+  <polygon id="silhouette" fill="#4d7c66" points="413,191 840,191 960,312 957,949 840,1062 411,1062 295,948 293,314"/>
+  <polygon id="facet-1" fill="#79a58c" points="413,191 840,191 753,325 497,324"/>
+  <polygon id="facet-2" fill="#4e8068" points="840,191 960,312 832,406 753,325"/>
+  <polygon id="facet-3" fill="#396950" points="960,312 957,949 832,856 832,406"/>
+  <polygon id="facet-4" fill="#284a38" points="957,949 840,1062 754,934 832,856"/>
+  <polygon id="facet-5" fill="#2d533f" points="840,1062 411,1062 497,934 754,934"/>
+  <polygon id="facet-6" fill="#4e7f67" points="411,1062 295,948 418,856 497,934"/>
+  <polygon id="facet-7" fill="#7ba78e" points="295,948 293,314 417,406 418,856"/>
+  <polygon id="facet-8" fill="#a1c4a9" points="293,314 413,191 497,324 417,406"/>
+</svg>

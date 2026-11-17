@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>蓝宝石</title>
+  <polygon id="silhouette" fill="#5b8ccb" points="350,231 901,231 1038,366 1037,916 905,1045 343,1047 211,917 210,366"/>
+  <polygon id="facet-1" fill="#8abdeb" points="350,231 901,231 830,404 418,404"/>
+  <polygon id="facet-2" fill="#25477c" points="901,231 1038,366 873,448 830,404"/>
+  <polygon id="facet-3" fill="#3f6fb4" points="1038,366 1037,916 873,828 873,448"/>
+  <polygon id="facet-4" fill="#21437a" points="1037,916 905,1045 828,875 873,828"/>
+  <polygon id="facet-5" fill="#254983" points="905,1045 343,1047 422,874 828,875"/>
+  <polygon id="facet-6" fill="#224479" points="343,1047 211,917 375,828 422,874"/>
+  <polygon id="facet-7" fill="#4170b3" points="211,917 210,366 373,450 375,828"/>
+  <polygon id="facet-8" fill="#26487b" points="210,366 350,231 418,404 373,450"/>
+</svg>

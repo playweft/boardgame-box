@@ -8,11 +8,18 @@ import {
   Crown,
   Flag,
   Gem as GemIcon,
+  History,
   Layers,
   LockKeyhole,
+  SkipForward,
   X,
 } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
+import diamond from "./assets/diamond.svg";
+import emerald from "./assets/emerald.svg";
+import onyx from "./assets/onyx.svg";
+import ruby from "./assets/ruby.svg";
+import sapphire from "./assets/sapphire.svg";
 import {
   CARDS,
   COLORS,
@@ -33,7 +40,9 @@ const icons = {
   close: X,
   check: Check,
   flag: Flag,
+  history: History,
   reserve: Layers,
+  skip: SkipForward,
 };
 function Icon({ name, className = "icon" }) {
   return (
@@ -54,13 +63,12 @@ function Icon({ name, className = "icon" }) {
   );
 }
 
-const gemShapes = {
-  white: "M5 3H15L19 8L10 19L1 8Z",
-  blue: "M6 2H14L19 7V14L14 19H6L1 14V7Z",
-  green: "M5 2H15L18 5V16L15 19H5L2 16V5Z",
-  red: "M10 1L19 10L10 20L1 10Z",
-  black: "M6 2H14L19 10L14 19H6L1 10Z",
-  gold: "M10 1L13 7L20 8L15 13L16 20L10 16L4 20L5 13L0 8L7 7Z",
+const gemAssets = {
+  white: diamond,
+  blue: sapphire,
+  green: emerald,
+  red: ruby,
+  black: onyx,
 };
 const gemLetters = {
   white: "白",
@@ -71,21 +79,29 @@ const gemLetters = {
   gold: "金",
 };
 export function Gem({ color, className = "", label = false }) {
+  const asset = gemAssets[color];
   return (
     <span
       className={`gem gem-${color} ${className}`}
       title={COLOR_NAMES[color]}
     >
-      <svg viewBox="0 0 21 21" aria-hidden="true">
-        <path d={gemShapes[color]} fill="currentColor" />
-        <path
-          d="M5 5L10 9L15 5M10 9V16M4 10L10 9L17 10"
-          fill="none"
-          stroke="white"
-          strokeOpacity=".38"
-          strokeWidth=".9"
-        />
-      </svg>
+      {asset ? (
+        <img src={asset} alt="" />
+      ) : (
+        <svg viewBox="0 0 21 21" aria-hidden="true">
+          <path
+            d="M10 1L13 7L20 8L15 13L16 20L10 16L4 20L5 13L0 8L7 7Z"
+            fill="currentColor"
+          />
+          <path
+            d="M5 5L10 9L15 5M10 9V16M4 10L10 9L17 10"
+            fill="none"
+            stroke="white"
+            strokeOpacity=".38"
+            strokeWidth=".9"
+          />
+        </svg>
+      )}
       {label && <small>{gemLetters[color]}</small>}
     </span>
   );
@@ -893,12 +909,6 @@ export default function SplendorApp({
                   <PurchaseMark />
                   可购买
                 </span>
-                <button
-                  className="text-button"
-                  onClick={() => setHistory(true)}
-                >
-                  记录
-                </button>
                 {!room && (
                   <button className="text-button" onClick={() => setExit(true)}>
                     放弃
@@ -958,6 +968,7 @@ export default function SplendorApp({
                         aria-pressed={!!count}
                         onClick={() => chooseGem(color)}
                       >
+                        <Gem color={color} />
                         <b>{game.bank[color]}</b>
                         {count > 0 && (
                           <span className="take-count">+{count}</span>
@@ -981,14 +992,36 @@ export default function SplendorApp({
               </section>
             )}
             <div className="action-bar">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="对局记录"
+                title="对局记录"
+                onClick={() => setHistory(true)}
+              >
+                <Icon name="history" />
+              </button>
               {board && (
                 <button
-                  className="reserved-trigger"
-                  onClick={() => setInspected(game.viewerId)}
+                  type="button"
+                  className="icon-button"
                   aria-label={`查看我的预留牌，${board.reserved.length}张`}
+                  title="查看我的预留牌"
+                  onClick={() => setInspected(game.viewerId)}
                 >
                   <Icon name="reserve" />
-                  预留 {board.reserved.length}
+                </button>
+              )}
+              {game.phase !== "ended" && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="跳过回合"
+                  title="跳过回合"
+                  disabled={!active || !game.canPass}
+                  onClick={() => onAction({ type: "pass" })}
+                >
+                  <Icon name="skip" />
                 </button>
               )}
               {game.phase === "ended" ? (
@@ -1002,21 +1035,13 @@ export default function SplendorApp({
                 <button className="primary-button" onClick={onRetryComputer}>
                   重试
                 </button>
-              ) : game.canPass ? (
-                <button
-                  className="primary-button"
-                  disabled={busy}
-                  onClick={() => onAction({ type: "pass" })}
-                >
-                  跳过回合 <Icon name="arrow" />
-                </button>
               ) : (
                 <button
                   className="primary-button"
                   disabled={!canTake}
                   onClick={() => onAction({ type: "take", colors: taken })}
                 >
-                  {busy ? "提交中…" : "确认拿取"} <Icon name="arrow" />
+                  {busy ? "提交中…" : "确认拿取"}
                 </button>
               )}
             </div>

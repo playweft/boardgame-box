@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img">
+  <title>钻石</title>
+  <polygon id="silhouette" fill="#f2f5f8" points="337,289 424,289 830,289 916,289 1133,534 753,915 624,1043 497,916 119,534"/>
+  <polygon id="facet-1" fill="#bdcbd6" points="337,289 424,289 303,532 119,534"/>
+  <polygon id="facet-3" fill="#bdccd6" points="830,289 916,289 1133,534 949,532"/>
+  <polygon id="facet-4" fill="#8fa0af" points="119,534 303,532 570,873 497,916"/>
+  <polygon id="facet-5" fill="#8fa1b0" points="1133,534 753,915 678,873 949,532"/>
+  <polygon id="facet-6" fill="#5a6a7a" points="497,916 570,873 678,873 753,915 624,1043"/>
+</svg>

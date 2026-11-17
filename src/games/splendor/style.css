@@ -190,11 +190,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   vertical-align: middle;
 }
 
-.gem svg {
+.gem svg, .gem img {
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+
+.gem img {
+  filter: drop-shadow(0 1px 1px #101a2a99);
 }
 
 .gem-white {
@@ -223,10 +227,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .gem small {
   font-size: 0.75rem;
-}
-
-.gem-black svg {
-  filter: drop-shadow(0 0 .6px #c4cadb);
 }
 
 .section-heading {
@@ -608,25 +608,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .nobles-row {
   display: flex;
   flex: 1;
+  min-width: 0;
   gap: 5px;
+  align-items: flex-start;
   justify-content: center;
 }
 
 .noble {
   display: flex;
-  flex: 1;
+  flex: 0 1 calc(46px + var(--vertical-space) / 16);
+  aspect-ratio: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 0;
-  max-width: 110px;
-  min-height: 47px;
   padding: 4px 1px;
-  color: #eed9af;
-  background: #ffffff0d;
-  border: 0;
-  border-radius: 6px;
 }
 
 .noble-top {
@@ -636,17 +632,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   line-height: 1;
 }
 
-.nobles-section .noble {
-  min-height: calc(42px + var(--vertical-space) / 48);
-}
-
 .noble-top .icon {
   width: 12px;
   height: 12px;
 }
 
 .noble-top b {
-  font-family: Georgia, serif;
   font-size: 1rem;
 }
 
@@ -657,11 +648,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .noble.eligible {
-  box-shadow: inset 0 0 0 1px var(--gold);
-}
-
-.noble:is(button):hover {
-  background: #ffffff16;
+  box-shadow: inset 0 0 0 2px #ae8644, 0 2px 0 #0c1e30;
 }
 
 .turn-strip {
@@ -737,24 +724,30 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   gap: var(--column-gap);
 }
 
-.development-card, .empty-card {
+.development-card, .empty-card, .noble {
   min-width: 0;
-  width: 100%;
   border-radius: 6px;
 }
 
-.development-card {
+.development-card, .empty-card {
+  width: 100%;
+}
+
+.development-card, .noble {
   --card-surface: #f4eddd;
+  background: var(--card-surface);
+  border: 0;
+  color: #29394a;
+  box-shadow: 0 2px 0 #0c1e30;
+}
+
+.development-card {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 6px 4px 5px;
-  background: var(--card-surface);
-  border: 0;
-  color: #29394a;
   text-align: left;
-  box-shadow: 0 2px 0 #0c1e30;
 }
 
 .market-row .development-card {
@@ -766,7 +759,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background-color: color-mix(in srgb, var(--card-surface) 95%, var(--shell-background));
 }
 
-button.development-card:hover, .deck:not(:disabled):hover {
+button.development-card:hover, button.noble:hover, .deck:not(:disabled):hover {
   filter: brightness(1.05);
 }
 
@@ -781,7 +774,7 @@ button.development-card:hover, .deck:not(:disabled):hover {
   font-size: 1.3125rem;
 }
 
-.card-top > b {
+.card-top > b, .noble-top b {
   color: #fff;
   font-style: italic;
   font-weight: 600;
@@ -802,27 +795,6 @@ button.development-card:hover, .deck:not(:disabled):hover {
 .market-row .card-top > .gem {
   width: calc(21px + var(--card-detail-space) / 60);
   height: calc(21px + var(--card-detail-space) / 60);
-}
-
-.card-top .gem-white {
-  color: #dee3e5;
-  filter: drop-shadow(0 1px 1px #40576766);
-}
-
-.card-top .gem-blue {
-  color: #487bb9;
-}
-
-.card-top .gem-green {
-  color: #559679;
-}
-
-.card-top .gem-red {
-  color: #bd6269;
-}
-
-.card-top .gem-black {
-  color: #41444f;
 }
 
 .card-bottom {
@@ -848,20 +820,13 @@ button.development-card:hover, .deck:not(:disabled):hover {
   display: inline-grid;
   place-items: center;
   flex: none;
-  box-sizing: content-box;
-  block-size: 1lh;
-  padding: 0.1em;
+  block-size: 1.375em;
   aspect-ratio: 1;
+  border: 1px solid #fff;
   border-radius: 50%;
   color: white;
   font-weight: 600;
   line-height: 1;
-}
-
-.card-costs .cost {
-  block-size: 1.375em;
-  padding: 0;
-  box-shadow: inset 0 0 0 1px #fff;
   -webkit-text-stroke: 0.1em #000;
   paint-order: stroke fill;
 }
@@ -883,10 +848,6 @@ button.development-card:hover, .deck:not(:disabled):hover {
 
 .cost-white {
   background: #f8fafc;
-}
-
-.noble-costs .cost-white {
-  color: #29394a;
 }
 
 .token-white {
@@ -916,7 +877,7 @@ button.development-card:hover, .deck:not(:disabled):hover {
 }
 
 .noble-costs .cost {
-  padding: 0.04em;
+  block-size: 1.08em;
 }
 
 .purchase-mark {
@@ -1001,8 +962,10 @@ button.development-card:hover, .deck:not(:disabled):hover {
 
 .token {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: min(100%, 44px);
   aspect-ratio: 1;
   padding: 0;
@@ -1010,7 +973,14 @@ button.development-card:hover, .deck:not(:disabled):hover {
   border-radius: 50%;
   box-shadow: 0 3px 0 color-mix(in srgb, currentColor 16%, #15273c);
   font-family: Georgia, serif;
-  font-size: 1.3125rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.token .gem {
+  width: 50%;
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .token:disabled {
@@ -1045,7 +1015,7 @@ button.development-card:hover, .deck:not(:disabled):hover {
 
 .my-resources {
   max-width: 560px;
-  padding: calc(3px + var(--vertical-space) / 100) 10px;
+  padding: 6px 10px;
   border-radius: 8px;
   background: #ffffff0d;
 }
@@ -1059,6 +1029,13 @@ button.development-card:hover, .deck:not(:disabled):hover {
   grid-template-columns: 28px repeat(6, minmax(0, 1fr));
   gap: 3px 4px;
   align-items: center;
+  font-size: 0.75rem;
+}
+
+.my-resources .resource-grid {
+  grid-auto-rows: minmax(22px, auto);
+  row-gap: 4px;
+  font-size: 0.875rem;
 }
 
 .resource-grid > span {
@@ -1066,7 +1043,6 @@ button.development-card:hover, .deck:not(:disabled):hover {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1080,50 +1056,42 @@ button.development-card:hover, .deck:not(:disabled):hover {
   height: 14px;
 }
 
+.my-resources .gem {
+  width: 18px;
+  height: 18px;
+}
+
 .resource-grid .bonus-number {
   color: #c4d1d9;
 }
 
-.resource-grid .gem-black {
-  color: #697486;
-}
-
 .action-bar {
   display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.reserved-trigger, .action-bar .primary-button {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  white-space: nowrap;
 }
 
-.reserved-trigger {
-  padding: 8px 12px;
-  border: 0;
-  background: #ffffff12;
+.action-bar .icon-button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
 }
 
-.reserved-trigger .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.reserved-trigger:hover {
-  background: #ffffff1a;
+.action-bar .icon-button:disabled {
+  opacity: .4;
 }
 
 .action-bar .primary-button {
   flex: 1;
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 6px;
+  border-radius: 8px;
   box-shadow: 0 3px 0 #ae8644;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .action-bar .primary-button:active:not(:disabled) {
@@ -1249,7 +1217,7 @@ button.development-card:hover, .deck:not(:disabled):hover {
   background: #ffffff09;
 }
 
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   background: #ffffff15;
 }
 
@@ -1454,10 +1422,6 @@ button.development-card:hover, .deck:not(:disabled):hover {
   width: 27px;
   height: 27px;
   opacity: .6;
-}
-
-.overview-dialog .noble {
-  max-width: 125px;
 }
 
 .history-list {
@@ -1825,6 +1789,10 @@ button.development-card:hover, .deck:not(:disabled):hover {
   .play-footer {
     grid-area: footer;
     margin-top: var(--section-gap);
+  }
+
+  .my-resources {
+    padding-block: 4px;
   }
 }
 
