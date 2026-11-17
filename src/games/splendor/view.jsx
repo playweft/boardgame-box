@@ -11,6 +11,7 @@ import {
   History,
   Layers,
   LockKeyhole,
+  Pause,
   SkipForward,
   X,
 } from "lucide";
@@ -37,6 +38,7 @@ const icons = {
   crown: Crown,
   gem: GemIcon,
   lock: LockKeyhole,
+  pause: Pause,
   close: X,
   check: Check,
   flag: Flag,
@@ -140,6 +142,15 @@ function Costs({ cost, className }) {
   );
 }
 
+function CardBackContent({ level }) {
+  return (
+    <span className="card-content card-back-content">
+      <Icon name="lock" />
+      <TierMark level={level} />
+    </span>
+  );
+}
+
 function Card({ card, onClick, affordable = false }) {
   if (card.hidden)
     return (
@@ -147,8 +158,7 @@ function Card({ card, onClick, affordable = false }) {
         className={`development-card card-back level-${card.level}`}
         aria-label={`${card.level} 级预留牌，牌面保密`}
       >
-        <Icon name="lock" />
-        <TierMark level={card.level} />
+        <CardBackContent level={card.level} />
       </div>
     );
   return (
@@ -157,13 +167,15 @@ function Card({ card, onClick, affordable = false }) {
       onClick={onClick}
       aria-label={`${card.level}级${COLOR_NAMES[card.bonus]}发展卡，${card.points}分，费用${listTokens(card.cost)}${affordable ? "，可购买" : ""}`}
     >
-      <span className="card-top">
-        {card.points > 0 && <b>{card.points}</b>}
-        <Gem color={card.bonus} />
-      </span>
-      <span className="card-bottom">
-        <Costs className="card-costs" cost={card.cost} />
-        {affordable && <PurchaseMark />}
+      <span className="card-content">
+        <span className="card-top">
+          {card.points > 0 && <b>{card.points}</b>}
+          <Gem color={card.bonus} />
+        </span>
+        <span className="card-bottom">
+          <Costs className="card-costs" cost={card.cost} />
+          {affordable && <PurchaseMark />}
+        </span>
       </span>
     </button>
   );
@@ -171,13 +183,13 @@ function Card({ card, onClick, affordable = false }) {
 
 function Noble({ noble, eligible = false, onClick }) {
   const content = (
-    <>
+    <span className="card-content noble-content">
       <span className="noble-top">
         <Icon name="crown" />
         <b>3</b>
       </span>
       <Costs className="noble-costs" cost={noble.cost} />
-    </>
+    </span>
   );
   return onClick ? (
     <button
@@ -583,8 +595,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
         ) : (
           <>
             <div className={`blind-illustration level-${choice.level}`}>
-              <Icon name="lock" />
-              <TierMark level={choice.level} />
+              <CardBackContent level={choice.level} />
             </div>
             <h2 className="centered">盲抽预留</h2>
             <p className="muted centered">
@@ -693,6 +704,7 @@ export default function SplendorApp({
   connecting,
   waitingForRoom,
   game,
+  paused,
   busy,
   error,
   handoff,
@@ -702,6 +714,7 @@ export default function SplendorApp({
   onResume,
   onCreateRoom,
   onReady,
+  onPauseChange,
   onBack,
   onExit,
   onRetryComputer,
@@ -714,14 +727,13 @@ export default function SplendorApp({
   const [inspected, setInspected] = useState(null),
     [history, setHistory] = useState(false),
     [report, setReport] = useState(false);
-  const [exit, setExit] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   useEffect(() => {
     setTaken([]);
     setChoice(null);
     setInspected(null);
     setHistory(false);
     setReport(game?.phase === "ended");
-    if (!game && !room) setExit(false);
   }, [game?.step, game?.viewerId, room]);
   // A handoff screen replaces the board, keeping the next player's private hand out of the DOM.
   const visible = game && !handoff;
@@ -758,7 +770,12 @@ export default function SplendorApp({
     visible && game.players.find((p) => p.id === inspected);
   const inspectBoard = inspectedPlayer && game.boards[inspectedPlayer.id];
   const showCard = (card) => setChoice({ card });
-  const canReturnToOpening = !connecting && !room && !!game;
+  const canPause = !connecting && !room && !!game;
+  const pauseTitle = confirmDiscard ? "放弃对局" : "游戏暂停";
+  const closePause = () => {
+    if (confirmDiscard) setConfirmDiscard(false);
+    else onPauseChange(false);
+  };
   const turnLabel =
     visible &&
     (game.phase === "ended"
@@ -779,14 +796,18 @@ export default function SplendorApp({
   return (
     <div className={`splendor-shell${visible ? " in-game" : ""}`}>
       <header className="topbar">
-        {canReturnToOpening ? (
+        {canPause ? (
           <button
             type="button"
             className="back-link"
-            onClick={onBack}
-            aria-label="返回模式选择"
+            onClick={() => {
+              setConfirmDiscard(false);
+              onPauseChange(true);
+            }}
+            aria-label="暂停游戏"
+            aria-haspopup="dialog"
           >
-            <Icon name="back" />
+            <Icon name="pause" />
           </button>
         ) : (
           !room &&
@@ -909,11 +930,6 @@ export default function SplendorApp({
                   <PurchaseMark />
                   可购买
                 </span>
-                {!room && (
-                  <button className="text-button" onClick={() => setExit(true)}>
-                    放弃
-                  </button>
-                )}
               </div>
               <section className="market-area" aria-label="发展卡市场">
                 <div className="market-section">
@@ -929,8 +945,10 @@ export default function SplendorApp({
                         onClick={() => setChoice({ level })}
                         aria-label={`盲抽预留${level}级牌，牌堆剩余${game.counts[level - 1]}张`}
                       >
-                        <TierMark level={level} />
-                        <b>{game.counts[level - 1]}</b>
+                        <span className="card-content deck-content">
+                          <TierMark level={level} />
+                          <b>{game.counts[level - 1]}</b>
+                        </span>
                       </button>
                       {game.market[level - 1].map((card) => (
                         <Card
@@ -1232,26 +1250,44 @@ export default function SplendorApp({
         )}
       </Dialog>
       <Dialog
-        open={exit && !!visible && !room}
-        onClose={() => setExit(false)}
-        className="app-dialog"
-        aria-label="放弃本局"
+        open={paused && canPause}
+        onClose={closePause}
+        className="app-dialog pause-dialog"
+        aria-label={pauseTitle}
       >
-        <DialogHeading title="放弃本局" onClose={() => setExit(false)} />
-        <div className="dialog-body">
-          <p className="muted">
-            放弃会清除这场本地对局。点顶栏返回可以保留进度。
-          </p>
-          <button
-            className="secondary-button full-width"
-            onClick={() => {
-              setExit(false);
-              onExit();
-            }}
-          >
-            放弃并返回
-          </button>
-        </div>
+        <DialogHeading title={pauseTitle} onClose={closePause} />
+        {confirmDiscard ? (
+          <div className="dialog-body">
+            <p className="muted">放弃会清除本局的存档。</p>
+            <div className="choice-actions">
+              <button className="secondary-button" onClick={closePause}>
+                取消
+              </button>
+              <button className="secondary-button" onClick={onExit}>
+                放弃并返回
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="dialog-body">
+            <div className="pause-actions">
+              <button className="primary-button" onClick={closePause}>
+                {game?.phase === "ended" ? "返回牌桌" : "继续游戏"}
+              </button>
+              <button className="secondary-button" onClick={onBack}>
+                暂时离开
+              </button>
+              {game?.phase !== "ended" && (
+                <button
+                  className="text-button"
+                  onClick={() => setConfirmDiscard(true)}
+                >
+                  放弃对局
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </Dialog>
       <Dialog
         open={help}

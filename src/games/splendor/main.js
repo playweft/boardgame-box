@@ -20,6 +20,7 @@ const roomOptions = {
 let hostMode = embedded ? null : "solo", canCreateRoom = false;
 let localGame = null, roomState = null, roomPresence = null, busy = false, error = "";
 let localViewerId = null, humanId = null, localMode = null, handoff = false;
+let paused = false;
 let botWorker = null, botJob = null;
 let savedGame = embedded ? null : readSave();
 
@@ -52,6 +53,7 @@ function startLocal({ state, mode, humanId: playerId }) {
   humanId = playerId;
   localViewerId = humanId ?? state.players[state.turn].id;
   handoff = !humanId && state.phase !== "ended";
+  paused = false;
   error = "";
   save();
   redraw();
@@ -73,7 +75,7 @@ function returnToOpening({ discard = false } = {}) {
   stopComputer();
   if (!discard) save();
   localGame = null; localViewerId = null; humanId = null; localMode = null;
-  handoff = false; error = "";
+  handoff = false; paused = false; error = "";
   if (discard) save();
   redraw();
 }
@@ -83,7 +85,7 @@ function redraw() {
   const game = room ? roomState : localGame && projectGame(localGame, localViewerId);
   render(h(SplendorApp, {
     room, standalone: !embedded, connecting: hostMode === null, waitingForRoom: roomPresence?.phase === "lobby",
-    game, busy, error,
+    game, busy, error, paused,
     handoff: !room && handoff, computerGame: !room && !!humanId, launchUrl: embedded ? null : launchUrl.href,
     savedMode: savedGame?.mode, onCreateRoom: canCreateRoom ? createOnlineRoom : null,
     onStart(names, mode) {
@@ -92,6 +94,7 @@ function redraw() {
     },
     onResume() { if (savedGame) startLocal(savedGame); },
     onReady() { handoff = false; redraw(); },
+    onPauseChange: setPaused,
     onBack() { returnToOpening(); },
     onExit() { returnToOpening({ discard: true }); },
     onRetryComputer() { error = ""; queueComputer(); redraw(); },
@@ -127,6 +130,14 @@ function stopComputer() {
   botWorker = null;
 }
 
+function setPaused(value) {
+  if (!localGame || hostMode === "room" || paused === value) return;
+  paused = value;
+  if (paused) stopComputer();
+  else if (!error) queueComputer();
+  redraw();
+}
+
 function applyLocalAction(actorId, action) {
   const result = applyAction(localGame, actorId, { ...action, round: localGame.round, step: localGame.step });
   if (!result.accepted) return result.error.message;
@@ -142,7 +153,7 @@ function applyLocalAction(actorId, action) {
 }
 
 function queueComputer(delay = 225) {
-  if (!localGame || !humanId || botJob || localGame.phase === "ended") return;
+  if (!localGame || !humanId || paused || botJob || localGame.phase === "ended") return;
   const actorId = localGame.players[localGame.turn].id;
   if (actorId === humanId) return;
   const job = { view: projectGame(localGame, actorId), mode: localMode };
@@ -180,7 +191,7 @@ function queueComputer(delay = 225) {
 async function submitAction(intent) {
   const room = hostMode === "room";
   const game = room ? roomState : localGame;
-  if (!game || busy || (room ? !roomClient?.connected : handoff)) return;
+  if (!game || busy || (room ? !roomClient?.connected : handoff || paused)) return;
   if (!room) {
     const isHumanTurn = !humanId || localGame.players[localGame.turn].id === humanId;
     if (!isHumanTurn && intent.type !== "rematch") return;
