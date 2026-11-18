@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import "./dialog.css";
-
-const transitionDuration = 180;
 
 export default function Dialog({
   open,
@@ -11,28 +9,37 @@ export default function Dialog({
   ...props
 }) {
   const dialogRef = useRef(null);
+  const contentRef = useRef(null);
   const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
 
-  useEffect(() => {
+  if (open) contentRef.current = children;
+
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (open) {
       setMounted(true);
-      setClosing(false);
       if (dialog && !dialog.open) dialog.showModal();
       return undefined;
     }
     if (!mounted) return undefined;
 
-    setClosing(true);
-    const reducedMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    const finish = () => {
+      if (cancelled) return;
       if (dialog?.open) dialog.close();
+      contentRef.current = null;
       setMounted(false);
-      setClosing(false);
-    }, reducedMotion ? 0 : transitionDuration);
-    return () => window.clearTimeout(timer);
+    };
+    const animations = dialog
+      .getAnimations()
+      .filter((animation) => animation.animationName === "app-dialog-exit");
+    Promise.all(animations.map((animation) => animation.finished)).then(
+      finish,
+      finish,
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [open, mounted]);
 
   if (!open && !mounted) return null;
@@ -41,18 +48,18 @@ export default function Dialog({
     <dialog
       {...props}
       data-app-dialog=""
-      className={className + (closing ? " is-closing" : "")}
+      className={className + (!open ? " is-closing" : "")}
       ref={dialogRef}
       onClick={(event) => {
-        if (event.target === event.currentTarget)
+        if (open && event.target === event.currentTarget)
           onClose?.(event, "backdropClick");
       }}
       onCancel={(event) => {
         event.preventDefault();
-        onClose?.(event, "escapeKeyDown");
+        if (open) onClose?.(event, "escapeKeyDown");
       }}
     >
-      {children}
+      {contentRef.current}
     </dialog>
   );
 }

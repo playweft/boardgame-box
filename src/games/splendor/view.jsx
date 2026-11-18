@@ -438,12 +438,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
     onAction(action);
   };
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      className="app-dialog card-dialog"
-      aria-label={card ? "发展卡详情" : "预留牌堆顶牌"}
-    >
+    <>
       <DialogHeading
         title={
           card
@@ -586,7 +581,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
           </>
         )}
       </div>
-    </Dialog>
+    </>
   );
 }
 
@@ -1034,16 +1029,24 @@ export default function SplendorApp({
           </footer>
         </main>
       )}
-      {visible && choice && (
-        <CardChoice
-          key={`${game.step}-${choice.card?.id || choice.level}`}
-          game={game}
-          choice={choice}
-          busy={busy}
-          onAction={onAction}
-          onClose={() => setChoice(null)}
-        />
-      )}
+      <Dialog
+        key={`card-${visible ? game.viewerId : "hidden"}`}
+        open={!!(visible && choice)}
+        onClose={() => setChoice(null)}
+        className="app-dialog card-dialog"
+        aria-label={choice?.card ? "发展卡详情" : "预留牌堆顶牌"}
+      >
+        {visible && choice && (
+          <CardChoice
+            key={`${game.step}-${choice.card?.id || choice.level}`}
+            game={game}
+            choice={choice}
+            busy={busy}
+            onAction={onAction}
+            onClose={() => setChoice(null)}
+          />
+        )}
+      </Dialog>
       {visible && game.phase === "return_tokens" && game.canAct && (
         <ReturnTokens
           key={game.step}
@@ -1053,6 +1056,7 @@ export default function SplendorApp({
         />
       )}
       <Dialog
+        key={`overview-${visible ? game.viewerId : "hidden"}`}
         open={!!inspectedPlayer}
         onClose={() => setInspected(null)}
         className="app-dialog overview-dialog"
