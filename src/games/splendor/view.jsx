@@ -74,14 +74,10 @@ const gemLetters = {
   black: "黑",
   gold: "金",
 };
-export function Gem({ color, className = "", label = false }) {
+function Gem({ color }) {
   return (
-    <span
-      className={`gem gem-${color} ${className}`}
-      title={COLOR_NAMES[color]}
-    >
+    <span className="gem" title={COLOR_NAMES[color]}>
       <img src={gemAssets[color]} alt="" />
-      {label && <small>{gemLetters[color]}</small>}
     </span>
   );
 }
@@ -276,7 +272,6 @@ function Entry({
   return (
     <main className="setup-view">
       <form
-        className="setup-form"
         onSubmit={(event) => {
           event.preventDefault();
           onStart(seats, mode);

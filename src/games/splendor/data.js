@@ -1,7 +1,14 @@
 // Numerical card facts checked against photographed base-game cards. See public/splendor/rules.md.
 export const COLORS = ["white", "blue", "green", "red", "black"];
 export const TOKEN_COLORS = [...COLORS, "gold"];
-export const COLOR_NAMES = { white: "钻石", blue: "蓝宝石", green: "祖母绿", red: "红宝石", black: "缟玛瑙", gold: "黄金" };
+export const COLOR_NAMES = {
+  white: "钻石",
+  blue: "蓝宝石",
+  green: "祖母绿",
+  red: "红宝石",
+  black: "缟玛瑙",
+  gold: "黄金",
+};
 
 // id, prestige, costs in white / blue / green / red / black order.
 const inventory = [
@@ -97,17 +104,29 @@ const inventory = [
   ["black-L3-04", 5, 0, 0, 0, 7, 3],
 ];
 export const CARDS = inventory.map(([id, points, ...cost]) => ({
-  id, level: Number(id.split("-L")[1][0]), bonus: id.split("-")[0], points,
+  id,
+  level: Number(id.split("-L")[1][0]),
+  bonus: id.split("-")[0],
+  points,
   cost: Object.fromEntries(COLORS.map((color, index) => [color, cost[index]])),
 }));
 
 // Five pairs (4 each), and five triples (3 each) from the base set.
 export const NOBLES = [
-  [4, 4, 0, 0, 0], [0, 4, 4, 0, 0], [0, 0, 4, 4, 0],
-  [0, 0, 0, 4, 4], [4, 0, 0, 0, 4],
-  [3, 3, 3, 0, 0], [0, 3, 3, 3, 0], [0, 0, 3, 3, 3],
-  [3, 0, 0, 3, 3], [3, 3, 0, 0, 3],
+  [4, 4, 0, 0, 0],
+  [0, 4, 4, 0, 0],
+  [0, 0, 4, 4, 0],
+  [0, 0, 0, 4, 4],
+  [4, 0, 0, 0, 4],
+  [3, 3, 3, 0, 0],
+  [0, 3, 3, 3, 0],
+  [0, 0, 3, 3, 3],
+  [3, 0, 0, 3, 3],
+  [3, 3, 0, 0, 3],
 ].map((cost, index) => ({
-  id: `noble-${index + 1}`, points: 3,
-  cost: Object.fromEntries(COLORS.map((color, offset) => [color, cost[offset]])),
+  id: `noble-${index + 1}`,
+  points: 3,
+  cost: Object.fromEntries(
+    COLORS.map((color, offset) => [color, cost[offset]]),
+  ),
 }));

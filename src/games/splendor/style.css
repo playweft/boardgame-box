@@ -108,7 +108,7 @@ input:focus-visible {
   margin-inline: auto -12px;
 }
 
-button.topbar-button {
+button.back-link {
   padding: 0;
   border: 0;
   background: transparent;
@@ -158,7 +158,6 @@ button.topbar-button {
 }
 
 .primary-button:active:not(:disabled) {
-  transform: translateY(3px);
   box-shadow: 0 1px 0 #ae8644;
 }
 
@@ -170,6 +169,10 @@ button.topbar-button {
 
 .secondary-button:active:not(:disabled) {
   box-shadow: 0 1px 0 #b7b8b6;
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
   transform: translateY(3px);
 }
 
@@ -219,34 +222,6 @@ button.topbar-button {
   height: 100%;
   overflow: visible;
   filter: drop-shadow(0 1px 1px #101a2a99);
-}
-
-.gem-white {
-  color: #eaf1f5;
-}
-
-.gem-blue {
-  color: #4d9edb;
-}
-
-.gem-green {
-  color: #45b58b;
-}
-
-.gem-red {
-  color: #d86a72;
-}
-
-.gem-black {
-  color: #3b3c4b;
-}
-
-.gem-gold {
-  color: #e8c26c;
-}
-
-.gem small {
-  font-size: 0.75rem;
 }
 
 .section-heading {
@@ -308,12 +283,6 @@ button.topbar-button {
   display: block;
   min-height: 44px;
   margin: 12px auto 0;
-}
-
-.setup-form {
-  padding: 0;
-  border: 0;
-  background: none;
 }
 
 .count-picker {
@@ -719,13 +688,18 @@ button.topbar-button {
 
 .market-row {
   display: grid;
-  grid-template-columns: var(--deck-width) repeat(4, minmax(0, 1fr));
   gap: var(--column-gap);
+}
+
+.market-row,
+.desktop-layout .market-section {
+  grid-template-columns: var(--deck-width) repeat(4, minmax(0, 1fr));
 }
 
 .development-card,
 .empty-card,
-.noble {
+.noble,
+.deck {
   min-width: 0;
   border-radius: 6px;
 }
@@ -900,9 +874,7 @@ button.topbar-button {
 }
 
 .deck {
-  min-width: 0;
   border: 0;
-  border-radius: 6px;
   color: #fff5e1;
   box-shadow: -2px 2px 0 #0c1e30;
 }
@@ -1138,7 +1110,7 @@ button.topbar-button {
   padding-inline: 10px;
 }
 
-.turn-actions .primary-button,
+.take-actions .primary-button,
 .turn-state > button {
   flex: 1;
 }
@@ -1231,15 +1203,12 @@ button.topbar-button {
 }
 
 .error-message {
+  margin-top: 16px;
   padding: 9px 10px;
   color: #ffddd3;
   background: #804f4b;
   border-radius: 6px;
   font-size: 0.75rem;
-}
-
-.setup-view .error-message {
-  margin-top: 16px;
 }
 
 .game-error-toast {
@@ -1300,7 +1269,6 @@ button.topbar-button {
 
 .player-heading strong small {
   margin-left: 5px;
-  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -1311,7 +1279,6 @@ button.topbar-button {
 }
 
 .player-score small {
-  font-size: 0.75rem;
   font-weight: 400;
   color: var(--muted);
 }
@@ -1412,14 +1379,6 @@ button.topbar-button {
 
 .dialog-body > .primary-button {
   margin-top: 18px;
-}
-
-.dialog-body > .muted + .secondary-button {
-  margin-top: 20px;
-}
-
-.dialog-body h2 {
-  font-size: 1.25rem;
 }
 
 .dialog-body > .centered {
@@ -1659,7 +1618,7 @@ button.topbar-button {
 
 .winner-name {
   text-align: center;
-  font-size: 1.4375rem;
+  font-size: 1.25rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
   margin: 12px 0 24px;
@@ -1772,6 +1731,41 @@ button.topbar-button {
 }
 
 .landscape-layout {
+  &.in-game {
+    width: min(100%, 74rem);
+  }
+
+  .play-view {
+    --sidebar-width: clamp(228px, 25vw, 270px);
+    --sidebar-gap: clamp(14px, (100vw - 560px) / 35 + 14px, 28px);
+    --deck-width: clamp(38px, 5vw + 10px, 68px);
+    --noble-size: min(
+      (var(--sidebar-width) - 8px) / 3,
+      3.5rem + var(--vertical-space) / 12
+    );
+    --column-gap: clamp(5px, (100vw - 560px) / 110 + 5px, 10px);
+    --min-card-width: 60px;
+    grid-template:
+      "players" auto
+      "board" minmax(var(--min-market-height), 1fr)
+      / minmax(0, 1fr);
+  }
+
+  :is(.play-view, .play-footer) {
+    padding-inline: clamp(16px, (100vw - 560px) / 45 + 16px, 24px);
+  }
+
+  .player-strip {
+    grid-area: players;
+    max-width: calc(100% - var(--sidebar-width) - var(--sidebar-gap));
+    padding-inline-end: 0;
+  }
+
+  .board-frame {
+    grid-area: board;
+    min-block-size: var(--min-market-height);
+  }
+
   .board-table {
     --fit-card-width: calc(
       (100cqh - 2 * var(--market-row-gap)) / 3 * var(--card-ratio)
@@ -1809,65 +1803,13 @@ button.topbar-button {
     min-block-size: calc(2 * var(--noble-size) + var(--noble-card-gap));
   }
 
-  @media (max-height: 352px) {
-    .board-table {
-      display: contents;
-    }
-
-    .nobles-section {
-      flex-direction: row;
-      align-items: center;
-    }
-  }
-}
-
-@media (orientation: landscape) and (min-width: 600px) {
-  .splendor-shell.in-game {
-    width: min(100%, 74rem);
-  }
-
-  .in-game .play-view {
-    --sidebar-width: clamp(228px, 25vw, 270px);
-    --sidebar-gap: clamp(14px, (100vw - 560px) / 35 + 14px, 28px);
-    --deck-width: clamp(38px, 5vw + 10px, 68px);
-    --noble-size: min(
-      (var(--sidebar-width) - 8px) / 3,
-      3.5rem + var(--vertical-space) / 12
-    );
-    --column-gap: clamp(5px, (100vw - 560px) / 110 + 5px, 10px);
-    --card-ratio: var(--development-card-ratio);
-    --min-card-width: 60px;
-    --market-fixed-width: calc(var(--deck-width) + 4 * var(--column-gap));
-    grid-template:
-      "players" auto
-      "board" minmax(var(--min-market-height), 1fr)
-      / minmax(0, 1fr);
-  }
-
-  .in-game :is(.play-view, .play-footer) {
-    padding-inline: clamp(16px, (100vw - 560px) / 45 + 16px, 24px);
-  }
-
-  .player-strip {
-    grid-area: players;
-    max-width: calc(100% - var(--sidebar-width) - var(--sidebar-gap));
-    padding-inline-end: 0;
-  }
-
-  .board-frame {
-    display: grid;
-    grid-area: board;
-    container-type: size;
-    min-block-size: var(--min-market-height);
+  .market-area {
+    grid-area: market;
   }
 
   .market-section {
     block-size: 100%;
     max-block-size: var(--preferred-market-height);
-  }
-
-  .market-area {
-    grid-area: market;
   }
 
   .bank-section {
@@ -1876,12 +1818,67 @@ button.topbar-button {
   }
 
   .bank-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: calc(5px + var(--vertical-space) / 30);
+
+    @media (height > 352px) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 
   .token {
     width: min(100%, calc(42px + var(--vertical-space) / 40));
+  }
+
+  @media (max-height: 352px) {
+    .play-view {
+      --market-width: calc(
+        var(--market-fixed-width) + 4 * var(--min-card-width)
+      );
+      justify-content: center;
+      grid-template:
+        "market players" auto
+        "market nobles" auto
+        "market bank" 1fr
+        / minmax(0, var(--market-width)) var(--sidebar-width);
+      gap: 0 var(--sidebar-gap);
+      padding-inline: 56px;
+    }
+
+    .player-strip {
+      max-width: none;
+      padding-inline: 0;
+    }
+
+    .player-chip {
+      padding-inline: 2px;
+    }
+
+    .board-frame,
+    .board-table {
+      display: contents;
+    }
+
+    .nobles-section {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .bank-section {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+  }
+}
+
+@media (orientation: landscape) and (min-width: 600px) {
+  .play-view {
+    --card-ratio: var(--development-card-ratio);
+    --market-fixed-width: calc(var(--deck-width) + 4 * var(--column-gap));
+  }
+
+  .board-frame {
+    display: grid;
+    container-type: size;
   }
 
   .play-footer .resource-card {
@@ -1911,56 +1908,28 @@ button.topbar-button {
       width: 36px;
     }
   }
-}
 
-@media (orientation: landscape) and (min-width: 600px) and (max-height: 352px) {
-  .in-game .play-view {
-    --market-width: calc(var(--market-fixed-width) + 4 * var(--min-card-width));
-    justify-content: center;
-    grid-template:
-      "market players" auto
-      "market nobles" auto
-      "market bank" 1fr
-      / minmax(0, var(--market-width)) var(--sidebar-width);
-    gap: 0 var(--sidebar-gap);
-    padding-inline: 56px;
-  }
+  @media (max-height: 352px) {
+    .player-strip {
+      min-block-size: auto;
+    }
 
-  .board-frame {
-    display: contents;
-  }
+    .bank-section {
+      align-content: start;
+    }
 
-  .player-strip {
-    min-block-size: auto;
-    max-width: none;
-    padding-inline: 0;
-  }
+    .resource-card {
+      padding: 4px 8px;
+    }
 
-  .player-chip {
-    padding-inline: 2px;
-  }
+    .resource-card .resource-grid {
+      column-gap: 2px;
+    }
 
-  .bank-section {
-    grid-template-columns: 1fr;
-    align-content: start;
-    gap: 4px;
-  }
-
-  .bank-row {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .resource-card {
-    padding: 4px 8px;
-  }
-
-  .resource-card .resource-grid {
-    column-gap: 2px;
-  }
-
-  .resource-card .gem {
-    width: 12px;
-    height: 12px;
+    .resource-card .gem {
+      width: 12px;
+      height: 12px;
+    }
   }
 }
 
@@ -1993,10 +1962,8 @@ button.topbar-button {
   }
 
   .player-strip {
-    grid-area: auto;
     flex-direction: column;
     gap: clamp(4px, 1.45dvh, 8px);
-    max-width: none;
     padding: 0;
   }
 
@@ -2044,8 +2011,6 @@ button.topbar-button {
   }
 
   .board-frame {
-    display: grid;
-    grid-area: auto;
     grid-template-rows: minmax(0, 1fr);
     align-self: stretch;
     min-block-size: calc(
@@ -2097,9 +2062,6 @@ button.topbar-button {
 
   .market-section {
     --card-width: var(--market-card-width);
-    grid-template-columns: var(--deck-width) repeat(4, minmax(0, 1fr));
-    block-size: var(--preferred-market-height);
-    max-block-size: 100%;
   }
 
   .market-row {
@@ -2107,9 +2069,7 @@ button.topbar-button {
   }
 
   .bank-section {
-    grid-area: auto;
     grid-template-columns: 1fr;
-    gap: 8px;
   }
 
   .bank-row {

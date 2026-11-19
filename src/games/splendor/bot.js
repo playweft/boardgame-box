@@ -27,23 +27,35 @@ function shuffle(cards, random) {
 }
 
 function sampler(view) {
-  const seen = new Set(view.market.flat().map(card => card.id));
+  const seen = new Set(view.market.flat().map((card) => card.id));
   for (const board of Object.values(view.boards)) {
-    for (const card of [...board.purchased, ...board.reserved]) if (card.id) seen.add(card.id);
+    for (const card of [...board.purchased, ...board.reserved])
+      if (card.id) seen.add(card.id);
   }
   const unknown = [[], [], []];
-  for (const card of CARDS) if (!seen.has(card.id)) unknown[card.level - 1].push(card);
+  for (const card of CARDS)
+    if (!seen.has(card.id)) unknown[card.level - 1].push(card);
 
-  return random => {
-    const decks = unknown.map(cards => {
+  return (random) => {
+    const decks = unknown.map((cards) => {
       const shuffled = cards.slice();
       shuffle(shuffled, random);
       return shuffled;
     });
-    const boards = Object.fromEntries(view.players.map(({ id }) => {
-      const board = view.boards[id];
-      return [id, { ...board, reserved: board.reserved.map(card => card.hidden ? decks[card.level - 1].pop() : card) }];
-    }));
+    const boards = Object.fromEntries(
+      view.players.map(({ id }) => {
+        const board = view.boards[id];
+        return [
+          id,
+          {
+            ...board,
+            reserved: board.reserved.map((card) =>
+              card.hidden ? decks[card.level - 1].pop() : card,
+            ),
+          },
+        ];
+      }),
+    );
     return { decks, boards };
   };
 }
@@ -53,24 +65,47 @@ export function sampleHiddenCards(view, random = Math.random) {
 }
 
 function simulationState(view, world, seat) {
-  const boards = Object.fromEntries(view.players.map(({ id }) => {
-    const board = world.boards[id];
-    return [id, {
-      ...board, tokens: { ...board.tokens }, bonuses: { ...board.bonuses },
-      purchased: board.purchased.slice(), reserved: board.reserved.slice(), nobles: board.nobles.slice(),
-    }];
-  }));
+  const boards = Object.fromEntries(
+    view.players.map(({ id }) => {
+      const board = world.boards[id];
+      return [
+        id,
+        {
+          ...board,
+          tokens: { ...board.tokens },
+          bonuses: { ...board.bonuses },
+          purchased: board.purchased.slice(),
+          reserved: board.reserved.slice(),
+          nobles: board.nobles.slice(),
+        },
+      ];
+    }),
+  );
   return {
-    players: view.players, boards, bank: { ...view.bank }, turn: seat,
-    decks: world.decks.map(deck => deck.slice()), market: view.market.map(row => row.slice()), nobles: view.nobles.slice(),
-    phase: view.phase, round: view.round, step: view.step, endingRound: view.endingRound,
-    winners: [], lastMove: view.lastMove && { ...view.lastMove }, history: view.history.slice(-16),
+    players: view.players,
+    boards,
+    bank: { ...view.bank },
+    turn: seat,
+    decks: world.decks.map((deck) => deck.slice()),
+    market: view.market.map((row) => row.slice()),
+    nobles: view.nobles.slice(),
+    phase: view.phase,
+    round: view.round,
+    step: view.step,
+    endingRound: view.endingRound,
+    winners: [],
+    lastMove: view.lastMove && { ...view.lastMove },
+    history: view.history.slice(-16),
   };
 }
 
 function play(state, action) {
   const id = state.players[state.turn].id;
-  const result = applyAction(state, id, { ...action, round: state.round, step: state.step });
+  const result = applyAction(state, id, {
+    ...action,
+    round: state.round,
+    step: state.step,
+  });
   if (!result.accepted) throw new Error(result.error.message);
 }
 
@@ -81,7 +116,12 @@ function rollout(view, world, seat, action, styles, rounds) {
   play(state, action);
   // Follow the scored policy through later turns and resolve pending returns/nobles.
   // Once the last round starts, always simulate through the real tie-break.
-  while (state.phase !== "ended" && (state.round * seats + state.turn < turnLimit || state.endingRound !== null || state.phase !== "playing")) {
+  while (
+    state.phase !== "ended" &&
+    (state.round * seats + state.turn < turnLimit ||
+      state.endingRound !== null ||
+      state.phase !== "playing")
+  ) {
     const next = projectGame(state, state.players[state.turn].id);
     const intent = chooseScoredAction(next, styles[state.turn]);
     if (!intent) break;
@@ -89,7 +129,9 @@ function rollout(view, world, seat, action, styles, rounds) {
   }
 
   if (state.phase === "ended") {
-    return state.winners.includes(view.viewerId) ? 1 / state.winners.length : -1;
+    return state.winners.includes(view.viewerId)
+      ? 1 / state.winners.length
+      : -1;
   }
   const values = evaluatePlayers(projectGame(state, view.viewerId));
   const rival = Math.max(...values.filter((_, index) => index !== seat));
@@ -97,7 +139,8 @@ function rollout(view, world, seat, action, styles, rounds) {
 }
 
 function searchCandidates(ranked, width) {
-  const seen = new Set(), candidates = [];
+  const seen = new Set(),
+    candidates = [];
   for (const entry of ranked) {
     const { action } = entry;
     // Keep the best payment for each purchase so alternatives don't crowd out other plans.
@@ -111,19 +154,32 @@ function searchCandidates(ranked, width) {
   return candidates;
 }
 
-export function chooseSearchAction(view, {
-  random = Math.random, timeMs = SEARCH_TIME_MS, width = 8, rounds = 2, sampleBatches = [3, 4, 6],
-} = {}) {
+export function chooseSearchAction(
+  view,
+  {
+    random = Math.random,
+    timeMs = SEARCH_TIME_MS,
+    width = 8,
+    rounds = 2,
+    sampleBatches = [3, 4, 6],
+  } = {},
+) {
   const deadline = performance.now() + timeMs;
   const ranked = rankActions(view);
-  if (ranked.length < 2 || view.phase !== "playing") return ranked[0]?.action ?? null;
+  if (ranked.length < 2 || view.phase !== "playing")
+    return ranked[0]?.action ?? null;
   // In the final round, a reserve with no immediate points can still be the only winning move.
   // Search every distinct action through settlement while the remaining line is short.
-  let candidates = searchCandidates(ranked, view.endingRound === null ? width : Infinity);
-  const drawWorld = sampler(view), seat = view.players.findIndex(player => player.id === view.viewerId);
+  let candidates = searchCandidates(
+    ranked,
+    view.endingRound === null ? width : Infinity,
+  );
+  const drawWorld = sampler(view),
+    seat = view.players.findIndex((player) => player.id === view.viewerId);
   const opponentStyles = Object.values(profiles);
   const bestValue = ranked[0].value;
-  const quality = candidate => candidate.total / candidate.samples + 0.08 * (candidate.value - bestValue);
+  const quality = (candidate) =>
+    candidate.total / candidate.samples + 0.08 * (candidate.value - bestValue);
 
   // Compare all remaining actions in identical sampled situations. Spend later samples
   // on the better candidates; only count complete batches when running against a deadline.
@@ -132,12 +188,17 @@ export function chooseSearchAction(view, {
     for (let batch = 0; batch < batches; batch++) {
       if (performance.now() >= deadline) return candidates[0].action;
       const world = drawWorld(random);
-      const styles = view.players.map((_, i) => i === seat ? profiles.balanced
-        : opponentStyles[Math.floor(random() * opponentStyles.length)]);
+      const styles = view.players.map((_, i) =>
+        i === seat
+          ? profiles.balanced
+          : opponentStyles[Math.floor(random() * opponentStyles.length)],
+      );
       const results = [];
       for (const candidate of candidates) {
         if (performance.now() >= deadline) return candidates[0].action;
-        results.push(rollout(view, world, seat, candidate.action, styles, rounds));
+        results.push(
+          rollout(view, world, seat, candidate.action, styles, rounds),
+        );
       }
       for (const [index, candidate] of candidates.entries()) {
         candidate.total += results[index];
