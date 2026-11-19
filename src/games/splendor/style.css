@@ -89,7 +89,23 @@ input:focus-visible {
   background: transparent;
 }
 
+.topbar-heading {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+
+  /* Each button takes 48px minus its 12px outward margin. */
+  &:first-child {
+    margin-inline-start: 36px;
+  }
+
+  &:last-child {
+    margin-inline-end: 36px;
+  }
+}
+
 .topbar-button {
+  flex: none;
   width: 48px;
   height: 48px;
   color: inherit;
@@ -126,7 +142,7 @@ button.back-link {
     pointer-events: none;
   }
 
-  .topbar-title {
+  .topbar-heading {
     display: none;
   }
 
@@ -242,11 +258,16 @@ button.back-link {
   color: var(--muted);
 }
 
-.setup-view {
+.setup-view,
+.mode-view {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 24px 16px;
+  padding-inline: 16px;
+}
+
+.setup-view {
+  padding-block: 24px;
 }
 
 .setup-view h1 {
@@ -254,17 +275,42 @@ button.back-link {
   font-weight: 600;
 }
 
+.mode-view {
+  display: grid;
+  align-content: safe center;
+  padding-block: 16px;
+}
+
+.mode-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 96px;
+}
+
+.mode-logo {
+  flex: none;
+  border-radius: 24px;
+}
+
 .mode-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   width: min(100%, 18rem);
-  margin-inline: auto;
 }
 
-.mode-list h1 {
-  margin-bottom: 4px;
-  text-align: center;
+@media (orientation: landscape) and (height < 600px) {
+  .mode-menu {
+    flex-flow: row wrap;
+    column-gap: 96px;
+  }
+
+  .mode-list {
+    flex: 1 1 10.5rem;
+    max-width: 18rem;
+  }
 }
 
 .mode-entry {
@@ -273,6 +319,10 @@ button.back-link {
 
 .resume-game {
   margin-top: 12px;
+}
+
+.resume-game[aria-hidden="true"] {
+  visibility: hidden;
 }
 
 .save-notice {
@@ -741,8 +791,7 @@ button.back-link {
   gap: 2cqmin;
 }
 
-.market-section .development-card,
-.bank-row .token {
+.market-section .development-card {
   transition: opacity 160ms ease;
 }
 
@@ -845,7 +894,6 @@ button.back-link {
 
 .token-white {
   --chip-color: #ede9dd;
-  color: #29394a;
 }
 
 .cost-blue,
@@ -865,11 +913,15 @@ button.back-link {
 
 .cost-black,
 .token-black {
-  --chip-color: #43454f;
+  --chip-color: #59483e;
 }
 
 .token-gold {
   --chip-color: #d7b568;
+}
+
+.token-white,
+.token-gold {
   color: #29394a;
 }
 
@@ -946,9 +998,12 @@ button.back-link {
   border: 0;
   border-radius: 50%;
   background: var(--chip-color);
-  box-shadow: 0 3px 0 color-mix(in srgb, currentColor 16%, #15273c);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--chip-color), black 35%);
   font-family: Georgia, serif;
   line-height: 1;
+  transition:
+    opacity 160ms ease,
+    background-color 160ms ease;
 }
 
 .token > b {
@@ -970,7 +1025,7 @@ button.back-link {
 }
 
 .token.selected {
-  background: color-mix(in srgb, var(--chip-color), white 18%);
+  background: color-mix(in srgb, var(--chip-color), currentColor 18%);
 }
 
 .token:focus-visible {
@@ -1599,6 +1654,18 @@ button.back-link {
   line-height: 1.9;
   margin-top: 5px;
   color: #c0ced7;
+}
+
+.history-list .gem {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.history-gem-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  vertical-align: middle;
 }
 
 .winner-crown {

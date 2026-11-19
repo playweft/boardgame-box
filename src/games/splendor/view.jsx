@@ -1,4 +1,4 @@
-import { h } from "preact";
+import { Fragment, h } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   ChevronLeft,
@@ -74,10 +74,10 @@ const gemLetters = {
   black: "黑",
   gold: "金",
 };
-function Gem({ color }) {
+function Gem({ color, label = false }) {
   return (
     <span className="gem" title={COLOR_NAMES[color]}>
-      <img src={gemAssets[color]} alt="" />
+      <img src={gemAssets[color]} alt={label ? COLOR_NAMES[color] : ""} />
     </span>
   );
 }
@@ -213,47 +213,54 @@ function Entry({
   const [names, setNames] = useState(["玩家 1", "玩家 2", "玩家 3", "玩家 4"]);
   if (!mode)
     return (
-      <main className="setup-view">
-        <section className="mode-list" aria-labelledby="mode-heading">
-          <h1 id="mode-heading">选择模式</h1>
-          {Object.entries(localModeLabels).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className="contained-button secondary-button mode-entry"
-              disabled={busy}
-              onClick={() => setMode(id)}
-            >
-              {label}
-            </button>
-          ))}
-          {launchUrl ? (
-            <a
-              className="contained-button secondary-button mode-entry"
-              href={launchUrl}
-            >
-              联机多人
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="contained-button secondary-button mode-entry"
-              disabled={busy || !onCreateRoom}
-              onClick={onCreateRoom}
-            >
-              {busy ? "正在创建房间…" : "联机多人"}
-            </button>
-          )}
-          {savedMode && (
+      <main key="modes" className="mode-view">
+        <section className="mode-menu" aria-label="游戏模式">
+          <img
+            className="mode-logo"
+            src="./icon.svg"
+            width={192}
+            height={192}
+            alt="璀璨宝石"
+          />
+          <div className="mode-list">
+            {Object.entries(localModeLabels).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className="contained-button secondary-button mode-entry"
+                disabled={busy}
+                onClick={() => setMode(id)}
+              >
+                {label}
+              </button>
+            ))}
+            {launchUrl ? (
+              <a
+                className="contained-button secondary-button mode-entry"
+                href={launchUrl}
+              >
+                联机多人
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="contained-button secondary-button mode-entry"
+                disabled={busy || !onCreateRoom}
+                onClick={onCreateRoom}
+              >
+                {busy ? "正在创建房间…" : "联机多人"}
+              </button>
+            )}
             <button
               type="button"
               className="contained-button secondary-button mode-entry resume-game"
-              disabled={busy}
+              aria-hidden={!savedMode}
+              disabled={busy || !savedMode}
               onClick={onResume}
             >
               继续对局 <span>{localModeLabels[savedMode]}</span>
             </button>
-          )}
+          </div>
         </section>
         {error && (
           <p className="error-message" role="alert">
@@ -270,7 +277,7 @@ function Entry({
       computerGame && index > 0 ? (count === 2 ? "AI" : `AI ${index}`) : name,
     );
   return (
-    <main className="setup-view">
+    <main key="setup" className="setup-view">
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -666,20 +673,69 @@ function ReturnTokens({ game, busy, onAction }) {
   );
 }
 
-function lastMoveText(game, move) {
-  const actor = nameOf(game, move.playerId);
-  const card = move.cardId && CARDS.find((card) => card.id === move.cardId);
-  let text =
-    move.type === "take"
-      ? `${actor} 拿取 ${listTokens(move.tokens)}`
-      : move.type === "reserve"
-        ? `${actor} ${move.blind ? "盲抽" : "预留"} ${move.level} 级牌${move.gold ? "，黄金 +1" : ""}`
-        : move.type === "pass"
-          ? `${actor} 无可用操作，跳过回合`
-          : `${actor} 购买${card ? COLOR_NAMES[card.bonus] : ""}发展卡${card?.points ? `，声望 +${card.points}` : ""}`;
-  if (move.returned) text += `，归还 ${listTokens(move.returned)}`;
-  if (move.nobleId) text += "，获得贵族 +3 分";
-  return text;
+function HistoryGems({ tokens }) {
+  return TOKEN_COLORS.filter((color) => tokens[color]).map((color, index) => (
+    <Fragment key={color}>
+      {index > 0 && " · "}
+      <span className="history-gem-count">
+        <Gem color={color} label />
+        ×{tokens[color]}
+      </span>
+    </Fragment>
+  ));
+}
+
+function HistoryMove({ game, move }) {
+  let action;
+  switch (move.type) {
+    case "take":
+      action = (
+        <>
+          拿取 <HistoryGems tokens={move.tokens} />
+        </>
+      );
+      break;
+    case "reserve":
+      action = (
+        <>
+          {move.blind ? "盲抽" : "预留"} {move.level} 级牌
+          {move.gold ? (
+            <>
+              ，
+              <span className="history-gem-count">
+                <Gem color="gold" label />
+                +1
+              </span>
+            </>
+          ) : null}
+        </>
+      );
+      break;
+    case "pass":
+      action = "无可用操作，跳过回合";
+      break;
+    default: {
+      const card = CARDS.find((card) => card.id === move.cardId);
+      action = (
+        <>
+          购买{card && <Gem color={card.bonus} label />}发展卡
+          {card?.points ? `，声望 +${card.points}` : ""}
+        </>
+      );
+    }
+  }
+
+  return (
+    <p>
+      {nameOf(game, move.playerId)} {action}
+      {move.returned && (
+        <>
+          ，归还 <HistoryGems tokens={move.returned} />
+        </>
+      )}
+      {move.nobleId && "，获得贵族 +3 分"}
+    </p>
+  );
 }
 
 const desktopLayout = window.matchMedia(
@@ -988,7 +1044,7 @@ export default function SplendorApp({
             </a>
           )
         )}
-        <div className="topbar-title">璀璨宝石</div>
+        <div className="topbar-heading">璀璨宝石</div>
         {standalone && (
           <button
             className="topbar-button help-link"
@@ -1366,7 +1422,7 @@ export default function SplendorApp({
               {[...game.history].reverse().map((move, index) => (
                 <li key={index}>
                   <small>第 {move.round} 轮</small>
-                  <p>{lastMoveText(game, move)}</p>
+                  <HistoryMove game={game} move={move} />
                 </li>
               ))}
             </ol>
