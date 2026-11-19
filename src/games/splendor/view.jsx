@@ -822,11 +822,9 @@ function PlayLayout({
         )}
       </main>
       <footer className="play-footer">
+        <div className="action-tools">{auxiliaryActions}</div>
         {layout === "landscape" && resources}
-        <div className="action-bar">
-          <div className="action-tools">{auxiliaryActions}</div>
-          {primaryAction}
-        </div>
+        {primaryAction}
       </footer>
     </>
   );

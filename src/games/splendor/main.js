@@ -152,21 +152,28 @@ function applyLocalAction(actorId, action) {
   return "";
 }
 
-function queueComputer(delay = 225) {
+function queueComputer(minimumTime = 550) {
   if (!localGame || !humanId || paused || botJob || localGame.phase === "ended") return;
   const actorId = localGame.players[localGame.turn].id;
   if (actorId === humanId) return;
+  const readyAt = performance.now() + minimumTime;
   const job = { view: projectGame(localGame, actorId), mode: localMode };
   botJob = job;
   const finish = action => {
-    if (botJob !== job) return;
-    botJob = null;
-    error = action ? applyLocalAction(actorId, action) : "AI 暂时无法出手";
-    if (!error) queueComputer(localGame.players[localGame.turn].id === actorId ? 0 : undefined);
-    redraw();
+    if (botJob !== job || job.timer !== undefined) return;
+    const apply = () => {
+      if (botJob !== job) return;
+      botJob = null;
+      error = action ? applyLocalAction(actorId, action) : "AI 暂时无法出手";
+      if (!error) queueComputer(localGame.players[localGame.turn].id === actorId ? 0 : undefined);
+      redraw();
+    };
+    const remaining = Math.ceil(readyAt - performance.now());
+    if (action && remaining > 0) job.timer = setTimeout(apply, remaining);
+    else apply();
   };
   const fallback = async () => {
-    if (botJob !== job) return;
+    if (botJob !== job || job.timer !== undefined) return;
     botWorker?.terminate();
     botWorker = null;
     try {
@@ -176,16 +183,14 @@ function queueComputer(delay = 225) {
       finish(null);
     }
   };
-  job.timer = setTimeout(() => {
-    try {
-      botWorker ??= new Worker(new URL("./bot-worker.js", import.meta.url), { type: "module" });
-      botWorker.onmessage = ({ data }) => data.error ? fallback() : finish(data.action);
-      botWorker.onerror = fallback;
-      botWorker.postMessage({ view: job.view, mode: job.mode });
-    } catch {
-      fallback();
-    }
-  }, delay);
+  try {
+    botWorker ??= new Worker(new URL("./bot-worker.js", import.meta.url), { type: "module" });
+    botWorker.onmessage = ({ data }) => data.error ? fallback() : finish(data.action);
+    botWorker.onerror = fallback;
+    botWorker.postMessage({ view: job.view, mode: job.mode });
+  } catch {
+    fallback();
+  }
 }
 
 async function submitAction(intent) {

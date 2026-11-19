@@ -1017,9 +1017,10 @@ button.topbar-button {
 .play-footer {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 8px;
   margin-block-start: 16px;
   padding-block-end: max(
     calc(6px + var(--vertical-space) / 40),
@@ -1077,21 +1078,12 @@ button.topbar-button {
   color: #c4d1d9;
 }
 
-.action-bar {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .action-tools {
   display: flex;
   gap: 8px;
 }
 
-.action-bar .icon-button {
+.action-tools .icon-button {
   flex: none;
   width: 44px;
   height: 44px;
@@ -1859,11 +1851,11 @@ button.topbar-button {
     min-width: 0;
   }
 
-  .play-footer .action-bar {
+  .play-footer .turn-actions {
     flex: 0 1 auto;
   }
 
-  .play-footer .action-bar .icon-button {
+  .action-tools .icon-button {
     height: auto;
     aspect-ratio: 1;
   }
@@ -1873,11 +1865,11 @@ button.topbar-button {
   }
 
   @media (max-height: 352px) or (width < 680px) {
-    .play-footer .action-tools {
+    .action-tools {
       gap: 6px;
     }
 
-    .play-footer .action-bar .icon-button {
+    .action-tools .icon-button {
       width: 36px;
     }
   }
@@ -1923,10 +1915,6 @@ button.topbar-button {
 
   .bank-row {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .play-footer {
-    gap: 8px;
   }
 
   .resource-card {

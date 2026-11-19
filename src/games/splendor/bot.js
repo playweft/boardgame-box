@@ -1,7 +1,7 @@
 import { CARDS, applyAction, projectGame } from "./engine.js";
 import { evaluatePlayers, profiles, rankActions } from "./bot-policy.js";
 
-export const SEARCH_TIME_MS = 350;
+export const SEARCH_TIME_MS = 500;
 
 export function chooseScoredAction(view, profile = profiles.balanced) {
   return rankActions(view, profile)[0]?.action ?? null;
