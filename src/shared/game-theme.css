@@ -48,9 +48,9 @@ a {
   padding: 0.85rem 1.2rem;
   border: 0;
   border-radius: 0.8rem;
-  color: #143d38;
+  color: var(--raised-button-ink, #143d38);
   background: var(--gold);
-  box-shadow: 0 5px 0 #c5a916;
+  box-shadow: 0 var(--raised-button-depth, 5px) 0 var(--primary-button-shadow, #c5a916);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
@@ -65,8 +65,8 @@ a {
 }
 
 .primary-button:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow: 0 1px 0 #c5a916;
+  transform: translateY(calc(var(--raised-button-depth, 5px) - 1px));
+  box-shadow: 0 1px 0 var(--primary-button-shadow, #c5a916);
 }
 
 .primary-button:disabled {
@@ -86,9 +86,9 @@ a {
   padding: 0.85rem 1.2rem;
   border: 0;
   border-radius: 0.8rem;
-  color: #143d38;
-  background: #f4f4e9;
-  box-shadow: 0 5px 0 #c5c4b9;
+  color: var(--raised-button-ink, #143d38);
+  background: var(--secondary-button-fill, #f4f4e9);
+  box-shadow: 0 var(--raised-button-depth, 5px) 0 var(--secondary-button-shadow, #c5c4b9);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
@@ -96,5 +96,8 @@ a {
 }
 
 .secondary-button:hover:not(:disabled) { filter: brightness(1.03); }
-.secondary-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 #c5c4b9; }
+.secondary-button:active:not(:disabled) {
+  transform: translateY(calc(var(--raised-button-depth, 5px) - 1px));
+  box-shadow: 0 1px 0 var(--secondary-button-shadow, #c5c4b9);
+}
 .secondary-button:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -11,6 +11,11 @@
 | 德州心脏病（Halli Hold’em） | `/halli-holdem/` | 2–8 | 房间 | [规则](public/halli-holdem/rules.md) |
 | 花砖物语（Azul） | `/azul/` | 2–4 | 本地轮流操作、房间 | [规则](public/azul/rules.md) |
 | 璀璨宝石（Splendor） | `/splendor/` | 2–4 | 普通人机、困难人机、本地多人、联机多人 | [规则](public/splendor/rules.md) |
+| 怒海求生（Lifeboat） | `/lifeboat/` | 4–6 | 人机对战、本地传屏、联机多人 | [规则](src/games/lifeboat/rules.jsx) |
+
+怒海求生采用英文规则书的 4–6 人基础版，不含扩展。每人有公开角色和秘密的爱与恨；每天先分物资，再从船头到船尾各做一个行动，然后结算一张航海牌。凑满四只海鸥即靠岸计分。本地传屏用交接页挡住下一位的手牌，联机由 Lua 隐藏别人的手牌、爱和恨。
+
+人机模式支持一名真人与 3–5 名电脑玩家同桌。电脑用自己座位的视角采样暗牌，在浏览器 Worker 内比较候选动作。可运行 `node dev/benchmark-lifeboat-ai.js 64`，在同一批种子和座位下比较纯规则策略与搜索策略的平均得分和首名份额。
 
 花砖物语采用原版彩色墙面规则，不包含灰色墙面变体与扩展。
 

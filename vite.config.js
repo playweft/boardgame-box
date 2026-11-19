@@ -35,11 +35,13 @@ export default defineConfig(({ command, mode }) => {
 });
 
 const root = import.meta.dirname;
-const games = readdirSync(join(root, "src/games")).filter((game) =>
-  statSync(join(root, "src/games", game, "vite.config.js"), {
+const gamesDirectory = join(root, "src/games");
+
+function isGameDirectory(directory) {
+  return statSync(join(directory, "vite.config.js"), {
     throwIfNoEntry: false,
-  })?.isFile(),
-);
+  })?.isFile();
+}
 
 export function createGameConfig(gameRoot) {
   const game = basename(gameRoot);
@@ -56,19 +58,24 @@ function gameDevRoutes() {
   return {
     name: "game-dev-routes",
     configureServer(server) {
-      server.middlewares.use((request, _response, next) => {
+      const directory = join(server.config.root, "src/games");
+      server.middlewares.use((request, response, next) => {
         const url = new URL(request.url, "http://localhost");
-        const match = url.pathname.match(/^\/([^/]+)(\/.*)?$/);
-        if (match && games.includes(match[1])) {
-          const game = match[1];
-          const file = !match[2] || match[2] === "/" ? "/index.html" : match[2];
-          if (
-            statSync(join(root, "src/games", game, file), {
-              throwIfNoEntry: false,
-            })?.isFile()
-          ) {
-            request.url = `/src/games/${game}${file}${url.search}`;
-          }
+        const match = url.pathname.match(/^\/([a-z0-9_-]+)(\/.*)?$/i);
+        if (!match) return next();
+
+        const [, game, path] = match;
+        const gameRoot = join(directory, game);
+        if (!isGameDirectory(gameRoot)) return next();
+
+        if (!path) {
+          response.writeHead(302, { Location: `/${game}/${url.search}` });
+          return response.end();
+        }
+
+        const file = path === "/" ? "/index.html" : path;
+        if (statSync(join(gameRoot, file), { throwIfNoEntry: false })?.isFile()) {
+          request.url = `/src/games/${game}${file}${url.search}`;
         }
         next();
       });
@@ -111,9 +118,12 @@ async function nestStaticSite(outDir, base) {
 }
 
 async function buildGames(base) {
+  const games = readdirSync(gamesDirectory).filter((game) =>
+    isGameDirectory(join(gamesDirectory, game)),
+  );
   for (const game of games) {
     await build({
-      configFile: join(root, "src/games", game, "vite.config.js"),
+      configFile: join(gamesDirectory, game, "vite.config.js"),
     });
   }
 

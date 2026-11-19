@@ -1,17 +1,16 @@
 import { Fragment, h } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
-  ChevronLeft,
-  CircleHelp,
   Crown,
   Gem as GemIcon,
   History,
   LockKeyhole,
-  Pause,
   UsersRound,
   X,
 } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
+import GameTopbar from "../../shared/game-topbar.jsx";
+import LucideIcon from "../../shared/lucide-icon.jsx";
 import diamond from "./assets/diamond.svg";
 import emerald from "./assets/emerald.svg";
 import gold from "./assets/gold.svg";
@@ -29,33 +28,15 @@ import {
 } from "./engine.js";
 
 const icons = {
-  back: ChevronLeft,
-  help: CircleHelp,
   crown: Crown,
   gem: GemIcon,
   lock: LockKeyhole,
-  pause: Pause,
   close: X,
   history: History,
   players: UsersRound,
 };
 function Icon({ name, className = "icon" }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.7"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      {(icons[name] || []).map(([tag, attributes], index) =>
-        h(tag, { ...attributes, key: index }),
-      )}
-    </svg>
-  );
+  return <LucideIcon icon={icons[name]} className={className} />;
 }
 
 const gemAssets = {
@@ -1018,43 +999,16 @@ export default function SplendorApp({
           : undefined
       }
     >
-      <header className="topbar">
-        {canPause ? (
-          <button
-            type="button"
-            className="topbar-button back-link"
-            onClick={() => {
-              setConfirmDiscard(false);
-              onPauseChange(true);
-            }}
-            aria-label="暂停游戏"
-            aria-haspopup="dialog"
-          >
-            <Icon name="pause" />
-          </button>
-        ) : (
-          !room &&
-          standalone && (
-            <a
-              className="topbar-button back-link"
-              href="../"
-              aria-label="返回桌游盒子"
-            >
-              <Icon name="back" />
-            </a>
-          )
-        )}
-        <div className="topbar-heading">璀璨宝石</div>
-        {standalone && (
-          <button
-            className="topbar-button help-link"
-            onClick={() => setHelp(true)}
-            aria-label="游戏规则"
-          >
-            <Icon name="help" />
-          </button>
-        )}
-      </header>
+      <GameTopbar
+        title="璀璨宝石"
+        standalone={standalone}
+        room={room}
+        onPause={canPause ? () => {
+          setConfirmDiscard(false);
+          onPauseChange(true);
+        } : undefined}
+        onHelp={() => setHelp(true)}
+      />
       {!game ? (
         room || connecting ? (
           <main className="connection-view">

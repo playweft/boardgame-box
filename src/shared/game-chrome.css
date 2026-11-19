@@ -10,12 +10,16 @@
   background: var(--shell-background, #6ba4ad);
 }
 
+.topbar-title,
+.topbar-heading {
+  font-size: 1rem;
+}
+
 .topbar-title {
   position: absolute;
   left: 50%;
   margin: 0;
   transform: translateX(-50%);
-  font-size: 1rem;
   font-weight: 400;
   white-space: nowrap;
 }
