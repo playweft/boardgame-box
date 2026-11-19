@@ -1,7 +1,6 @@
 import { h } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
-  ArrowRight,
   ChevronLeft,
   CircleHelp,
   Crown,
@@ -31,7 +30,6 @@ import {
 
 const icons = {
   back: ChevronLeft,
-  arrow: ArrowRight,
   help: CircleHelp,
   crown: Crown,
   gem: GemIcon,
@@ -187,9 +185,10 @@ function DialogHeading({ title, onClose }) {
       <strong>{title}</strong>
       {onClose && (
         <button
-          className="icon-button"
-          onClick={onClose}
+          type="button"
+          className="icon-button dialog-close-button"
           aria-label={`关闭${title}`}
+          onClick={onClose}
         >
           <Icon name="close" />
         </button>
@@ -225,7 +224,7 @@ function Entry({
             <button
               key={id}
               type="button"
-              className="secondary-button mode-entry"
+              className="contained-button secondary-button mode-entry"
               disabled={busy}
               onClick={() => setMode(id)}
             >
@@ -233,13 +232,16 @@ function Entry({
             </button>
           ))}
           {launchUrl ? (
-            <a className="secondary-button mode-entry" href={launchUrl}>
+            <a
+              className="contained-button secondary-button mode-entry"
+              href={launchUrl}
+            >
               联机多人
             </a>
           ) : (
             <button
               type="button"
-              className="secondary-button mode-entry"
+              className="contained-button secondary-button mode-entry"
               disabled={busy || !onCreateRoom}
               onClick={onCreateRoom}
             >
@@ -249,11 +251,11 @@ function Entry({
           {savedMode && (
             <button
               type="button"
-              className="secondary-button mode-entry resume-game"
+              className="contained-button secondary-button mode-entry resume-game"
               disabled={busy}
               onClick={onResume}
             >
-              继续对局 <small>{localModeLabels[savedMode]}</small>
+              继续对局 <span>{localModeLabels[savedMode]}</span>
             </button>
           )}
         </section>
@@ -341,8 +343,11 @@ function Entry({
             开始新局会替换已有的本地存档。
           </p>
         )}
-        <button type="submit" className="primary-button full-width">
-          洗牌并开始 <Icon name="arrow" />
+        <button
+          type="submit"
+          className="contained-button primary-button full-width"
+        >
+          洗牌并开始
         </button>
         <button
           type="button"
@@ -362,7 +367,7 @@ function PlayerAvatar({ name, index }) {
   return (
     <span className="player-avatar" data-seat={index + 1} aria-hidden="true">
       {Array.from(name)[0]}
-      <span className="player-number" title={index === 0 ? "先手" : undefined}>
+      <span className="number-badge" title={index === 0 ? "先手" : undefined}>
         {index + 1}
       </span>
     </span>
@@ -430,7 +435,7 @@ function PlayerSummary({ game, player, index }) {
 
 function CardChoice({ game, choice, busy, onAction, onClose }) {
   const board = game.boards[game.viewerId];
-  const { card } = choice;
+  const { card, level } = choice;
   const [payment, setPayment] = useState(() =>
     board && card ? paymentFor(board, card) : null,
   );
@@ -452,7 +457,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
         title={
           card
             ? `${isReserved ? "我的预留" : "公开市场"} · ${card.level} 级发展卡`
-            : `预留 ${choice.level} 级牌堆顶牌`
+            : `${level} 级牌堆`
         }
         onClose={onClose}
       />
@@ -543,7 +548,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
             )}
             <div className="choice-actions">
               <button
-                className="primary-button"
+                className="contained-button primary-button"
                 disabled={!active || !payment || (!inMarket && !isReserved)}
                 aria-describedby={
                   insufficientGems ? "purchase-shortfall" : undefined
@@ -556,7 +561,7 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
               </button>
               {inMarket && (
                 <button
-                  className="secondary-button"
+                  className="contained-button secondary-button"
                   disabled={!canReserve}
                   onClick={() => submit({ type: "reserve", cardId: card.id })}
                 >
@@ -573,26 +578,31 @@ function CardChoice({ game, choice, busy, onAction, onClose }) {
           </>
         ) : (
           <>
-            <div className={`blind-illustration level-${choice.level}`}>
-              <CardBackContent level={choice.level} />
-            </div>
-            <h2 className="centered">盲抽预留</h2>
+            <figure className="card-detail">
+              <div className={`blind-illustration level-${level}`}>
+                <CardBackContent level={level} />
+              </div>
+              <figcaption>剩余 {game.counts[level - 1]} 张</figcaption>
+            </figure>
             <p className="muted centered">
-              抽取牌堆顶的一张牌，只有你能看到牌面。
+              市场里的同级牌被购买或预留后，从这里补牌。
+            </p>
+            <p className="muted centered">
+              盲抽牌堆顶的一张牌，只有你能看到牌面。
               <br />
               {gold
                 ? "同时获得 1 枚黄金，可替代任意颜色支付。"
                 : "黄金已取完，仍可正常预留。"}
             </p>
-            <button
-              className="primary-button full-width"
-              disabled={!canReserve}
-              onClick={() =>
-                submit({ type: "reserve", blind: true, level: choice.level })
-              }
-            >
-              确认预留 <Icon name="arrow" />
-            </button>
+            <div className="choice-actions">
+              <button
+                className="contained-button primary-button"
+                disabled={!canReserve}
+                onClick={() => submit({ type: "reserve", blind: true, level })}
+              >
+                盲抽预留
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -650,11 +660,11 @@ function ReturnTokens({ game, busy, onAction }) {
           ))}
         </div>
         <button
-          className="primary-button full-width"
+          className="contained-button primary-button full-width"
           disabled={busy || selected !== excess}
           onClick={() => onAction({ type: "return_tokens", tokens: returned })}
         >
-          确认归还 · {selected}/{excess} <Icon name="arrow" />
+          确认归还 · {selected}/{excess}
         </button>
       </div>
     </Dialog>
@@ -709,14 +719,14 @@ function TurnActions({
   if (game.phase === "ended") {
     state = "result";
     content = (
-      <button className="primary-button" onClick={onReport}>
-        查看结算 <Icon name="arrow" />
+      <button className="contained-button primary-button" onClick={onReport}>
+        查看结算
       </button>
     );
   } else if (onRetry) {
     state = "retry";
     content = (
-      <button className="primary-button" onClick={onRetry}>
+      <button className="contained-button primary-button" onClick={onRetry}>
         重试
       </button>
     );
@@ -724,7 +734,7 @@ function TurnActions({
     state = "pass";
     content = (
       <button
-        className="secondary-button"
+        className="contained-button secondary-button"
         disabled={busy}
         onClick={() => onAction({ type: "pass" })}
       >
@@ -753,14 +763,14 @@ function TurnActions({
     <div className="turn-actions">
       <div className="take-actions" aria-hidden={!selecting}>
         <button
-          className="secondary-button"
+          className="contained-button secondary-button"
           disabled={!selecting || busy}
           onClick={onClear}
         >
           取消
         </button>
         <button
-          className="primary-button"
+          className="contained-button primary-button"
           disabled={!selecting || !canTake}
           onClick={() => onAction({ type: "take", colors: taken })}
         >
@@ -1021,8 +1031,11 @@ export default function SplendorApp({
           </div>
           <p className="eyebrow">第 {game.round} 轮 · 本地多人</p>
           <h1>请交给 {nameOf(game, game.currentPlayerId)}</h1>
-          <button className="primary-button" onClick={onReady}>
-            我已准备好 <Icon name="arrow" />
+          <button
+            className="contained-button primary-button"
+            onClick={onReady}
+          >
+            我已准备好
           </button>
         </main>
       ) : (
@@ -1098,7 +1111,7 @@ export default function SplendorApp({
                       className={`deck level-${level}`}
                       disabled={!canReserve || !game.counts[level - 1]}
                       onClick={() => setChoice({ level })}
-                      aria-label={`盲抽预留${level}级牌，牌堆剩余${game.counts[level - 1]}张`}
+                      aria-label={`查看 ${level} 级牌堆，剩余 ${game.counts[level - 1]} 张`}
                     >
                       <span className="card-content deck-content">
                         <TierMark level={level} />
@@ -1187,6 +1200,11 @@ export default function SplendorApp({
                   }
                 >
                   <Icon name="lock" />
+                  {board.reserved.length > 0 && (
+                    <span className="number-badge" aria-hidden="true">
+                      {board.reserved.length}
+                    </span>
+                  )}
                 </button>
               )}
             </>
@@ -1210,7 +1228,7 @@ export default function SplendorApp({
         open={!!(visible && choice)}
         onClose={() => setChoice(null)}
         className="app-dialog card-dialog"
-        aria-label={choice?.card ? "发展卡详情" : "预留牌堆顶牌"}
+        aria-label={choice?.level ? `${choice.level} 级牌堆` : "发展卡详情"}
       >
         {visible && choice && (
           <CardChoice
@@ -1256,7 +1274,7 @@ export default function SplendorApp({
                   index={game.players.indexOf(inspectedPlayer)}
                 />
                 <h3 className="owned-cards-heading">发展卡</h3>
-                <div className="owned-cards">
+                <div className="owned-cards purchased-cards">
                   {inspectBoard.purchased.map((card) => (
                     <Card
                       key={card.id}
@@ -1278,6 +1296,14 @@ export default function SplendorApp({
               </>
             )}
             <div className="owned-cards reserved-cards">
+              {reservedOnly && inspectBoard.reserved.length === 0 && (
+                <div className="reserved-placeholder centered">
+                  <p>暂无预留牌</p>
+                  <p className="muted">
+                    轮到你时，点开市场里的发展卡或牌堆，再选择预留。预留后，这张牌只有你能购买。
+                  </p>
+                </div>
+              )}
               {inspectBoard.reserved.map((card, index) => (
                 <Card
                   key={card.id || index}
@@ -1315,22 +1341,21 @@ export default function SplendorApp({
       >
         <DialogHeading title="玩家总览" onClose={() => setShowPlayers(false)} />
         {visible && (
-          <div className="dialog-body">
-            <ol className="player-overview-list">
-              {game.players.map((player, index) => (
-                <li
-                  key={player.id}
-                  aria-current={
-                    (game.phase !== "ended" &&
-                      game.currentPlayerId === player.id) ||
-                    undefined
-                  }
-                >
-                  <PlayerSummary game={game} player={player} index={index} />
-                </li>
-              ))}
-            </ol>
-          </div>
+          <ol className="player-overview-list">
+            {game.players.map((player, index) => (
+              <li
+                key={player.id}
+                aria-current={
+                  (game.phase !== "ended" &&
+                    game.currentPlayerId === player.id) ||
+                  undefined
+                }
+              >
+                <PlayerSummary game={game} player={player} index={index} />
+                {index < game.players.length - 1 && <hr />}
+              </li>
+            ))}
+          </ol>
         )}
       </Dialog>
       <Dialog
@@ -1401,14 +1426,17 @@ export default function SplendorApp({
             </p>
             <div className="choice-actions">
               <button
-                className="primary-button"
+                className="contained-button primary-button"
                 disabled={busy || !game.canRematch}
                 onClick={() => onAction({ type: "rematch" })}
               >
-                再来一局 <Icon name="arrow" />
+                再来一局
               </button>
               {!room && (
-                <button className="secondary-button" onClick={onExit}>
+                <button
+                  className="contained-button secondary-button"
+                  onClick={onExit}
+                >
                   更换模式
                 </button>
               )}
@@ -1427,10 +1455,16 @@ export default function SplendorApp({
           <div className="dialog-body">
             <p className="muted">放弃会清除本局的存档。</p>
             <div className="choice-actions">
-              <button className="secondary-button" onClick={closePause}>
+              <button
+                className="contained-button secondary-button"
+                onClick={closePause}
+              >
                 取消
               </button>
-              <button className="secondary-button" onClick={onExit}>
+              <button
+                className="contained-button secondary-button"
+                onClick={onExit}
+              >
                 放弃并返回
               </button>
             </div>
@@ -1438,10 +1472,16 @@ export default function SplendorApp({
         ) : (
           <div className="dialog-body">
             <div className="pause-actions">
-              <button className="primary-button" onClick={closePause}>
+              <button
+                className="contained-button primary-button"
+                onClick={closePause}
+              >
                 {game?.phase === "ended" ? "返回牌桌" : "继续游戏"}
               </button>
-              <button className="secondary-button" onClick={onBack}>
+              <button
+                className="contained-button secondary-button"
+                onClick={onBack}
+              >
                 暂时离开
               </button>
               {game?.phase !== "ended" && (
@@ -1459,23 +1499,15 @@ export default function SplendorApp({
       <Dialog
         open={help}
         onClose={() => setHelp(false)}
-        className="help-dialog"
+        className="app-dialog rules-dialog"
         aria-label="璀璨宝石规则"
       >
-        <div className="help-dialog-content">
-          <button
-            className="help-dialog-close"
-            aria-label="关闭规则"
-            onClick={() => setHelp(false)}
-          >
-            <Icon name="close" />
-          </button>
-          <iframe
-            className="help-frame"
-            title="璀璨宝石完整规则"
-            src="./help.html"
-          />
-        </div>
+        <DialogHeading title="游戏规则" onClose={() => setHelp(false)} />
+        <iframe
+          className="help-frame"
+          title="璀璨宝石完整规则"
+          src="./help.html"
+        />
       </Dialog>
     </div>
   );

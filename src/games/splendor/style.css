@@ -44,6 +44,12 @@ button {
   cursor: pointer;
 }
 
+button,
+.contained-button,
+.topbar-button {
+  font-size: 0.875rem;
+}
+
 button:disabled {
   cursor: default;
 }
@@ -134,16 +140,15 @@ button.topbar-button {
   }
 }
 
-.primary-button,
-.secondary-button {
+.contained-button {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
+  gap: 8px;
   min-height: 48px;
   border-radius: 12px;
   padding: 13px 19px;
-  font-size: 0.8125rem;
+  text-align: center;
 }
 
 .primary-button {
@@ -166,13 +171,6 @@ button.topbar-button {
 .secondary-button:active:not(:disabled) {
   box-shadow: 0 1px 0 #b7b8b6;
   transform: translateY(3px);
-}
-
-.primary-button > .icon {
-  float: none;
-  width: 17px;
-  height: 17px;
-  margin: 0;
 }
 
 .primary-button:disabled,
@@ -295,10 +293,6 @@ button.topbar-button {
 }
 
 .mode-entry {
-  justify-content: center;
-  gap: 8px;
-  font-size: 0.9375rem;
-  text-align: center;
   text-decoration: none;
 }
 
@@ -518,6 +512,10 @@ button.topbar-button {
   gap: 2px;
 }
 
+.player-identity .player-avatar {
+  max-width: 100%;
+}
+
 .player-chip > .resource-grid {
   display: none;
 }
@@ -527,7 +525,7 @@ button.topbar-button {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: calc(28px + var(--vertical-space) / 40);
+  width: 40px;
   aspect-ratio: 1;
   border-radius: 50%;
   color: #20384a;
@@ -557,7 +555,7 @@ button.topbar-button {
   font-size: 0.75rem;
 }
 
-.player-number {
+.number-badge {
   position: absolute;
   top: -2px;
   right: -3px;
@@ -572,7 +570,7 @@ button.topbar-button {
   line-height: 1;
 }
 
-.player-avatar[data-seat="1"] .player-number {
+.player-avatar[data-seat="1"] .number-badge {
   color: var(--gold);
 }
 
@@ -601,7 +599,7 @@ button.topbar-button {
     gap: 6px;
   }
 
-  @container player-chip (width < 80px) {
+  @container player-chip (width < 96px) {
     .player-name {
       display: none;
     }
@@ -688,7 +686,6 @@ button.topbar-button {
 
 .text-button {
   color: var(--muted);
-  font-size: 0.75rem;
   white-space: nowrap;
   min-height: 32px;
   border: 0;
@@ -855,6 +852,11 @@ button.topbar-button {
   paint-order: stroke fill;
 }
 
+.noble-costs .cost {
+  aspect-ratio: 3 / 4;
+  border-radius: 0.15em;
+}
+
 @container card-face (min-height: 104px) {
   .card-costs {
     flex-flow: column wrap;
@@ -974,8 +976,11 @@ button.topbar-button {
   background: var(--chip-color);
   box-shadow: 0 3px 0 color-mix(in srgb, currentColor 16%, #15273c);
   font-family: Georgia, serif;
-  font-size: 1rem;
   line-height: 1;
+}
+
+.token > b {
+  font-size: 1rem;
 }
 
 .token .gem {
@@ -1084,16 +1089,21 @@ button.topbar-button {
 }
 
 .action-tools .icon-button {
+  position: relative;
   flex: none;
   width: 44px;
   height: 44px;
   padding: 0;
 }
 
+.action-tools .number-badge {
+  color: #20384a;
+  background: var(--gold);
+}
+
 .turn-actions {
   display: grid;
   flex: 1;
-  font-size: 0.875rem;
 }
 
 .turn-actions > div {
@@ -1113,16 +1123,14 @@ button.topbar-button {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  font-size: 0.875rem;
   white-space: nowrap;
 }
 
 .turn-actions button {
-  justify-content: center;
-  gap: 8px;
   min-height: 44px;
   padding: 8px 6px;
   border-radius: 8px;
-  font-size: inherit;
   white-space: nowrap;
 }
 
@@ -1141,6 +1149,16 @@ button.topbar-button {
 
 .turn-actions .primary-button:active:not(:disabled) {
   box-shadow: none;
+}
+
+@media (width >= 600px) or (orientation: landscape) {
+  .take-actions .secondary-button {
+    min-width: 4rem;
+  }
+
+  .take-actions .primary-button {
+    min-width: 8rem;
+  }
 }
 
 @property --splendor-turn-ring-angle {
@@ -1249,10 +1267,19 @@ button.topbar-button {
 .player-overview-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.player-overview-list .player-summary {
+  padding: 16px;
+}
+
+.player-overview-list hr {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
 }
 
 .player-heading {
@@ -1295,8 +1322,8 @@ button.topbar-button {
   border-radius: 14px;
   background: #1c344b;
   color: #f2ecdf;
-  width: min(480px, calc(100vw - 24px));
-  max-width: none;
+  width: 480px;
+  max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 32px);
   box-shadow: 0 20px 80px #07132188;
   overflow: hidden;
@@ -1317,7 +1344,7 @@ button.topbar-button {
   flex: none;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px 10px 20px;
+  padding: 0 16px;
   min-height: 56px;
   border-bottom: 1px solid var(--line);
 }
@@ -1338,14 +1365,33 @@ button.topbar-button {
   background: #ffffff09;
 }
 
-.dialog-body {
+.dialog-close-button {
+  background: transparent;
+
+  &:focus-visible {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover,
+    &:active {
+      background: color-mix(in srgb, currentColor 14%, transparent);
+    }
+  }
+}
+
+.dialog-body,
+.player-overview-list {
   min-height: 0;
-  padding: 22px;
   overflow: auto;
 }
 
+.dialog-body {
+  padding: 22px;
+}
+
 .pause-dialog {
-  width: min(360px, calc(100vw - 24px));
+  width: 360px;
 }
 
 .pause-actions {
@@ -1353,14 +1399,9 @@ button.topbar-button {
   gap: 10px;
 }
 
-.pause-actions > button {
-  justify-content: center;
-}
-
 .pause-actions > .text-button {
   min-height: 44px;
   padding: 8px;
-  font-size: 0.8125rem;
 }
 
 .dialog-body > h3 {
@@ -1393,8 +1434,6 @@ button.topbar-button {
 
 .choice-actions > button {
   flex: 1;
-  gap: 8px;
-  font-size: 0.75rem;
   white-space: nowrap;
   padding: 12px;
 }
@@ -1408,8 +1447,6 @@ button.topbar-button {
 
 .card-dialog .choice-actions > button {
   grid-row: 1;
-  justify-content: center;
-  font-size: 0.875rem;
 }
 
 .purchase-shortfall {
@@ -1424,7 +1461,7 @@ button.topbar-button {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  margin-bottom: 25px;
+  margin: 0 0 25px;
   text-align: center;
 }
 
@@ -1447,6 +1484,7 @@ button.topbar-button {
   font-size: 1.1875rem;
 }
 
+.card-detail,
 .payment-details {
   font-size: 0.875rem;
 }
@@ -1454,10 +1492,6 @@ button.topbar-button {
 .payment-details > h3 {
   font-size: inherit;
   font-weight: 500;
-}
-
-.payment-row .stepper button {
-  font-size: inherit;
 }
 
 .payment-rows {
@@ -1508,7 +1542,6 @@ button.topbar-button {
   border-radius: 7px;
   border: 0;
   background: #284258;
-  font-size: 1.125rem;
 }
 
 .stepper button:disabled {
@@ -1540,7 +1573,6 @@ button.topbar-button {
 
 .blind-illustration {
   border-radius: 10px;
-  margin: 0 auto 24px;
   color: #e9d49f;
 }
 
@@ -1551,7 +1583,7 @@ button.topbar-button {
 
 .overview-dialog {
   --noble-size: clamp(3.5rem, 12vw, 4.75rem);
-  width: min(600px, calc(100vw - 24px));
+  width: 600px;
 }
 
 .dialog-body > .owned-cards-heading {
@@ -1569,6 +1601,14 @@ button.topbar-button {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
+}
+
+.reserved-placeholder {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+  padding-block: 24px;
+  font-size: 0.875rem;
 }
 
 .card-back {
@@ -1669,20 +1709,14 @@ button.topbar-button {
   font: 400 0.75rem system-ui;
 }
 
-.help-dialog {
-  background: #f5efdf;
-}
-
-.help-dialog-content {
-  padding-top: 0;
-}
-
-.help-dialog-close {
-  top: 12px;
-  right: 12px;
+.rules-dialog {
+  width: 36rem;
+  height: 48rem;
 }
 
 .help-frame {
+  flex: 1;
+  min-height: 0;
   background: #f5efdf;
 }
 
@@ -1715,6 +1749,10 @@ button.topbar-button {
 }
 
 .stacked-layout {
+  .player-identity .player-avatar {
+    max-width: min(100%, max(28px, (100dvh - 440px) / 4));
+  }
+
   .play-view {
     grid-template-rows: minmax(0, 1fr);
   }
@@ -1902,11 +1940,6 @@ button.topbar-button {
     padding-inline: 2px;
   }
 
-  .player-avatar {
-    width: 28px;
-    font-size: 0.9375rem;
-  }
-
   .bank-section {
     grid-template-columns: 1fr;
     align-content: start;
@@ -1970,9 +2003,9 @@ button.topbar-button {
   .player-chip {
     flex: none;
     align-items: stretch;
-    gap: clamp(4px, 1dvh, 8px);
+    gap: clamp(8px, 2dvh, 12px);
     max-width: none;
-    padding: clamp(3px, 1.15dvh, 8px) 8px;
+    padding: 12px;
     text-align: left;
     background: #ffffff0d;
   }
@@ -1981,9 +2014,13 @@ button.topbar-button {
     justify-content: space-between;
   }
 
-  .player-avatar {
-    width: clamp(24px, 5dvh, 34px);
-    font-size: clamp(0.875rem, 2.5dvh, 1rem);
+  /* Leave room for each player's resource rows in short windows. */
+  .player-strip:has(> :nth-child(3):last-child) .player-avatar {
+    max-width: max(24px, 30dvh - 5rem);
+  }
+
+  .player-strip:has(> :nth-child(4)) .player-avatar {
+    max-width: max(24px, 20dvh - 4.25rem);
   }
 
   .player-chip .player-prestige {
@@ -2085,10 +2122,6 @@ button.topbar-button {
   }
 }
 
-.overview-dialog .player-heading > .player-avatar {
-  width: 48px;
-}
-
 @media (max-height: 700px) {
   .setup-view {
     padding-top: 16px;
@@ -2098,6 +2131,30 @@ button.topbar-button {
 @media (width < 600px) {
   .dialog-body {
     padding: 20px;
+  }
+
+  .dialog-body:has(> .purchased-cards) {
+    padding-inline-end: 0;
+
+    & > :not(.purchased-cards) {
+      margin-inline-end: 20px;
+    }
+  }
+
+  .purchased-cards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    padding-inline-end: 20px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    & > button:focus-visible {
+      outline-offset: -2px;
+    }
   }
 
   .card-detail h2 {
@@ -2124,22 +2181,8 @@ button.topbar-button {
     filter: brightness(1.05);
   }
 
-  .icon-button:hover:not(:disabled) {
+  .action-tools .icon-button:hover:not(:disabled) {
     background: #ffffff15;
-  }
-}
-
-:is(.dialog-heading .icon-button, .help-dialog-close) {
-  background: transparent;
-
-  &:focus-visible {
-    background: color-mix(in srgb, currentColor 14%, transparent);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    &:is(:hover, :active) {
-      background: color-mix(in srgb, currentColor 14%, transparent);
-    }
   }
 }
 
