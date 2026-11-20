@@ -258,3 +258,193 @@ test("Lua and JS play the same voyage", async () => {
     lua.global.close();
   }
 });
+
+test("reviewed rules behave the same in local and room games", async t => {
+  const lua = await new LuaFactory().createEngine();
+  const exec = async source => {
+    const top = lua.global.getTop();
+    try { return await lua.doString(source); }
+    finally { lua.global.setTop(top); }
+  };
+  const cast = ["lauren", "captain", "mate", "kid"];
+  const seat = (state, id) => state.characters.find(entry => entry.id === id);
+  const fightResults = state => state.log.filter(entry => entry.type === "fight");
+
+  function tableau({ hand = {}, shown = {}, queue = ["lauren"], nav = [], adjust = () => {} } = {}) {
+    const state = createGame(roster(4), "beef", { cast });
+    for (const entry of state.characters) {
+      entry.hand = hand[entry.id] ?? [];
+      entry.shown = shown[entry.id] ?? [];
+    }
+    const held = state.characters.flatMap(entry => [...entry.hand, ...entry.shown]);
+    state.supplyDeck = PROVISIONS.map(card => card.id).filter(id => !held.includes(id));
+    state.navDeck = [...nav, ...state.navDeck.filter(id => !nav.includes(id))];
+    Object.assign(state, { phase: "action", queue, offer: [] });
+    adjust(state);
+    return state;
+  }
+
+  async function replay(initial) {
+    let state = initial;
+    await exec(`state=${luaLiteral(state)}`);
+    async function act(action, id = state.queue[0], accepted = true) {
+      const actor = seat(state, id).player;
+      const input = { ...action, step: state.step };
+      const expected = applyAction(state, actor, input);
+      const actual = await exec(`local r=on_action(state,${luaLiteral(input)},{actor={id=${luaLiteral(actor)}}}); if r.accepted then state=r.state end; return r`);
+      assert.deepEqual(align(actual, expected), expected);
+      assert.equal(expected.accepted, accepted, expected.error?.message);
+      if (expected.accepted) state = expected.state;
+      return state;
+    }
+    async function declineFightChoices() {
+      for (let guard = 0; state.phase === "fight"; guard++) {
+        assert(guard < cast.length);
+        await act(state.fight.stage === "arm" ? { type: "arm", card: false } : { type: "join", side: "out" });
+      }
+      return state;
+    }
+    return { act, declineFightChoices };
+  }
+
+  try {
+    await exec(await readFile(new URL("../public/lifeboat/game.lua", import.meta.url), "utf8"));
+
+    await t.test("two weapons can swing one fight, and a passer can still join after a weapon", async () => {
+      const { act, declineFightChoices } = await replay(tableau({
+        hand: { lauren: ["knife-1", "oar-1"] }, queue: ["lauren", "mate"],
+      }));
+      await act({ type: "move", target: "captain" });
+      const armed = await act({ type: "answer", accept: false });
+      assert.deepEqual(armed.queue, ["lauren"]);
+      assert.deepEqual(projectGame(armed, seat(armed, "mate").player).queue, []);
+      const spectator = await exec('return view(state,{},{viewer={id="spectator"}}).state');
+      assert.deepEqual(normalizeRoomView(spectator), projectGame(armed, "spectator"));
+      await act({ type: "arm", card: "knife-1" });
+      await act({ type: "join", side: "out" }, "mate");
+      await act({ type: "join", side: "out" }, "kid");
+      const continued = await act({ type: "arm", card: "oar-1" }, "lauren");
+      assert.equal(continued.phase, "fight");
+      assert.equal(continued.queue[0], "mate");
+      const settled = await declineFightChoices();
+      assert.equal(fightResults(settled)[0].attackersWin, true);
+      assert.deepEqual(seat(settled, "lauren").shown, ["knife-1", "oar-1"]);
+      assert.equal(seat(settled, "captain").wounds, 1);
+
+      const late = await replay(tableau({ hand: { lauren: ["knife-1"] }, queue: ["lauren", "mate"] }));
+      await late.act({ type: "move", target: "captain" });
+      await late.act({ type: "answer", accept: false });
+      await late.act({ type: "arm", card: false });
+      await late.act({ type: "join", side: "out" }, "mate");
+      await late.act({ type: "join", side: "attack" }, "kid");
+      await late.act({ type: "arm", card: "knife-1" }, "lauren");
+      const joined = await late.act({ type: "join", side: "defend" }, "mate");
+      assert.equal(fightResults(joined)[0].attackersWin, false);
+      assert.deepEqual(fightResults(joined)[0].losers, ["lauren", "kid"]);
+    });
+
+    await t.test("a displayed flare gives no bonus until fired and cannot affect a later fight", async () => {
+      const { act, declineFightChoices } = await replay(tableau({
+        shown: { lauren: ["flare-1"] }, queue: ["lauren", "mate", "kid"],
+      }));
+      await act({ type: "move", target: "captain" });
+      await act({ type: "answer", accept: false });
+      const fired = await act({ type: "arm", card: "flare-1" });
+      assert.deepEqual(seat(fired, "lauren").shown, []);
+      assert.equal(projectGame(fired, "spectator").fight.flareBy, "lauren");
+      const settled = await declineFightChoices();
+      assert.equal(fightResults(settled)[0].attackersWin, true);
+
+      await act({ type: "move", target: "lauren" });
+      await act({ type: "answer", accept: false });
+      assert.equal(fightResults(await declineFightChoices())[1].attackersWin, true);
+
+      const unfired = await replay(tableau({ shown: { lauren: ["flare-1"] }, queue: ["lauren", "mate"] }));
+      await unfired.act({ type: "move", target: "captain" });
+      await unfired.act({ type: "answer", accept: false });
+      const lost = await unfired.declineFightChoices();
+      assert.equal(fightResults(lost)[0].attackersWin, false);
+      assert.deepEqual(seat(lost, "lauren").shown, ["flare-1"]);
+    });
+
+    await t.test("off-turn reveal costs no action and a closed parasol can be passed and opened later", async () => {
+      const { act } = await replay(tableau({
+        hand: { captain: ["parasol-1"], mate: ["knife-1"] }, queue: ["lauren", "captain", "mate"],
+        adjust: state => { seat(state, "mate").wounds = 8; },
+      }));
+      const revealed = await act({ type: "reveal", card: "parasol-1" }, "captain");
+      assert.deepEqual(revealed.queue, ["lauren", "captain", "mate"]);
+      assert.deepEqual(seat(revealed, "captain").shown, ["parasol-1"]);
+      assert.equal(seat(revealed, "captain").parasol, false);
+      await act({ type: "reveal", card: "knife-1" }, "mate", false);
+      const passed = await act({ type: "give", card: "parasol-1", target: "lauren" }, "captain");
+      assert.equal(seat(passed, "lauren").parasol, false);
+      const opened = await act({ type: "parasol" });
+      assert.equal(seat(opened, "lauren").parasol, true);
+      assert.deepEqual(opened.queue, ["captain", "mate"]);
+      const given = await act({ type: "give", card: "parasol-1", target: "captain" }, "lauren");
+      assert.equal(seat(given, "lauren").parasol, false);
+      assert.equal(seat(given, "captain").parasol, true);
+    });
+
+    await t.test("showing the last dark card during an ordinary mugging does not erase the demand", async () => {
+      const { act } = await replay(tableau({
+        hand: { captain: ["knife-1"] }, queue: ["lauren", "mate"],
+      }));
+      await act({ type: "mug", target: "captain" });
+      const shown = await act({ type: "reveal", card: "knife-1" }, "captain");
+      assert.equal(shown.demand.card, "knife-1");
+      const accepted = await act({ type: "answer", accept: true });
+      assert.deepEqual(seat(accepted, "lauren").hand, ["knife-1"]);
+      assert.deepEqual(seat(accepted, "captain").shown, []);
+    });
+
+    await t.test("an unconscious character needs a previously displayed preserver", async () => {
+      for (const display of ["hand", "shown"]) {
+        const { act } = await replay(tableau({
+          [display]: { mate: ["preserver-1"] }, nav: ["nav-4"],
+          adjust: state => { seat(state, "mate").wounds = 8; },
+        }));
+        const settled = await act({ type: "nothing" });
+        assert.equal(seat(settled, "mate").removed, display === "hand");
+      }
+    });
+
+    await t.test("parasol protection ends when mugged and spent oars are lost overboard", async () => {
+      const mug = await replay(tableau({
+        shown: { captain: ["parasol-1"] }, nav: ["nav-8"],
+        adjust: state => { seat(state, "captain").parasol = true; },
+      }));
+      await mug.act({ type: "mug", target: "captain", card: "parasol-1" });
+      const mugged = await mug.act({ type: "answer", accept: true });
+      assert.equal(seat(mugged, "captain").parasol, false);
+      assert.equal(seat(mugged, "captain").wounds, 1);
+      assert(seat(mugged, "lauren").hand.includes("parasol-1"));
+
+      const row = await replay(tableau({ hand: { lauren: ["oar-1"] }, nav: ["nav-22"] }));
+      const drawing = await row.act({ type: "row" });
+      assert.equal(drawing.rowChoices.length, 3);
+      assert.deepEqual(seat(drawing, "lauren").shown, ["oar-1"]);
+      const overboard = await row.act({ type: "sort", keep: [true, false, false] });
+      assert(!seat(overboard, "lauren").shown.includes("oar-1"));
+      assert(!seat(overboard, "lauren").hand.includes("oar-1"));
+    });
+
+    await t.test("a self-hating character scores for other deaths but excludes the beloved", async () => {
+      const { act } = await replay(tableau({
+        nav: ["nav-12"],
+        adjust: state => {
+          state.birds = 3;
+          Object.assign(seat(state, "kid"), { hate: "kid", love: "captain" });
+          seat(state, "captain").wounds = 8;
+          seat(state, "mate").wounds = 9;
+        },
+      }));
+      const ended = await act({ type: "nothing" });
+      const { survival, love, hate } = ended.scores.find(score => score.player === seat(ended, "kid").player);
+      assert.deepEqual({ survival, love, hate }, { survival: 0, love: 0, hate: 8 });
+    });
+  } finally {
+    lua.global.close();
+  }
+});

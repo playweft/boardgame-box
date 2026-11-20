@@ -153,6 +153,10 @@ local function has_type(entry, kind, where)
   return false
 end
 
+local function has_open_parasol(entry)
+  return entry.parasol and has_type(entry, "parasol", "shown")
+end
+
 local function find_type(entry, kind, where)
   for _, id in ipairs(holding(entry, where or "both")) do
     if card_type(id) == kind then return id end
@@ -163,18 +167,29 @@ local function take_card(entry, id)
   local index = index_of(entry.hand, id)
   if index then return table.remove(entry.hand, index) end
   index = index_of(entry.shown, id)
-  if index then return table.remove(entry.shown, index) end
-  return ""
+  if not index then return nil end
+  if card_type(id) == "parasol" then entry.parasol = false end
+  return table.remove(entry.shown, index)
 end
 
-local function weapon_size(entry)
-  local total = 0
-  for _, id in ipairs(entry.shown) do total = total + (WEAPON[card_type(id)] or 0) end
-  return total
+local function fight_weapons(entry)
+  local weapons = {}
+  for _, id in ipairs(entry.hand) do
+    if WEAPON[card_type(id)] then push(weapons, id) end
+  end
+  for _, id in ipairs(entry.shown) do
+    if card_type(id) == "flare" then push(weapons, id) end
+  end
+  return weapons
 end
 
-local function fight_size(entry)
-  return META[entry.id].size + weapon_size(entry)
+local function fight_size(entry, fight)
+  local size = META[entry.id].size + (fight.flareBy == entry.id and WEAPON.flare or 0)
+  for _, id in ipairs(entry.shown) do
+    local kind = card_type(id)
+    if kind ~= "flare" then size = size + (WEAPON[kind] or 0) end
+  end
+  return size
 end
 
 local function canonical(ids)
@@ -317,7 +332,7 @@ finish = function(state)
     local survival, love, hate = 0, 0, 0
     if self.hate == self.id then
       for _, other in ipairs(state.characters) do
-        if other.id ~= self.id and not alive(other) then hate = hate + META[other.id].size end
+        if other.id ~= self.id and other.id ~= self.love and not alive(other) then hate = hate + META[other.id].size end
       end
       if self.love == self.id and alive(self) then survival = META[self.id].survival
       elseif loved and alive(loved) then love = META[loved.id].survival end
@@ -379,7 +394,7 @@ begin_thirst = function(state, card)
     if entry.rowed and card.row then need = need + 1 end
     if entry.fought and card.fight then need = need + 1 end
     if thirsty_set[id] then need = need + 1 end
-    if entry.parasol then need = math.max(0, need - 1) end
+    if has_open_parasol(entry) then need = math.max(0, need - 1) end
     if need > 0 then push(state.thirst, {id = id, left = need}) end
   end
   state.phase = "thirst"
@@ -402,7 +417,7 @@ resolve_overboard = function(state, card)
   for _, id in ipairs(state.falling) do
     local entry = character(state, id)
     if in_boat(entry) then
-      local preserver = has_type(entry, "preserver")
+      local preserver = has_type(entry, "preserver", conscious(entry) and "both" or "shown")
       local base = (META[id].swimmer or preserver) and 0 or 1
       entry.wounds = entry.wounds + base + (state.sharks and 1 or 0)
       local drown = entry.wounds >= META[id].size and not preserver
@@ -580,11 +595,12 @@ end
 local function steal(state, attacker, target, card)
   local taken = card
   if not taken then
+    if #target.hand == 0 then return end
     state.seed = next_seed(state.seed)
     local index = state.seed % #target.hand + 1
     taken = table.remove(target.hand, index)
-  else
-    take_card(target, taken)
+  elseif not take_card(target, taken) then
+    return
   end
   push(attacker.hand, taken)
   note(state, {type = "mug", from = attacker.id, to = target.id})
@@ -607,8 +623,8 @@ end
 local function resolve_fight(state)
   local fight = state.fight
   local attack, defense = 0, 0
-  for _, id in ipairs(fight.attackers) do attack = attack + fight_size(character(state, id)) end
-  for _, id in ipairs(fight.defenders) do defense = defense + fight_size(character(state, id)) end
+  for _, id in ipairs(fight.attackers) do attack = attack + fight_size(character(state, id), fight) end
+  for _, id in ipairs(fight.defenders) do defense = defense + fight_size(character(state, id), fight) end
   local attackers_win = attack > defense
   local losers = attackers_win and fight.defenders or fight.attackers
   for _, id in ipairs(losers) do character(state, id).wounds = character(state, id).wounds + 1 end
@@ -630,42 +646,56 @@ local function resolve_fight(state)
   finish_action(state)
 end
 
-local function begin_weapons(state)
+local function is_fighting(fight, id)
+  return contains(fight.attackers, id) or contains(fight.defenders, id)
+end
+
+local function next_fight_decision(state)
   local fight = state.fight
-  fight.stage = "arm"
-  fight.arm = {}
-  for _, id in ipairs(fight.attackers) do
-    local entry = character(state, id)
-    if conscious(entry) then
-      for _, card in ipairs(entry.hand) do
-        if WEAPON[card_type(card)] then push(fight.arm, id) break end
-      end
+  while #fight.pending > 0 do
+    local id = fight.pending[1]
+    local fighting = is_fighting(fight, id)
+    if not fighting or #fight_weapons(character(state, id)) > 0 then
+      fight.stage = fighting and "arm" or "join"
+      state.queue = {id}
+      return
     end
+    table.remove(fight.pending, 1)
   end
-  for _, id in ipairs(fight.defenders) do
-    local entry = character(state, id)
-    if conscious(entry) then
-      for _, card in ipairs(entry.hand) do
-        if WEAPON[card_type(card)] then push(fight.arm, id) break end
-      end
-    end
+  resolve_fight(state)
+end
+
+-- Each new contribution gives everyone another opportunity to react.
+local function restart_fight_round(state, id, include_current)
+  local fight = state.fight
+  local seats = conscious_seats(state)
+  local index = index_of(seats, id)
+  local pending = {}
+  for i = index + 1, #seats do push(pending, seats[i]) end
+  for i = 1, (include_current and index or index - 1) do push(pending, seats[i]) end
+  fight.pending = pending
+  fight.arm = nil
+  next_fight_decision(state)
+end
+
+local function pass_fight_decision(state, id)
+  if state.fight.arm then
+    -- A durable room can still be in the middle of the old, two-stage fight.
+    restart_fight_round(state, id, false)
+    return
   end
-  if #fight.arm == 0 then resolve_fight(state)
-  else state.queue = {fight.arm[1]} end
+  table.remove(state.fight.pending, 1)
+  next_fight_decision(state)
 end
 
 local function begin_fight(state, attacker, defender)
-  local pending = {}
-  for _, id in ipairs(state.cast) do
-    if id ~= attacker.id and id ~= defender.id and conscious(character(state, id)) then push(pending, id) end
-  end
   state.phase = "fight"
   state.fight = {
     attacker = attacker.id, defender = defender.id,
     attackers = {attacker.id}, defenders = {defender.id},
-    pending = pending, stage = #pending > 0 and "join" or "arm", arm = {},
+    pending = conscious_seats(state), stage = "join", flareBy = false,
   }
-  if #pending == 0 then begin_weapons(state) else state.queue = {pending[1]} end
+  next_fight_decision(state)
 end
 
 local function on_take(state, actor_id, action)
@@ -686,11 +716,28 @@ local function on_take(state, actor_id, action)
   end
 end
 
-local function on_reveal(entry, card)
-  if not index_of(entry.hand, card) then return "只能亮出自己手里的牌" end
-  if card_type(card) == "parasol" then return "阳伞要用行动撑开" end
+local function reveal_card(state, entry, card)
   take_card(entry, card)
   push(entry.shown, card)
+  local demand = state.demand
+  -- A pending request for a dark card can still claim the last one when it is shown.
+  if demand and demand.kind == "mug" and demand.to == entry.id and not demand.card and #entry.hand == 0 then
+    demand.card = card
+  end
+end
+
+local function on_reveal(state, actor_id, card)
+  local entry
+  for _, person in ipairs(state.characters) do
+    if person.player == actor_id then entry = person break end
+  end
+  if not conscious(entry) then return "这个角色现在不能亮牌" end
+  if not index_of(entry.hand, card) then return "只能亮出自己手里的牌" end
+  reveal_card(state, entry, card)
+  local kind = card_type(card)
+  if state.phase == "fight" and WEAPON[kind] and kind ~= "flare" and is_fighting(state.fight, entry.id) then
+    restart_fight_round(state, entry.id, true)
+  end
 end
 
 local function on_give(state, actor_id, action)
@@ -710,25 +757,25 @@ local function on_give(state, actor_id, action)
     if required then return "这张牌涉及尚未回应的抢夺" end
   end
   local shown = index_of(entry.shown, action.card) ~= nil
+  local open_parasol = shown and card_type(action.card) == "parasol" and entry.parasol
   take_card(entry, action.card)
   if shown then push(target.shown, action.card) else push(target.hand, action.card) end
-  entry.parasol = false
-  target.parasol = false
-  for _, id in ipairs(entry.shown) do
-    if card_type(id) == "parasol" then entry.parasol = true end
-  end
-  for _, id in ipairs(target.shown) do
-    if card_type(id) == "parasol" then target.parasol = true end
-  end
+  if open_parasol then target.parasol = true end
 end
 
 local function on_row(state, entry)
-  local extras = 0
-  for _, id in ipairs(holding(entry, "both")) do
-    if card_type(id) == "oar" then extras = extras + 1 end
+  local oars = {}
+  for _, id in ipairs(entry.shown) do
+    if card_type(id) == "oar" then push(oars, id) end
   end
-  local drawn = draw(state.navDeck, 2 + extras)
+  for _, id in ipairs(entry.hand) do
+    if card_type(id) == "oar" then push(oars, id) end
+  end
+  local drawn = draw(state.navDeck, 2 + #oars)
   if #drawn == 0 then return "航海牌已经看完了" end
+  for i = 1, #drawn - 2 do
+    if index_of(entry.hand, oars[i]) then reveal_card(state, entry, oars[i]) end
+  end
   state.phase = "row"
   state.rowChoices = drawn
   entry.rowed = true
@@ -811,25 +858,32 @@ end
 
 local function on_fight(state, action)
   local fight = state.fight
+  local entry = acting(state)
   if fight.stage == "join" then
     if action.type ~= "join" or (action.side ~= "attack" and action.side ~= "defend" and action.side ~= "out") then
       return "请选择加入哪一边，或者不参与"
     end
-    local id = table.remove(fight.pending, 1)
-    if action.side == "attack" then push(fight.attackers, id) end
-    if action.side == "defend" then push(fight.defenders, id) end
-    if #fight.pending > 0 then state.queue = {fight.pending[1]} else begin_weapons(state) end
+    if action.side == "out" then pass_fight_decision(state, entry.id)
+    else
+      push(action.side == "attack" and fight.attackers or fight.defenders, entry.id)
+      restart_fight_round(state, entry.id, true)
+    end
     return
   end
   if action.type ~= "arm" then return "请亮出武器，或放弃加战力" end
-  local entry = acting(state)
-  if action.card then
-    if not index_of(entry.hand, action.card) or not WEAPON[card_type(action.card)] then return "这张牌不能当武器" end
-    take_card(entry, action.card)
-    push(entry.shown, action.card)
+  if not action.card then
+    pass_fight_decision(state, entry.id)
+    return
   end
-  table.remove(fight.arm, 1)
-  if #fight.arm > 0 then state.queue = {fight.arm[1]} else resolve_fight(state) end
+  if not index_of(fight_weapons(entry), action.card) then return "这张牌不能当武器" end
+  if card_type(action.card) == "flare" then
+    take_card(entry, action.card)
+    fight.flareBy = entry.id
+    note(state, {type = "fightFlare", id = entry.id})
+  else
+    reveal_card(state, entry, action.card)
+  end
+  restart_fight_round(state, entry.id, true)
 end
 
 local function on_medical(state, entry, action)
@@ -864,17 +918,9 @@ local function on_flare(state, entry)
 end
 
 local function on_parasol(state, entry)
-  local found = false
-  for _, id in ipairs(entry.hand) do
-    if card_type(id) == "parasol" then found = true end
-  end
-  if not found or entry.parasol then return "阳伞已经撑开，或者你没有阳伞" end
-  local card = nil
-  for _, id in ipairs(entry.hand) do
-    if card_type(id) == "parasol" then card = id break end
-  end
-  take_card(entry, card)
-  push(entry.shown, card)
+  local card = find_type(entry, "parasol")
+  if not card or has_open_parasol(entry) then return "阳伞已经撑开，或者你没有阳伞" end
+  if index_of(entry.hand, card) then reveal_card(state, entry, card) end
   entry.parasol = true
   note(state, {type = "act", id = entry.id, act = "parasol"})
   finish_action(state)
@@ -882,7 +928,6 @@ end
 
 local function on_choose(state, action)
   local entry = acting(state)
-  if action.type == "reveal" then return on_reveal(entry, action.card) end
   if action.type == "nothing" then
     note(state, {type = "act", id = entry.id, act = "nothing"})
     finish_action(state)
@@ -986,6 +1031,7 @@ local function mutate(state, actor_id, action)
     return nil, true
   end
   if state.phase == "ended" then return "这局已经结束" end
+  if action.type == "reveal" then return on_reveal(state, actor_id, action.card) end
   if action.type == "give" then return on_give(state, actor_id, action) end
   local problem = nil
   if state.phase == "deal" then problem = on_take(state, actor_id, action)
@@ -1040,7 +1086,7 @@ function view(state, events, context)
     if owner then owner_conscious = conscious(entry) end
     push(characters, {
       id = entry.id, player = entry.player, wounds = entry.wounds, size = meta.size, survival = meta.survival,
-      rowed = entry.rowed, fought = entry.fought, parasol = entry.parasol, removed = entry.removed,
+      rowed = entry.rowed, fought = entry.fought, parasol = has_open_parasol(entry), removed = entry.removed,
       conscious = conscious(entry), alive = alive(entry),
       shown = entry.shown, handCount = #entry.hand,
       love = (ended or owner) and entry.love or false,
@@ -1060,7 +1106,7 @@ function view(state, events, context)
   if fight then
     fight = {
       attacker = fight.attacker, defender = fight.defender, stage = fight.stage,
-      attackers = fight.attackers, defenders = fight.defenders,
+      attackers = fight.attackers, defenders = fight.defenders, flareBy = fight.flareBy or false,
     }
   end
   -- Filter records persisted by older versions as well as new ones.

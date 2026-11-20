@@ -215,7 +215,9 @@ function switchToTrader(playerId) {
     tradeViewerId !== null
   )
     return;
-  if (!projectGame(localGame, playerId).canTrade) return;
+  const view = projectGame(localGame, playerId);
+  const player = view.characters.find(entry => entry.player === playerId);
+  if (!view.canTrade && !(player?.conscious && player.hand.length)) return;
   tradeViewerId = playerId;
   handoff = playerId !== actingPlayer(localGame);
   error = "";
@@ -275,8 +277,8 @@ function submit(intent) {
     }, "操作失败");
 
   const previous = actingPlayer(localGame);
-  if (tradeViewerId !== null && intent.type !== "give") return;
-  if (humanId && previous !== humanId && intent.type !== "give") return;
+  const offTurn = intent.type === "give" || intent.type === "reveal";
+  if ((tradeViewerId !== null || (humanId && previous !== humanId)) && !offTurn) return;
   const result = applyAction(
     localGame,
     humanId ?? tradeViewerId ?? previous,

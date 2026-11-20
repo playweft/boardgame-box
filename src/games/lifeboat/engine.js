@@ -61,20 +61,29 @@ function hasType(entry, type, where = "both") {
   return holding(entry, where).some(id => cardInfo(id)?.type === type);
 }
 
+function hasOpenParasol(entry) {
+  return entry.parasol && hasType(entry, "parasol", "shown");
+}
+
 function takeCard(entry, id) {
   const hand = entry.hand.indexOf(id);
   if (hand >= 0) return entry.hand.splice(hand, 1)[0];
   const shown = entry.shown.indexOf(id);
-  if (shown >= 0) return entry.shown.splice(shown, 1)[0];
-  return "";
+  if (shown < 0) return "";
+  if (cardInfo(id)?.type === "parasol") entry.parasol = false;
+  return entry.shown.splice(shown, 1)[0];
 }
 
-function weaponSize(entry) {
-  return holding(entry, "shown").reduce((total, id) => total + (cardInfo(id)?.size ?? 0), 0);
+export function fightWeapons(entry) {
+  return holding(entry, "hand").filter(id => cardInfo(id)?.size)
+    .concat(holding(entry, "shown").filter(id => cardInfo(id)?.type === "flare"));
 }
 
-function fightSize(entry) {
-  return characterById[entry.id].size + weaponSize(entry);
+function fightSize(entry, fight) {
+  return entry.shown.reduce((size, id) => {
+    const card = cardInfo(id);
+    return size + (card?.type === "flare" ? 0 : card?.size ?? 0);
+  }, characterById[entry.id].size + (fight.flareBy === entry.id ? cardInfo("flare-1").size : 0));
 }
 
 function canonical(ids) {
@@ -283,7 +292,7 @@ function resolveOverboard(state, card = navigationById[state.navCard]) {
   for (const id of state.falling) {
     const entry = character(state, id);
     if (!inBoat(entry)) continue;
-    const preserver = hasType(entry, "preserver");
+    const preserver = hasType(entry, "preserver", conscious(entry) ? "both" : "shown");
     const base = characterById[id].swimmer || preserver ? 0 : 1;
     entry.wounds += base + (state.sharks ? 1 : 0);
     const drown = entry.wounds >= characterById[id].size && !preserver;
@@ -313,7 +322,7 @@ function beginThirst(state, card) {
     if (entry.rowed && card.row) need += 1;
     if (entry.fought && card.fight) need += 1;
     if (thirstTargets(card.thirst, present).includes(id)) need += 1;
-    if (entry.parasol) need = Math.max(0, need - 1);
+    if (hasOpenParasol(entry)) need = Math.max(0, need - 1);
     if (need) state.thirst.push({ id, left: need });
   }
   state.phase = "thirst";
@@ -374,7 +383,7 @@ function scorePlayer(state, playerId) {
   let hate = 0;
   if (self.hate === self.id) {
     for (const other of state.characters) {
-      if (other.id !== self.id && !alive(other)) hate += characterById[other.id].size;
+      if (other.id !== self.id && other.id !== self.love && !alive(other)) hate += characterById[other.id].size;
     }
     if (self.love === self.id && alive(self)) survival = characterById[self.id].survival;
     else if (loved && alive(loved)) love = characterById[loved.id].survival;
@@ -400,6 +409,17 @@ function mutate(state, actorId, action) {
     return ok();
   }
   if (state.phase === "ended") return fail("这局已经结束");
+  if (action.type === "reveal") {
+    const entry = state.characters.find(person => person.player === actorId);
+    if (!conscious(entry)) return fail("这个角色现在不能亮牌");
+    if (!entry.hand.includes(action.card)) return fail("只能亮出自己手里的牌");
+    revealCard(state, entry, action.card);
+    const card = cardInfo(action.card);
+    if (state.phase === "fight" && card.size && card.type !== "flare" && isFighting(state.fight, entry.id)) {
+      restartFightRound(state, entry.id);
+    }
+    return ok();
+  }
   if (action.type === "give") return give(state, state.characters.find(entry => entry.player === actorId), action);
   if (state.phase === "deal") return takeProvision(state, actorId, action);
   if (state.phase === "action") return chooseAction(state, actorId, action);
@@ -435,7 +455,6 @@ function chooseAction(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
   const entry = acting(state);
-  if (action.type === "reveal") return reveal(entry, action.card);
   if (action.type === "nothing") {
     note(state, { type: "act", id: entry.id, act: "nothing" });
     finishAction(state);
@@ -450,12 +469,14 @@ function chooseAction(state, actorId, action) {
   return fail("现在不能这样做");
 }
 
-function reveal(entry, cardId) {
-  if (!entry.hand.includes(cardId)) return fail("只能亮出自己手里的牌");
-  if (cardInfo(cardId)?.type === "parasol") return fail("阳伞要用行动撑开");
-  takeCard(entry, cardId);
-  entry.shown.push(cardId);
-  return ok();
+function revealCard(state, entry, card) {
+  takeCard(entry, card);
+  entry.shown.push(card);
+  const demand = state.demand;
+  // A pending request for a dark card can still claim the last one when it is shown.
+  if (demand?.kind === "mug" && demand.to === entry.id && !demand.card && !entry.hand.length) {
+    demand.card = card;
+  }
 }
 
 function give(state, entry, action) {
@@ -471,18 +492,22 @@ function give(state, entry, action) {
     if (required) return fail("这张牌涉及尚未回应的抢夺");
   }
   const shown = entry.shown.includes(action.card);
+  const openParasol = shown && cardInfo(action.card)?.type === "parasol" && entry.parasol;
   takeCard(entry, action.card);
   if (shown) target.shown.push(action.card);
   else target.hand.push(action.card);
-  entry.parasol = entry.shown.some(id => cardInfo(id)?.type === "parasol");
-  target.parasol = target.shown.some(id => cardInfo(id)?.type === "parasol");
+  if (openParasol) target.parasol = true;
   return ok();
 }
 
 function startRow(state, entry) {
-  const extras = holding(entry).filter(id => cardInfo(id)?.type === "oar").length;
-  const drawn = draw(state.navDeck, 2 + extras);
+  const oars = holding(entry, "shown").filter(id => cardInfo(id)?.type === "oar")
+    .concat(holding(entry, "hand").filter(id => cardInfo(id)?.type === "oar"));
+  const drawn = draw(state.navDeck, 2 + oars.length);
   if (!drawn.length) return fail("航海牌已经看完了");
+  for (const id of oars.slice(0, Math.max(0, drawn.length - 2))) {
+    if (entry.hand.includes(id)) revealCard(state, entry, id);
+  }
   state.phase = "row";
   state.rowChoices = drawn;
   entry.rowed = true;
@@ -548,10 +573,11 @@ function startMug(state, entry, action) {
 function steal(state, attacker, target, card) {
   let taken = card;
   if (!taken) {
+    if (!target.hand.length) return;
     state.seed = nextSeed(state.seed);
     const index = state.seed % target.hand.length;
     taken = target.hand.splice(index, 1)[0];
-  } else takeCard(target, taken);
+  } else if (!takeCard(target, taken)) return;
   attacker.hand.push(taken);
   note(state, { type: "mug", from: attacker.id, to: target.id });
   return taken;
@@ -587,59 +613,87 @@ function answerDemand(state, actorId, action) {
 }
 
 function beginFight(state, attacker, defender) {
-  const pending = state.cast.filter(id => id !== attacker.id && id !== defender.id && conscious(character(state, id)));
   state.phase = "fight";
   state.fight = {
     attacker: attacker.id, defender: defender.id,
     attackers: [attacker.id], defenders: [defender.id],
-    pending, stage: pending.length ? "join" : "arm", arm: [],
+    pending: consciousSeats(state), stage: "join", flareBy: false,
   };
-  state.demand = state.demand;
-  if (!pending.length) beginWeapons(state);
-  else state.queue = [pending[0]];
+  nextFightDecision(state);
 }
 
-function beginWeapons(state) {
+function isFighting(fight, id) {
+  return fight.attackers.includes(id) || fight.defenders.includes(id);
+}
+
+function nextFightDecision(state) {
   const fight = state.fight;
-  fight.stage = "arm";
-  fight.arm = [...fight.attackers, ...fight.defenders].filter(id => {
-    const entry = character(state, id);
-    return conscious(entry) && entry.hand.some(card => cardInfo(card)?.size);
-  });
-  if (!fight.arm.length) resolveFight(state);
-  else state.queue = [fight.arm[0]];
+  while (fight.pending.length) {
+    const id = fight.pending[0];
+    const fighting = isFighting(fight, id);
+    if (!fighting || fightWeapons(character(state, id)).length) {
+      fight.stage = fighting ? "arm" : "join";
+      state.queue = [id];
+      return;
+    }
+    fight.pending.shift();
+  }
+  resolveFight(state);
+}
+
+// Each new contribution gives everyone another opportunity to react.
+function restartFightRound(state, id, includeCurrent = true) {
+  const fight = state.fight;
+  const seats = consciousSeats(state);
+  const index = seats.indexOf(id);
+  fight.pending = [...seats.slice(index + 1), ...seats.slice(0, index + Number(includeCurrent))];
+  delete fight.arm;
+  nextFightDecision(state);
 }
 
 function fightAction(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
   const fight = state.fight;
+  const entry = acting(state);
   if (fight.stage === "join") {
     if (action.type !== "join" || !["attack", "defend", "out"].includes(action.side)) return fail("请选择加入哪一边，或者不参与");
-    const id = fight.pending.shift();
-    if (action.side === "attack") fight.attackers.push(id);
-    if (action.side === "defend") fight.defenders.push(id);
-    if (fight.pending.length) state.queue = [fight.pending[0]];
-    else beginWeapons(state);
+    if (action.side !== "out") {
+      const side = action.side === "attack" ? fight.attackers : fight.defenders;
+      side.push(entry.id);
+      restartFightRound(state, entry.id);
+    } else passFightDecision(state, entry.id);
     return ok();
   }
   if (action.type !== "arm") return fail("请亮出武器，或放弃加战力");
-  const entry = acting(state);
-  if (action.card) {
-    if (!entry.hand.includes(action.card) || !cardInfo(action.card)?.size) return fail("这张牌不能当武器");
-    takeCard(entry, action.card);
-    entry.shown.push(action.card);
+  if (!action.card) {
+    passFightDecision(state, entry.id);
+    return ok();
   }
-  fight.arm.shift();
-  if (fight.arm.length) state.queue = [fight.arm[0]];
-  else resolveFight(state);
+  if (!fightWeapons(entry).includes(action.card)) return fail("这张牌不能当武器");
+  if (cardInfo(action.card).type === "flare") {
+    takeCard(entry, action.card);
+    fight.flareBy = entry.id;
+    note(state, { type: "fightFlare", id: entry.id });
+  } else revealCard(state, entry, action.card);
+  restartFightRound(state, entry.id);
   return ok();
+}
+
+function passFightDecision(state, id) {
+  if (state.fight.arm) {
+    // A durable room can still be in the middle of the old, two-stage fight.
+    restartFightRound(state, id, false);
+    return;
+  }
+  state.fight.pending.shift();
+  nextFightDecision(state);
 }
 
 function resolveFight(state) {
   const fight = state.fight;
-  const attack = fight.attackers.reduce((total, id) => total + fightSize(character(state, id)), 0);
-  const defense = fight.defenders.reduce((total, id) => total + fightSize(character(state, id)), 0);
+  const attack = fight.attackers.reduce((total, id) => total + fightSize(character(state, id), fight), 0);
+  const defense = fight.defenders.reduce((total, id) => total + fightSize(character(state, id), fight), 0);
   const attackersWin = attack > defense;
   const losers = attackersWin ? fight.defenders : fight.attackers;
   for (const id of losers) character(state, id).wounds += 1;
@@ -691,10 +745,9 @@ function useFlare(state, entry) {
 }
 
 function openParasol(state, entry) {
-  if (!entry.hand.some(id => cardInfo(id)?.type === "parasol") || entry.parasol) return fail("阳伞已经撑开，或者你没有阳伞");
-  const card = entry.hand.find(id => cardInfo(id)?.type === "parasol");
-  takeCard(entry, card);
-  entry.shown.push(card);
+  const card = holding(entry).find(id => cardInfo(id)?.type === "parasol");
+  if (!card || hasOpenParasol(entry)) return fail("阳伞已经撑开，或者你没有阳伞");
+  if (entry.hand.includes(card)) revealCard(state, entry, card);
   entry.parasol = true;
   note(state, { type: "act", id: entry.id, act: "parasol" });
   finishAction(state);
@@ -784,7 +837,7 @@ function publicCharacter(state, entry, viewer, ended) {
   const info = characterById[entry.id];
   return {
     id: entry.id, player: entry.player, wounds: entry.wounds, size: info.size, survival: info.survival,
-    rowed: entry.rowed, fought: entry.fought, parasol: entry.parasol, removed: entry.removed,
+    rowed: entry.rowed, fought: entry.fought, parasol: hasOpenParasol(entry), removed: entry.removed,
     conscious: conscious(entry), alive: alive(entry),
     shown: entry.shown, handCount: entry.hand.length,
     love: ended || mine ? entry.love : false,
@@ -813,7 +866,7 @@ export function projectGame(state, viewerId) {
     demand: state.demand,
     fight: fight && {
       attacker: fight.attacker, defender: fight.defender, stage: fight.stage,
-      attackers: fight.attackers, defenders: fight.defenders,
+      attackers: fight.attackers, defenders: fight.defenders, flareBy: fight.flareBy || false,
     },
     falling: state.falling,
     thirst: state.thirst,
@@ -836,7 +889,11 @@ export function projectGame(state, viewerId) {
 
 export function projectBotGame(state, viewerId) {
   // This is the public action queue as it stood before the demand interrupted it.
-  return { ...projectGame(state, viewerId), remainingActions: [...state.savedQueue] };
+  return {
+    ...projectGame(state, viewerId),
+    remainingActions: [...state.savedQueue],
+    fightPending: state.fight && [...state.fight.pending],
+  };
 }
 
 export { alive, conscious, characterById };

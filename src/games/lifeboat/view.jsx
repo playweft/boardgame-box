@@ -6,6 +6,7 @@ import GameTopbar from "../../shared/game-topbar.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
 import BoatHull from "./boat-hull.jsx";
 import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS, cardInfo, characterById, iconFor, navigationById } from "./data.js";
+import { fightWeapons } from "./engine.js";
 import Icon from "./icon.jsx";
 import Rules from "./rules.jsx";
 import cover from "./assets/cover-flat.webp";
@@ -339,10 +340,11 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   const active = game.canAct && !trading;
   const dealing = active && game.phase === "deal";
   const canTrade = game.canTrade && !!self;
+  const canReveal = self?.conscious && game.phase !== "ended";
   const usingWater = active && game.phase === "thirst";
-  const canSelectCard = canTrade || usingWater;
+  const canSelectCard = canTrade || canReveal || usingWater;
   const ownCards = self ? [...(self.hand || []), ...self.shown] : [];
-  const weapons = self?.hand?.filter(id => cardInfo(id)?.size) ?? [];
+  const weapons = fightWeapons(self);
   const ownsSelected = ownCards.includes(selected);
   const selectedType = ownsSelected ? cardInfo(selected)?.type : null;
   const ownsType = type => ownCards.some(id => cardInfo(id)?.type === type);
@@ -353,12 +355,19 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   };
   const pickCard = id => {
     const next = id === selected ? null : id;
-    if (computer && !active && canTrade) onComputerHold(Boolean(next));
+    if (computer && !active) onComputerHold(Boolean(next));
     updateDraft({ selected: next, mode: "" });
   };
-  const cardDisabled = id => busy || (usingWater && (cardInfo(id)?.type !== "water" || drinks.some(use => use.card === id)));
+  const cardDisabled = id => busy || drinks.some(use => use.card === id);
   const publicActor = game.characters.find(entry => entry.id === game.queue[0]);
   const giveSelectedCard = canTrade && ownsSelected;
+  const revealSelectedCard = canReveal && self.hand.includes(selected);
+  const revealDuringActions = active && game.phase === "action";
+  const revealInFooter = revealSelectedCard && !revealDuringActions;
+  const revealChoice = revealSelectedCard &&
+    <Choice disabled={busy} onClick={() => send({ type: "reveal", card: selected })}>亮出</Choice>;
+  const fightNames = side => side.map(id => id === game.fight.flareBy
+    ? `${personName(id)}（信号枪 +8）` : personName(id)).join("、");
 
   function isTarget(entry) {
     if (busy || entry.removed) return false;
@@ -386,7 +395,8 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         <div className="meter"><Icon name="compass" /><span>航海牌</span><b>{game.navCount}</b></div>
       </div>
       <CrewBoard game={game} players={players} feedback={feedback} isTarget={isTarget} pickSeat={pickSeat}
-        canSelectCard={canSelectCard} selected={selected} cardDisabled={cardDisabled} pickCard={pickCard}
+        canSelectCard={canTrade || usingWater} selected={selected} pickCard={pickCard}
+        cardDisabled={id => cardDisabled(id) || (usingWater && cardInfo(id)?.type !== "water")}
         taking={mode === "mug"} takeCard={(target, card) => send({ type: "mug", target, card })} />
     </div>
     <section className="turn-panel panel" aria-label="当前行动">
@@ -401,10 +411,10 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
       </header>
       <div className="turn-scroll" ref={turnRef} key={`${game.day}-${game.phase}-${active}-${game.fight?.stage}`} tabIndex={0}>
         {error && <p className="error table-error" role="alert">{error}</p>}
-        {trading && <p className="table-hint">选一张物资，再选收牌的船员。</p>}
+        {trading && <p className="table-hint">{game.tradeOpen ? "选择要亮出或转交的物资。" : "选择要亮出的物资。"}</p>}
         {!active && !trading && game.phase !== "ended" &&
           <p className="table-hint" role="status">{computer
-            ? ownsSelected && canTrade ? "再点一次物资可继续电脑的回合" : `${players[publicActor?.player] ?? "电脑玩家"} 正在行动…`
+            ? ownsSelected ? "再点一次物资可继续电脑的回合" : `${players[publicActor?.player] ?? "电脑玩家"} 正在行动…`
             : "等待当前行动结算"}</p>}
         {dealing && <section className="card-tray provision-deal">
           <p className="table-hint">选择一张物资</p>
@@ -431,14 +441,13 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
             <Choice icon="swap" disabled={busy} aria-pressed={mode === "move"} onClick={() => updateDraft({ mode: "move" })}>换座</Choice>
             <Choice icon="weapon" disabled={busy} aria-pressed={mode === "mug"} onClick={() => updateDraft({ mode: "mug" })}>抢夺</Choice>
             <Choice icon="wait" disabled={busy} onClick={() => send({ type: "nothing" })}>不动</Choice>
-            {self?.hand?.some(id => cardInfo(id)?.type === "parasol") && !self.parasol &&
+            {ownsType("parasol") && !self.parasol &&
               <Choice icon="parasol" disabled={busy} onClick={() => send({ type: "parasol" })}>撑阳伞</Choice>}
             {ownsType("flare") &&
               <Choice icon="weapon" disabled={busy} onClick={() => send({ type: "flare" })}>信号枪</Choice>}
             {selectedType === "medical" &&
               <Choice icon="medical" disabled={busy} aria-pressed={mode === "medical"} onClick={() => updateDraft({ mode: "medical" })}>治疗</Choice>}
-            {self?.hand?.includes(selected) && selectedType !== "parasol" &&
-              <Choice disabled={busy} onClick={() => send({ type: "reveal", card: selected })}>亮出</Choice>}
+            {revealChoice}
           </div>
         </section>}
         {game.phase === "answer" && !trading && <section className="panel">
@@ -452,17 +461,17 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         </section>}
         {game.phase === "fight" && <section className="panel">
           <h2>{game.fight.stage === "join" ? "选择阵营" : "亮出武器"}</h2>
-          <p className="hint">进攻方 · {game.fight.attackers.map(personName).join("、")}</p>
-          <p className="hint">防守方 · {game.fight.defenders.map(personName).join("、")}</p>
+          <p className="hint">进攻方 · {fightNames(game.fight.attackers)}</p>
+          <p className="hint">防守方 · {fightNames(game.fight.defenders)}</p>
           {active && (game.fight.stage === "join" ? <div className="actions">
             <Choice disabled={busy} onClick={() => send({ type: "join", side: "attack" })}>帮进攻</Choice>
             <Choice disabled={busy} onClick={() => send({ type: "join", side: "defend" })}>帮防守</Choice>
-            <Choice disabled={busy} onClick={() => send({ type: "join", side: "out" })}>不参与</Choice>
+            <Choice disabled={busy} onClick={() => send({ type: "join", side: "out" })}>暂不参战</Choice>
           </div> : <>
             {!!weapons.length && <div className="hand" aria-label="可亮出的武器">
               {weapons.map(id => <CardFace key={id} id={id} disabled={busy} onClick={() => send({ type: "arm", card: id })} />)}
             </div>}
-            <Choice disabled={busy} onClick={() => send({ type: "arm", card: false })}>不用武器</Choice>
+            <Choice disabled={busy} onClick={() => send({ type: "arm", card: false })}>暂不出牌</Choice>
           </>)}
         </section>}
         {active && game.phase === "rescue" && <section className="panel">
@@ -487,17 +496,19 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
           <h2>刚才的航海</h2>
           <NavigationFace card={nav} characters={game.characters} />
         </section>}
-        {(giveSelectedCard || onChooseTrader || trading) && <div className={giveSelectedCard && onChooseTrader ? "paired-actions" : "table-footer"}>
+        {(giveSelectedCard || revealInFooter || onChooseTrader || trading) && <div
+          className={giveSelectedCard && onChooseTrader && !revealInFooter ? "paired-actions" : "table-footer"}>
+          {revealInFooter && revealChoice}
           {giveSelectedCard && <Raised secondary className="lifeboat-selectable" disabled={busy}
             aria-pressed={mode === "give"} onClick={() => updateDraft({ mode: "give" })}>交给别人</Raised>}
-          {onChooseTrader && <Raised secondary disabled={busy} onClick={onChooseTrader}>传屏交易</Raised>}
+          {onChooseTrader && <Raised secondary disabled={busy} onClick={onChooseTrader}>{game.tradeOpen ? "传屏交易" : "传屏亮牌"}</Raised>}
           {trading && <Raised secondary onClick={onEndTrade}>返回当前回合</Raised>}
         </div>}
       </div>
     </section>
     {self && <section className="player-tray" aria-labelledby="hand-heading">
       <header className="player-tray-header">
-        <h2 id="hand-heading">{trading ? "交易" : "你的手牌"}</h2>
+        <h2 id="hand-heading">{trading ? (game.tradeOpen ? "交易" : "亮牌") : "你的手牌"}</h2>
         <Relationships person={self} />
       </header>
       <div className="card-rail" role="group" aria-label="你的物资" tabIndex={0}>
@@ -587,9 +598,9 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
   const close = () => showDialog(null);
   const localMatch = !room && !!game;
   const confirmExit = dialog === "exit";
-  const traders = localMatch && !computer && game.tradeOpen && !trading
+  const traders = localMatch && !computer && game.phase !== "ended" && !trading
     ? game.players.filter(player => game.characters.some(entry => entry.player === player.id
-      && entry.conscious && (entry.handCount || entry.shown.length)))
+      && entry.conscious && (entry.handCount || (game.tradeOpen && entry.shown.length))))
     : [];
   let scene;
   if (connecting || (room && !game)) {
@@ -597,7 +608,7 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
   } else if (localMatch && handoff) {
     const player = game.players.find(item => item.id === game.viewerId);
     scene = <Notice icon="lock" title={`交给 ${player?.name ?? "下一位"}`}>
-      <p className="hint">{trading ? "请由交易玩家接过设备后继续。" : `第 ${game.day} 天。屏幕上会看到你的爱、恨和手牌。`}</p>
+      <p className="hint">{trading ? "请由这位玩家接过设备后继续。" : `第 ${game.day} 天。屏幕上会看到你的爱、恨和手牌。`}</p>
       <Raised onClick={onReady} icon="forward">我准备好了</Raised>
       {trading && <Raised secondary onClick={onEndTrade}>返回当前回合</Raised>}
     </Notice>;
@@ -646,8 +657,8 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
         <Raised secondary onClick={() => showDialog("exit")}>放弃对局</Raised>
       </div>}
     </GameDialog>
-    <GameDialog title="选择交易玩家" open={dialog === "trade"} onClose={close}>
-      <p className="hint">选择要转交物资的船员，再把设备交给对方。</p>
+    <GameDialog title={game?.tradeOpen ? "选择交易玩家" : "选择亮牌玩家"} open={dialog === "trade"} onClose={close}>
+      <p className="hint">选择要操作的船员，再把设备交给对方。</p>
       <div className="trade-players">
         {traders.map(player => <Raised secondary key={player.id}
           onClick={() => { close(); onTrade(player.id); }}>{player.name}</Raised>)}

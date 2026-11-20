@@ -1,4 +1,5 @@
 import { LAND_BIRDS, cardInfo, characterById, navigationById } from "./data.js";
+import { fightWeapons } from "./engine.js";
 
 export const botProfiles = [
   { caution: 1, aggression: 1, loyalty: 1 },
@@ -36,7 +37,7 @@ function materialValue(person, id, cards, view, profile) {
 function relation(self, target, profile) {
   let value = target.id === self.id ? (self.hate === self.id && self.love !== self.id ? 0.7 : 1.7) * profile.caution : 0.1;
   if (self.love === target.id) value += profile.loyalty * (0.65 + target.survival / 10);
-  if (target.id !== self.id && (self.hate === target.id || self.hate === self.id)) {
+  if (target.id !== self.id && (self.hate === target.id || (self.hate === self.id && self.love !== target.id))) {
     value -= profile.aggression * (0.45 + target.size / 10);
   }
   return value;
@@ -50,12 +51,14 @@ function injury(person, wounds) {
   return wounds * (room <= 3 ? 1.3 : 0.65);
 }
 
-function power(person) {
-  return person.size + person.shown.reduce((total, id) => total + cardInfo(id).size, 0);
+function power(person, fight) {
+  const flare = fight?.flareBy === person.id ? cardInfo("flare-1").size : 0;
+  return person.size + flare + person.shown.reduce((total, id) =>
+    total + (cardInfo(id).type === "flare" ? 0 : cardInfo(id).size), 0);
 }
 
 function hiddenWeapon(person) {
-  return Math.max(0, ...(person.hand || []).map(id => cardInfo(id).size));
+  return Math.max(0, ...fightWeapons(person).map(id => cardInfo(id).size));
 }
 
 function sortOptions(choices) {
@@ -85,7 +88,9 @@ export function rankBotActions(view, profile = botProfiles[0]) {
     for (const person of view.characters) {
       if (!person.alive) continue;
       const known = held(person);
-      const protectedFromWater = characterById[person.id].swimmer || countType(known, "preserver");
+      const protectedFromWater = person.conscious
+        ? characterById[person.id].swimmer || countType(known, "preserver")
+        : countType(person.shown, "preserver");
       const wet = present(card.overboard, person.id);
       const thirst = Math.max(0, Number(present(card.thirst, person.id))
         + Number(card.row && person.rowed) + Number(card.fight && person.fought) - Number(person.parasol));
@@ -105,7 +110,7 @@ export function rankBotActions(view, profile = botProfiles[0]) {
       const strain = water.length || self.parasol ? 0 : injury(self, 1) * 0.65 * weight(self);
       add(1.35 + initiative + (view.birds >= 3 && health(self) <= 2 ? 0.9 : 0) - strain, { type: "row" });
     }
-    if (countType(self.hand, "parasol") && !self.parasol) add(2.4 * profile.caution, { type: "parasol" });
+    if (countType(cards, "parasol") && !self.parasol) add(2.4 * profile.caution, { type: "parasol" });
     if (countType(cards, "flare")) {
       add(view.birds >= 3 ? (health(self) <= 2 ? 5 : 2.9) : 0.4, { type: "flare" });
     }
@@ -156,8 +161,8 @@ export function rankBotActions(view, profile = botProfiles[0]) {
   } else if (view.phase === "fight") {
     const attack = view.fight.attackers.map(seat);
     const defend = view.fight.defenders.map(seat);
-    const attackPower = attack.reduce((sum, person) => sum + power(person), 0);
-    const defendPower = defend.reduce((sum, person) => sum + power(person), 0);
+    const attackPower = attack.reduce((sum, person) => sum + power(person, view.fight), 0);
+    const defendPower = defend.reduce((sum, person) => sum + power(person, view.fight), 0);
     if (view.fight.stage === "join") {
       add(0, { type: "join", side: "out" });
       for (const [side, team, enemies, ownPower, foePower] of [
@@ -174,11 +179,18 @@ export function rankBotActions(view, profile = botProfiles[0]) {
     } else {
       const attacking = view.fight.attackers.includes(self.id);
       const needed = attacking ? defendPower - attackPower + 1 : attackPower - defendPower;
+      const weapons = fightWeapons(self);
+      const availablePower = weapons.reduce((total, id) => total + cardInfo(id).size, 0);
       add(0, { type: "arm", card: false });
-      for (const id of self.hand.filter(id => cardInfo(id).size)) {
+      for (const id of weapons) {
         const bonus = cardInfo(id).size;
-        add((needed > bonus ? -0.4 : needed > 0 ? 2.5 + injury(self, 1) : needed >= -2 ? 0.95 : 0.1) - bonus * 0.12,
-          { type: "arm", card: id });
+        let benefit = needed >= -2 ? 0.95 : 0.1;
+        if (needed > 0) {
+          if (needed <= bonus) benefit = 2.5 + injury(self, 1);
+          else benefit = availablePower >= needed ? 1.35 + injury(self, 1) : -0.4;
+        }
+        const cost = bonus * 0.12 + (cardInfo(id).type === "flare" ? 0.8 : 0);
+        add(benefit - cost, { type: "arm", card: id });
       }
     }
   } else if (view.phase === "rescue") {

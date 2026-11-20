@@ -53,6 +53,9 @@ export function describeTurn(before, after, action) {
         notes.push(event.attackersWin ? "进攻方赢得打架" : "防守方赢得打架");
         significant = true;
         break;
+      case "fightFlare":
+        notes.push(`${name(event.id)}打出信号枪，战力 +8`);
+        break;
       case "heal":
         notes.push(`${name(event.id)}给${name(event.target)}治疗了一处伤`);
         break;

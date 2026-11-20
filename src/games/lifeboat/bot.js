@@ -1,5 +1,5 @@
 import { LAND_BIRDS, NAVIGATION, PROVISIONS, cardInfo, characterById } from "./data.js";
-import { actingPlayer, applyAction, conscious, projectGame } from "./engine.js";
+import { actingPlayer, applyAction, projectGame } from "./engine.js";
 import { botProfiles, chooseRuleAction, lootValue, rankBotActions } from "./bot-policy.js";
 
 const SEARCH_PHASES = new Set(["deal", "action", "row", "answer", "fight", "navigate"]);
@@ -16,7 +16,7 @@ function shuffled(items, random) {
 export function sampleBotWorld(view, random = Math.random) {
   const self = view.characters.find(person => person.player === view.viewerId);
   const seen = new Set([...(view.offer || []), ...self.hand, ...view.characters.flatMap(person => person.shown)]);
-  if (view.log.some(entry => entry.type === "flare")) seen.add("flare-1");
+  if (view.log.some(entry => entry.type === "flare" || entry.type === "fightFlare")) seen.add("flare-1");
   const supplies = shuffled(PROVISIONS.map(card => card.id).filter(id => !seen.has(id)), random);
   const loves = shuffled(view.cast.filter(id => id !== self.love), random);
   const hates = shuffled(view.cast.filter(id => id !== self.hate), random);
@@ -32,22 +32,8 @@ export function sampleBotWorld(view, random = Math.random) {
   const rowChoices = [...(view.rowChoices || [])];
   const navigation = shuffled(NAVIGATION.map(card => card.id).filter(id => !rowChoices.includes(id)), random);
   const rowStack = navigation.splice(0, view.rowCount);
-  const fight = view.fight && { ...view.fight, pending: [], arm: [] };
-  let queue = [...view.queue];
-  if (fight?.stage === "join") {
-    const occupied = new Set([...fight.attackers, ...fight.defenders]);
-    const current = queue[0];
-    fight.pending = view.cast.slice(view.cast.indexOf(current)).filter(id =>
-      !occupied.has(id) && conscious(characters.find(person => person.id === id)));
-  } else if (fight?.stage === "arm") {
-    const order = [...fight.attackers, ...fight.defenders];
-    const current = characters.find(person => person.player === view.viewerId).id;
-    fight.arm = order.slice(order.indexOf(current)).filter(id => {
-      const person = characters.find(entry => entry.id === id);
-      return conscious(person) && person.hand.some(card => cardInfo(card).size);
-    });
-    queue = [current];
-  }
+  const queue = [...view.queue];
+  const fight = view.fight && { ...view.fight, pending: [...(view.fightPending || queue)] };
 
   return {
     seed: 1 + Math.floor(random() * 2147483646),
@@ -72,7 +58,8 @@ function projectScores(state) {
     const ownSurvival = characterById[person.id].survival * survival[person.id] * Number(person.hate !== person.id);
     const love = characterById[person.love].survival * survival[person.love];
     const hate = state.characters.reduce((sum, entry) => {
-      const counts = person.hate === person.id ? entry !== person : entry.id === person.hate;
+      const counts = person.hate === person.id
+        ? entry !== person && entry.id !== person.love : entry.id === person.hate;
       return sum + (counts ? characterById[entry.id].size * (1 - survival[entry.id]) : 0);
     }, 0);
     const loot = person.removed ? 0 : [...person.hand, ...person.shown].reduce((sum, id) => sum + lootValue(person, id), 0);
