@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useLayoutEffect, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Check } from "lucide";
 import GameTopbar from "../../shared/game-topbar.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
@@ -124,12 +124,34 @@ function Notice({ icon, title, children }) {
 
 const EMPTY_NAVIGATION_DRAFT = { dismissed: false, kept: [] };
 
+function ActivityHistory({ events }) {
+  const days = new Map();
+  for (const event of events) {
+    if (!days.has(event.day)) days.set(event.day, []);
+    days.get(event.day).push(event);
+  }
+  return <ol className="activity-days" aria-label={t("history.recent")} tabIndex={0}>
+    {[...days].map(([day, entries], index) => <li key={day}>
+      {index > 0 && <hr />}
+      <h3>{t("table.day", { day })}</h3>
+      <ol className="activity-list">
+        {entries.map(event => <li key={event.step}>
+          {event.parts.map((part, index) => typeof part === "object"
+            ? <span key={index} className="activity-person"><CrewPortrait id={part.id} />{part.label}</span>
+            : part)}
+        </li>)}
+      </ol>
+    </li>)}
+  </ol>;
+}
+
 export default function LifeboatApp({ room, computer, turnHistory, turnFeedback, fightResult, fightSkip, navigationReveal, standalone, game, connecting, waiting, handoff, trading, busy, error, launchUrl,
   onCreateRoom, onStart, onReady, onTrade, onEndTrade, onExit, onAction, onPauseChange, onComputerHold }) {
   const [setup, setSetup] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [inspectedId, setInspectedId] = useState(null);
   const [savedNavigation, setSavedNavigation] = useState(null);
+  const historyBody = useRef(null);
   const inspected = game?.characters.find(entry => entry.id === inspectedId);
   const hasNavigationChoice = game?.phase === "row" && game.rowChoices?.length
     || game?.phase === "navigate" && game.rowChoices?.length > 1;
@@ -140,6 +162,15 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
   useLayoutEffect(() => {
     if (!navigationKey) setSavedNavigation(null);
   }, [navigationKey]);
+
+  useLayoutEffect(() => {
+    if (dialog !== "history") return;
+    const frame = requestAnimationFrame(() => {
+      const body = historyBody.current;
+      if (body) body.scrollTop = body.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dialog]);
 
   function updateNavigationDraft(update) {
     setSavedNavigation(previous => {
@@ -200,14 +231,8 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
       updateDraft={updateNavigationDraft} busy={busy} error={error} onAction={onAction} />
     {inspected && <CharacterDialog entry={inspected} player={game.players.find(player => player.id === inspected.player)?.name}
       open={dialog === "character"} onClose={close} />}
-    {computer && <GameDialog title={t("history.title")} open={dialog === "history"} onClose={close}
-      footer={<Raised secondary onClick={close}>{t("common.backToTable")}</Raised>}>
-      <ol className="activity-list" aria-label={t("history.recent")} tabIndex={0}>
-        {turnHistory.map(event => <li key={event.step}>
-          <small>{t("table.day", { day: event.day })}</small>
-          <p>{event.text}</p>
-        </li>)}
-      </ol>
+    {computer && <GameDialog title={t("history.title")} open={dialog === "history"} onClose={close} bodyRef={historyBody}>
+      <ActivityHistory events={turnHistory} />
     </GameDialog>}
     <GameDialog title={t("rules.title")} open={dialog === "help"} onClose={close}
       footer={<Raised onClick={close}>{t("common.gotIt")}</Raised>}>

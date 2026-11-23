@@ -167,7 +167,7 @@ export default {
   "feedback.move": "{{first}} and {{second}} swap seats.",
   "feedback.moveRequest": "{{from}} asks {{to}} to swap seats.",
   "feedback.mug": "{{from}} mugs {{to}} and takes a card.",
-  "feedback.mugRequest": "{{from}} → {{to}} · Mugging",
+  "feedback.mugRequest": "{{from}} attempts to steal a provision from {{to}}.",
   "feedback.navigation": "Navigation resolved",
   "feedback.overboard": "Overboard: {{names}}",
   "feedback.parasol": "{{name}} opens a parasol.",

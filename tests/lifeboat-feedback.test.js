@@ -40,6 +40,10 @@ test("a stolen card travels from the former owner to the recipient using public 
   const cue = describeTurn(before, after, { type: "mug", card: "knife-1" });
   assert.deepEqual(cue.transfer, { from: "mate", to: "captain" });
   assert.equal(cue.text, "船长从大副那里抢走一张牌");
+  assert.deepEqual(cue.parts.filter(part => typeof part === "object"), [
+    { id: "captain", label: "船长" },
+    { id: "mate", label: "大副" },
+  ]);
   assert.equal(JSON.stringify(cue).includes("knife-1"), false);
   assert.equal(computerDelay({ type: "mug" }), 450);
   assert.equal(cue.hold, 650);
@@ -71,7 +75,7 @@ test("a mugging request shows both public seats without moving a card yet", () =
     log: [{ type: "act", id: "mate", act: "mug", target: "lauren" }],
   };
   const cue = describeTurn(before, after, { type: "mug", target: "lauren" });
-  assert.equal(cue.text, "大副 → 劳伦 · 抢夺");
+  assert.equal(cue.text, "大副发起了对劳伦的物资的抢夺");
   assert.deepEqual(cue.mug, { from: "mate", to: "lauren" });
   assert.equal(cue.transfer, null);
   assert.equal(cue.hold, 800);

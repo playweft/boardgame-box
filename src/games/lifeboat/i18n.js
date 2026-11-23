@@ -26,8 +26,14 @@ export function tParts(key, values) {
   });
 }
 
+const nameSeparator = locale === "zh-CN" ? "、" : ", ";
+
 export function listNames(names) {
-  return names.join(locale === "zh-CN" ? "、" : ", ");
+  return names.join(nameSeparator);
+}
+
+export function listNameParts(names) {
+  return names.flatMap((name, index) => index === 0 ? [name] : [nameSeparator, name]);
 }
 
 export function characterName(id, { short = false } = {}) {

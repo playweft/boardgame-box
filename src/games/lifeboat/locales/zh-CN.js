@@ -167,7 +167,7 @@ export default {
   "feedback.move": "{{first}}和{{second}}交换座位",
   "feedback.moveRequest": "{{from}}请{{to}}换座",
   "feedback.mug": "{{from}}从{{to}}那里抢走一张牌",
-  "feedback.mugRequest": "{{from}} → {{to}} · 抢夺",
+  "feedback.mugRequest": "{{from}}发起了对{{to}}的物资的抢夺",
   "feedback.navigation": "航海结算",
   "feedback.overboard": "{{names}}落水",
   "feedback.parasol": "{{name}}撑开阳伞",

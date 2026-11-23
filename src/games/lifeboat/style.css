@@ -482,19 +482,40 @@ button.back-link {
   text-decoration: none;
   cursor: default;
 }
+.activity-days,
 .activity-list {
-  display: grid;
-  gap: 0.6rem;
   margin: 0;
-  padding: 0 0.15rem;
+  padding: 0;
   list-style: none;
 }
-.activity-list li {
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--line);
+.activity-days {
+  display: grid;
+  gap: 0.8rem;
+  padding-inline: 0.15rem;
 }
-.activity-list small {
+.activity-days hr {
+  margin: 0 0 0.8rem;
+  border: 0;
+  border-block-start: 1px solid var(--line);
+}
+.activity-days h3 {
+  margin: 0 0 0.35rem;
   color: var(--muted);
+  font-size: 0.75rem;
+}
+.activity-list {
+  display: grid;
+  gap: 0.35rem;
+}
+.activity-person {
+  white-space: nowrap;
+}
+.activity-person .seat-portrait {
+  display: inline-block;
+  width: 1.125rem;
+  margin-inline-end: 0.18rem;
+  vertical-align: middle;
+  vertical-align: calc((1cap - 1.125rem) / 2);
 }
 .card-flight {
   position: absolute;

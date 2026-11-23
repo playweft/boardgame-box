@@ -221,7 +221,7 @@ function acceptLocalGame(next, action) {
         projectGame(next, humanId),
         action,
       );
-      if (feedback) turnHistory = [feedback, ...turnHistory].slice(0, 8);
+      if (feedback) turnHistory = [...turnHistory, feedback].slice(-8);
     }
   }
   localGame = next;

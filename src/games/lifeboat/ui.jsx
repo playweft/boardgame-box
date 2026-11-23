@@ -13,7 +13,7 @@ export function Raised({ secondary, href, icon, children, className = "", ...pro
     : <button type="button" className={classes} {...props}>{content}</button>;
 }
 
-export function GameDialog({ title, open, onClose, children, footer, className = "", closeLabel }) {
+export function GameDialog({ title, open, onClose, children, footer, className = "", closeLabel, bodyRef }) {
   return <Dialog className={`sea-dialog ${className}`} open={open} onClose={onClose} aria-label={title}>
     <div className="dialog-inner">
       <header>
@@ -23,7 +23,7 @@ export function GameDialog({ title, open, onClose, children, footer, className =
           {closeLabel || <LucideIcon icon={X} />}
         </button>
       </header>
-      <div className="dialog-body">{children}</div>
+      <div className="dialog-body" ref={bodyRef}>{children}</div>
       {footer && <footer>{footer}</footer>}
     </div>
   </Dialog>;
