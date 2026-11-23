@@ -1,129 +1,129 @@
 import { h } from "preact";
 import { CHARACTERS, LAND_BIRDS } from "./data.js";
-import { characterAbility, characterName, provisionName } from "./i18n.js";
+import { characterAbility, characterName, listNames, personName, provisionName, t } from "./i18n.js";
 
 export default function Rules() {
   return <div className="rules">
     <section>
-      <h2>要做什么</h2>
-      <p>你们是同一条救生艇上的幸存者。身份公开，但每个人还秘密爱着一个人、恨着一个人。航海牌上累计出现 {LAND_BIRDS} 只海鸥时，陆地已经够近，游戏立刻结束并计分。分数高的人赢，可以并列。</p>
-      <p>一天代表海上的一天，固定分成三段：物资分配、行动、航海。行动从船头走向船尾。物资牌堆在船头，航海牌堆在船尾。</p>
+      <h2>{t("rules.goal")}</h2>
+      <p>{t("rules.goalText", { birds: LAND_BIRDS })}</p>
+      <p>{t("rules.days")}</p>
     </section>
 
     <section>
-      <h2>开局</h2>
+      <h2>{t("rules.setup")}</h2>
       <ol>
-        <li>默认从六名角色中随机抽取与玩家人数相同的角色，每人随机公开发一张。四人或五人时，未登船角色的座位、爱和恨也一并移除。本地多人和人机模式可以手动选择哪些角色登船。船头到船尾的角色顺序为：{CHARACTERS.map(({ id }) => characterName(id)).join("、")}。</li>
-        <li>爱和恨分成两副，各自洗匀，每人各秘密发一张。你可以爱自己，也可以恨自己，还可以对同一个人又爱又恨。别人看不到这两张，直到靠岸。</li>
-        <li>每人再发 1 张物资。其余物资放在船头，航海牌放在船尾。两副牌之后都不再重洗。</li>
+        <li>{t("rules.setupCrew", { crew: listNames(CHARACTERS.map(({ id }) => characterName(id))) })}</li>
+        <li>{t("rules.setupRelationships")}</li>
+        <li>{t("rules.setupDecks")}</li>
       </ol>
     </section>
 
     <section>
-      <h2>角色</h2>
+      <h2>{t("rules.crew")}</h2>
       <ul>
         {CHARACTERS.map(person => <li key={person.id}>
           <strong>{characterName(person.id)}</strong>
-          <span>体型 {person.size}，生存 {person.survival}。{characterAbility(person.id)}</span>
+          <span>{t("rules.crewStats", { size: person.size, survival: person.survival, ability: characterAbility(person.id) })}</span>
         </li>)}
       </ul>
-      <p>伤的数量等于体型时昏迷：不能抽牌、出牌或行动，别人仍可以拿你的东西或跟你换座，但你不能还手。别人可以把牌交给昏迷的人，也可以把自己的淡水用在他们身上，但不能直接替他们打出手里的牌。伤超过体型则死亡。尸体若还在船上，可以像昏迷的人一样被搜刮；靠岸时，身上的财物仍算给你的继承人。尸体若落水，人和牌都移出游戏。</p>
+      <p>{t("rules.wounds")}</p>
     </section>
 
     <section>
-      <h2>物资分配</h2>
-      <p>最靠近船头、并且清醒的人，从物资堆抽牌，张数等于船上还清醒的人数。自己留一张，把剩下的传给下一个更靠近船尾的清醒者。对方也留一张再往下传，直到这些牌分完。昏迷和死亡的人跳过。这一阶段不能交易。</p>
-      <p>物资堆空了以后，以后每天都跳过分配，牌堆也不会重洗。抽到的牌比清醒的人少时，后面的人这天就没有新牌。</p>
+      <h2>{t("rules.deal")}</h2>
+      <p>{t("rules.dealOrder")}</p>
+      <p>{t("rules.dealEmpty")}</p>
     </section>
 
     <section>
-      <h2>行动</h2>
-      <p>回合开始时的座位决定行动顺序。从最靠近物资的人开始，向航海牌堆方向，每个清醒的人只选下面一项。换座不会让同一个人在这一天再行动一次。</p>
-      <h3>不动</h3>
-      <p>什么都不做，轮到下一个人。</p>
-      <h3>划船</h3>
-      <p>抽两张航海牌。每使用一把船桨就多抽一张，手里的船桨用过后留在面前。看过之后，每一张单独决定：扣进划船堆，或塞回航海牌堆底。然后在自己船的右舷做记号，表示今天划过船，航海结算时可能因此口渴。</p>
-      <h3>换座</h3>
-      <p>与另一名还在船上的角色交换位置。对方可以答应。若拒绝，就进入打架。昏迷或死亡的人不能拒绝，直接换过去。</p>
-      <h3>抢夺</h3>
-      <p>拿别人的一张物资：可以指定一张已经亮出的牌，或从对方手里随机摸一张暗牌。对方可以答应；拒绝就打架。{characterName("kid")}摸暗牌时不能打架。对方昏迷、死亡，或手里没有暗牌时，按相应的限制处理：没有暗牌就不能摸暗牌。</p>
-      <h3>特殊行动</h3>
+      <h2>{t("rules.actions")}</h2>
+      <p>{t("rules.actionOrder")}</p>
+      <h3>{t("rules.pass")}</h3>
+      <p>{t("rules.passText")}</p>
+      <h3>{t("rules.row")}</h3>
+      <p>{t("rules.rowText")}</p>
+      <h3>{t("rules.swap")}</h3>
+      <p>{t("rules.swapText")}</p>
+      <h3>{t("rules.mug")}</h3>
+      <p>{t("rules.mugText", { kid: characterName("kid") })}</p>
+      <h3>{t("rules.special")}</h3>
       <ul>
-        <li>阳伞：用掉行动把它撑开。只要它还开着且在你面前，你每天可以忽略一次口渴。落水或失去阳伞后，它就不再保护你。</li>
-        <li>医药包：用掉行动并弃掉，给船上任何一名还没死的伤员，包括你自己，去掉一处伤。它不能把死人救活。</li>
-        <li>信号枪：可以在打架时提供 +8 战力，打出后立即弃掉。也可以用掉行动并弃掉它，抽三张航海牌，立刻只结算牌上的海鸥。海鸥凑满 {LAND_BIRDS} 只时，游戏马上结束。</li>
+        <li>{t("rules.parasol")}</li>
+        <li>{t("rules.medical")}</li>
+        <li>{t("rules.flare", { birds: LAND_BIRDS })}</li>
       </ul>
-      <h3>亮牌与转交</h3>
-      <p>清醒的人可以随时亮出手里的牌，{characterName("kid")}正在偷你的暗牌时除外。亮牌不消耗行动。阳伞、医药包和用来找海鸥的信号枪仍要花行动才能使用。行动阶段里，只要没有正在打架，清醒的人可以把牌交给别人。</p>
+      <h3>{t("rules.reveal")}</h3>
+      <p>{t("rules.revealText", { kid: characterName("kid") })}</p>
     </section>
 
     <section>
-      <h2>打架</h2>
-      <p>只有换座或抢夺的清醒目标不愿意时，才会开战。不能因为单纯看某个人不顺眼就动手。打架本身不是行动。昏迷或死亡的人不能发起，也不能加入。</p>
+      <h2>{t("rules.fight")}</h2>
+      <p>{t("rules.fightStart")}</p>
       <ol>
-        <li>进攻方和防守方已经站定。其他清醒的人可以帮进攻、帮防守或暂不参与。一旦加入，就不能退出。有人加入或出武器后，其他人可以再回应。</li>
-        <li>参战者可以亮出多件武器，战力叠加。短棍 +2，短刀 +3，鱼叉 +4，船桨 +1。信号枪用时提供 +8，随后弃掉。其他亮出的武器留在面前，也会计入之后的斗殴。</li>
-        <li>可以谈判求援，但打架结束前不能交牌，口头约定也不必兑现。</li>
-        <li>没有人再加入或再出牌时，比较两边的体型合计。高的一边赢，平局算防守赢。失败的每一人受一处伤。所有参战者都标成今天打过架，之后的航海牌最多因此让他们口渴一次。</li>
-        <li>防守赢了，事情到此为止。进攻赢了，就完成原先要求的换座或抢夺。无论输赢，进攻者的这一次行动都已经用掉。</li>
+        <li>{t("rules.fightSides")}</li>
+        <li>{t("rules.fightWeapons")}</li>
+        <li>{t("rules.fightTalk")}</li>
+        <li>{t("rules.fightResolve")}</li>
+        <li>{t("rules.fightEnd")}</li>
       </ol>
     </section>
 
     <section>
-      <h2>航海</h2>
-      <p>行动全部结束后，由最靠近航海牌堆、并且清醒的人来领航。划船堆里有牌时，从中选一张结算，其余扣回牌堆底。没人划船时，直接结算航海牌堆顶。手里或面前有罗盘时，领航者会先把它亮出，再把牌堆顶额外加入可选的牌，然后从中选一张。</p>
-      <p>一张航海牌按下面的顺序结算。出现划掉的海鸥时，先拿走一只已经记下的海鸥，最少到零。普通海鸥则加一只。海鸥达到 {LAND_BIRDS} 只时立刻靠岸，不再结算这张牌上的落水和口渴。</p>
-      <h3>落水</h3>
-      <p>牌上点名的人落水；写着所有人就是船上每个还在的人都落水；写着无人则没有人落水。牌上若出现本局已经离船的名字，那个名字无效。</p>
+      <h2>{t("rules.navigation")}</h2>
+      <p>{t("rules.navigator")}</p>
+      <p>{t("rules.gulls", { birds: LAND_BIRDS })}</p>
+      <h3>{t("rules.overboard")}</h3>
+      <p>{t("rules.fall")}</p>
       <ul>
-        <li>除{characterName("frenchy")}以外，落水的人受一处伤。本人有救生圈，或有人把救生圈抛给落水、还清醒、自己还没有救生圈的人，就可以避免这一处伤。抛出的救生圈归对方所有。</li>
-        <li>有人弃掉鱼饵，或落水者面前本来亮着鱼饵，鲨鱼就会出现。水里的每一个人再受一处伤，{characterName("frenchy")}也不例外。这个效果一天只结算一次。</li>
-        <li>落水前已经昏迷的人，必须有一张已经亮出的救生圈才能活下来。清醒者若在水中变得昏迷且没有救生圈，也会沉下去。伤势超过体型时死亡；人在水里时连同所有牌一起移出游戏。</li>
-        <li>活着回到船上的人，会失去面前所有亮牌，只保留救生圈。手里的暗牌还在。他们会赶在口渴结算前回到船上。</li>
+        <li>{t("rules.fallWounds", { frenchy: characterName("frenchy") })}</li>
+        <li>{t("rules.sharks", { frenchy: characterName("frenchy") })}</li>
+        <li>{t("rules.sink")}</li>
+        <li>{t("rules.climbBack")}</li>
       </ul>
-      <h3>口渴</h3>
-      <p>还在船上、并且还没死的人，可能同时遇到最多三种口渴：今天划过船，而这张牌有划船标记；今天打过架，而这张牌有打架标记；名字出现在这张牌的口渴名单上。名单写「所有人」或「除了某些人」，都按船上实际还在的人计算。标记造成的口渴，不论当天打了几场，都只算一次。</p>
-      <p>每一种口渴都要单独处理：弃一张淡水，或受一处伤。淡水可以在航海时替任何人，包括别人，防止一处口渴伤害。阳伞开着时，持有者自己每天可以忽略其中一次。没人拿淡水去挡的口渴，就变成伤。昏迷的人自己不能出牌，所以要靠别人把淡水用在他们身上。</p>
-      <p>结算完的航海牌放到牌堆底，清除当天的划船和打架记号，开始下一天。</p>
+      <h3>{t("rules.thirst")}</h3>
+      <p>{t("rules.thirstSources")}</p>
+      <p>{t("rules.thirstWater")}</p>
+      <p>{t("rules.nextDay")}</p>
     </section>
 
     <section>
-      <h2>靠岸计分</h2>
-      <p>第四只海鸥出现时马上计分，各项分开计算，互不抵消。</p>
+      <h2>{t("rules.scoring")}</h2>
+      <p>{t("rules.scoringStart")}</p>
       <ul>
-        <li>自己还活着，包括已经昏迷但没有死：加上自己的生存分。</li>
-        <li>爱的人还活着：加上那个人的生存分。爱自己的人是自恋者，存活时把自己的生存分再算一次，没有另一个人会罩着你。</li>
-        <li>恨的人已经死亡或沉海：加上那个人的体型分。恨自己时，除自己和爱人外，每有一人死亡就加上该人的体型分。仍可获得爱人的生存分。如果爱的是自己，自己的生存分只算一次。</li>
-        <li>又爱又恨同一个人：对方活着拿生存分，对方死去拿体型分。</li>
-        <li>人还在船上，哪怕已经死亡：加上身上现金、珠宝和画作的分数，算给继承人。{characterName("captain")}的每张现金、{characterName("lauren", { short: true })}的每件珠宝、{characterName("stephen", { short: true })}的每幅画作都按双倍。人已经沉海并移出游戏时，这些牌也已经失去，不再计分。</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>物资</h2>
-      <ul>
-        <li><strong>{provisionName("water")} ×16</strong><span>航海时弃掉，防止任何一名角色的一次口渴伤害。</span></li>
-        <li><strong>{provisionName("oar")} ×2</strong><span>可当 +1 武器。划船时，每亮出一把船桨就多抽一张航海牌，已亮出的船桨也有效。</span></li>
-        <li><strong>{provisionName("chum")} ×2</strong><span>航海落水时弃掉，或落水者面前已经亮着它：水里的人各再受一处鲨鱼伤。</span></li>
-        <li><strong>{provisionName("medical")} ×3</strong><span>用一次行动弃掉，移除任何一名未死者的一处伤。</span></li>
-        <li><strong>{provisionName("cash")} ×6</strong><span>每张 1 分，{characterName("captain")}双倍。</span></li>
-        <li><strong>{provisionName("painting")} ×3</strong><span>一张 2 分，两张 3 分，{characterName("stephen")}双倍。</span></li>
-        <li><strong>{provisionName("jewels")} ×3</strong><span>每件 3 分，{characterName("lauren")}双倍。</span></li>
-        <li><strong>{provisionName("parasol")} ×1</strong><span>用行动撑开，之后每天忽略自己的一次口渴，直到落水或失去阳伞。</span></li>
-        <li><strong>{provisionName("preserver")} ×1</strong><span>避免落水那一处普通伤。可抛给水里还清醒的人，之后归对方。昏迷者落水前必须已经亮出救生圈才能获救。</span></li>
-        <li><strong>{provisionName("compass")} ×1</strong><span>你负责领航时，选牌前先把航海牌堆顶加入可选的牌。</span></li>
-        <li><strong>{provisionName("blackjack")}、{provisionName("knife")}、{provisionName("hook")}、{provisionName("flare")}</strong><span>分别是 +2、+3、+4、+8 的武器。信号枪也可以改成上面的特殊行动。</span></li>
+        <li>{t("rules.scoringSurvival")}</li>
+        <li>{t("rules.scoringLove")}</li>
+        <li>{t("rules.scoringHate")}</li>
+        <li>{t("rules.scoringSame")}</li>
+        <li>{t("rules.scoringLoot", { captain: characterName("captain"), lauren: personName("lauren"), stephen: personName("stephen") })}</li>
       </ul>
     </section>
 
     <section>
-      <h2>容易弄错的地方</h2>
+      <h2>{t("rules.provisions")}</h2>
       <ul>
-        <li>不能主动找人打架。只有清醒的人拒绝换座或拒绝被抢时，才由对方宣布开战。</li>
-        <li>{characterName("kid")}抢暗牌不能被拒绝；抢一张已经亮出的牌仍然可以拒绝并打架。</li>
-        <li>当天的行动顺序在回合开始时按座位确定。中途换座，不会让人插队或再动一次。</li>
-        <li>海鸥一满就停。不要再结算同一张牌的落水和口渴，也不要继续看信号枪抽出的后续海鸥。</li>
-        <li>打架造成的口渴标记一天只生效一次，但名单上的口渴、划船造成的口渴，会和它叠在一起。</li>
+        <li><strong>{provisionName("water")} ×16</strong><span>{t("rules.itemWater")}</span></li>
+        <li><strong>{provisionName("oar")} ×2</strong><span>{t("rules.itemOar")}</span></li>
+        <li><strong>{provisionName("chum")} ×2</strong><span>{t("rules.itemChum")}</span></li>
+        <li><strong>{provisionName("medical")} ×3</strong><span>{t("rules.itemMedical")}</span></li>
+        <li><strong>{provisionName("cash")} ×6</strong><span>{t("rules.itemCash", { captain: characterName("captain") })}</span></li>
+        <li><strong>{provisionName("painting")} ×3</strong><span>{t("rules.itemPainting", { stephen: characterName("stephen") })}</span></li>
+        <li><strong>{provisionName("jewels")} ×3</strong><span>{t("rules.itemJewels", { lauren: characterName("lauren") })}</span></li>
+        <li><strong>{provisionName("parasol")} ×1</strong><span>{t("rules.itemParasol")}</span></li>
+        <li><strong>{provisionName("preserver")} ×1</strong><span>{t("rules.itemPreserver")}</span></li>
+        <li><strong>{provisionName("compass")} ×1</strong><span>{t("rules.itemCompass")}</span></li>
+        <li><strong>{listNames(["blackjack", "knife", "hook", "flare"].map(provisionName))}</strong><span>{t("rules.itemWeapons")}</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>{t("rules.reminders")}</h2>
+      <ul>
+        <li>{t("rules.reminderFights")}</li>
+        <li>{t("rules.reminderKid", { kid: characterName("kid") })}</li>
+        <li>{t("rules.reminderSeats")}</li>
+        <li>{t("rules.reminderGulls")}</li>
+        <li>{t("rules.reminderThirst")}</li>
       </ul>
     </section>
   </div>;

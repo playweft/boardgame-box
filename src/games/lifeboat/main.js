@@ -12,10 +12,14 @@ import {
   projectBotGame,
   projectGame,
 } from "./engine.js";
-import { errorMessage, t } from "./i18n.js";
+import { errorMessage, locale, t } from "./i18n.js";
 import { normalizeRoomView } from "./room-state.js";
 import { computerDelay, describeTurn, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween } from "./turn-feedback.js";
 import LifeboatApp from "./view.jsx";
+
+document.documentElement.lang = locale;
+document.title = t("game.pageTitle");
+document.querySelector('meta[name="description"]').content = t("game.description");
 
 const root = document.querySelector("#lifeboat-app");
 const NAVIGATION_REVEAL_MS = 3500;
@@ -265,7 +269,7 @@ function queueComputer() {
           result = intent && applyAction(localGame, actor, { ...intent, step });
         }
         if (result?.accepted) acceptLocalGame(result.state, intent);
-        else error = "电脑未能完成行动。";
+        else error = t("errors.botActionFailed");
         redraw();
         if (result?.accepted) queueComputer();
       },

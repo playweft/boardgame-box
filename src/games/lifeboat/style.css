@@ -379,9 +379,6 @@ button.back-link {
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-}
-
-.name-field {
   padding: 0.35rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -428,16 +425,11 @@ button.back-link {
 .table > :where(.crew-board, .turn-panel) {
   grid-column: 2;
 }
-.turn-panel.panel {
+.turn-panel {
   display: flex;
   flex-direction: column;
-  gap: 0;
   min-height: 0;
-  padding: 0;
   overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
 }
 .turn-panel-header {
   flex: none;
@@ -546,6 +538,7 @@ button.back-link {
 .crew-board {
   --seat-avatar-size: clamp(2.25rem, 13vw, 3.75rem);
   position: relative;
+  width: 100%;
   max-width: 27rem;
   margin-inline: auto;
   height: clamp(
@@ -627,7 +620,7 @@ button.back-link {
 .seat-avatar {
   position: relative;
   flex: none;
-  width: var(--seat-avatar-size);
+  width: clamp(1.25rem, calc(100% - 3.25rem), var(--seat-avatar-size));
   padding-bottom: 0.4rem;
 }
 .seat-portrait {
@@ -690,6 +683,12 @@ button.back-link {
   background: var(--panel);
   box-shadow: inset 0 0 0 1px var(--gold);
 }
+@media (orientation: portrait) and (width < 900px) {
+  .seat.is-current {
+    background: color-mix(in srgb, var(--panel) 40%, transparent);
+    box-shadow: inset 0 0 0 1px var(--gold);
+  }
+}
 .seat[data-mug="from"] {
   box-shadow: inset 0 0 0 2px #f8bfb2;
 }
@@ -741,6 +740,19 @@ button.back-link {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.seat-details:lang(en) {
+  container-type: inline-size;
+}
+.seat-role:lang(en) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@container (width < 4.25rem) {
+  .seat-wound-label:lang(en) {
+    position: absolute;
+    clip-path: inset(50%);
+  }
 }
 .seat-count {
   position: absolute;
@@ -857,15 +869,10 @@ button.seat-supply:enabled {
   font-variant-numeric: tabular-nums;
 }
 
-.meter .sea-icon,
-.meter .ui-symbol {
+.meter .sea-icon {
   width: clamp(0.75rem, calc(8cqw - 0.55rem), 1.5rem);
   height: auto;
   aspect-ratio: 1;
-}
-
-.meter .ui-symbol {
-  color: var(--gold);
 }
 
 .panel {
@@ -1776,7 +1783,7 @@ body:has(.navigation-drawer[open]) {
   .table {
     grid-template-rows: auto auto minmax(11rem, 1fr) auto;
   }
-  .turn-panel.panel {
+  .turn-panel {
     overflow: visible;
   }
 }
@@ -1830,7 +1837,7 @@ body:has(.navigation-drawer[open]) {
   .seats > :is(:nth-child(2), :last-child:nth-child(even)) {
     padding-inline-end: 20%;
   }
-  .turn-panel.panel {
+  .turn-panel {
     grid-area: turn;
     min-width: 0;
     overflow: hidden;
@@ -1864,7 +1871,6 @@ body:has(.navigation-drawer[open]) {
     --boat-ratio: 1.8;
     --boat-columns: repeat(2, minmax(0, 1fr));
     --seat-avatar-size: clamp(2.125rem, 10vw, 2.875rem);
-    width: 100%;
     height: auto;
     aspect-ratio: var(--boat-ratio);
   }
@@ -1907,8 +1913,9 @@ body:has(.navigation-drawer[open]) {
     padding-inline: 0.25rem;
   }
   .crew-board[data-rows="3"] .seats > :is(:nth-child(3), :nth-child(4)) {
-    .seat-avatar {
-      width: clamp(1.25rem, calc(100% - 3.25rem), var(--seat-avatar-size));
+    .seat {
+      column-gap: 0.1875rem;
+      padding-inline: 0.125rem;
     }
     .seat-count {
       inset-inline: auto 0;
@@ -1921,59 +1928,5 @@ body:has(.navigation-drawer[open]) {
   }
   .seat-details {
     gap: 0.125rem;
-  }
-  .seat-thinking {
-    position: absolute;
-    inset: -0.2rem -0.25rem auto auto;
-    z-index: 1;
-    padding: 0.05rem 0.2rem;
-    border-radius: 0.3rem;
-    background: var(--panel);
-    color: var(--text-gold);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1;
-    pointer-events: none;
-  }
-  .seat.seat[data-mug="from"] {
-    box-shadow: inset 0 0 0 2px #f8bfb2;
-  }
-  .seat.seat[data-mug="to"] {
-    box-shadow: inset 0 0 0 2px #bce3fa;
-  }
-  .fight-winner-highlight {
-    position: absolute;
-    inset: 0;
-    border: 2px solid var(--gold);
-    border-radius: inherit;
-    pointer-events: none;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .seat-thinking:not([data-skipped="true"]) {
-      animation: seat-thinking 800ms ease-in-out infinite alternate;
-    }
-    .fight-winner-highlight {
-      animation: fight-winner 1s ease-out forwards;
-    }
-  }
-  @keyframes seat-thinking {
-    from {
-      opacity: 0.55;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @keyframes fight-winner {
-    70% {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-  .seat.is-current {
-    background: color-mix(in srgb, var(--panel) 40%, transparent);
-    box-shadow: inset 0 0 0 1px var(--gold);
   }
 }

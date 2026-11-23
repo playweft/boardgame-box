@@ -5,6 +5,8 @@ import { LuaFactory } from "wasmoon";
 import { NAVIGATION, PROVISIONS } from "../src/games/lifeboat/data.js";
 import { actingPlayer, applyAction, createGame, projectGame } from "../src/games/lifeboat/engine.js";
 import { characterName, errorMessage, t } from "../src/games/lifeboat/i18n.js";
+import en from "../src/games/lifeboat/locales/en.js";
+import zhCN from "../src/games/lifeboat/locales/zh-CN.js";
 import { normalizeRoomView } from "../src/games/lifeboat/room-state.js";
 
 const roster = count => Array.from({ length: count }, (_, index) => ({ id: `p${index}`, name: `玩家 ${index + 1}` }));
@@ -118,6 +120,14 @@ test("the UI translates engine errors and preserves legacy room messages", () =>
   assert.equal(characterName("lauren", { short: true }), "劳伦");
   assert.equal(characterName("mate", { short: true }), "大副");
   assert.equal(t("provisions.treasureEffect", { owner: "劳伦女士", value: 3 }), "靠岸时，这张牌值 3 分。劳伦女士持有时翻倍。");
+});
+
+test("English and Chinese Lifeboat messages have matching keys and placeholders", () => {
+  assert.deepEqual(Object.keys(en).sort(), Object.keys(zhCN).sort());
+  const placeholders = message => [...message.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(match => match[1]).sort();
+  for (const key of Object.keys(zhCN)) {
+    assert.deepEqual(placeholders(en[key]), placeholders(zhCN[key]), key);
+  }
 });
 
 test("private hands and eligibility stay hidden, including historical room logs", () => {

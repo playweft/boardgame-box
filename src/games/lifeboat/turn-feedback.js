@@ -1,4 +1,4 @@
-import { characterName, t } from "./i18n.js";
+import { characterName, listNames, t } from "./i18n.js";
 
 const name = id => characterName(id, { short: true }) ?? t("characters.crew");
 
@@ -38,56 +38,56 @@ export function describeTurn(before, after, action) {
   for (const event of events) {
     switch (event.type) {
       case "take":
-        notes.push(`${name(event.id)}拿走一张物资牌`);
+        notes.push(t("feedback.take", { name: name(event.id) }));
         transfer = { from: null, to: event.id };
         hold = Math.max(hold, 350);
         break;
       case "mug":
-        notes.push(`${name(event.from)}从${name(event.to)}那里抢走一张牌`);
+        notes.push(t("feedback.mug", { from: name(event.from), to: name(event.to) }));
         transfer = { from: event.to, to: event.from };
         mug = { from: event.from, to: event.to };
         hold = Math.max(hold, 650);
         break;
       case "move":
-        notes.push(`${name(event.a)}和${name(event.b)}交换座位`);
+        notes.push(t("feedback.move", { first: name(event.a), second: name(event.b) }));
         break;
       case "act":
         if (event.act === "nothing") {
-          notes.push(`${name(event.id)}不动`);
+          notes.push(t("feedback.pass", { name: name(event.id) }));
           hold = Math.max(hold, 250);
         }
-        if (event.act === "row") notes.push(`${name(event.id)}开始划船`);
-        if (event.act === "parasol") notes.push(`${name(event.id)}撑开阳伞`);
+        if (event.act === "row") notes.push(t("feedback.row", { name: name(event.id) }));
+        if (event.act === "parasol") notes.push(t("feedback.parasol", { name: name(event.id) }));
         // A successful immediate mug or move already has its own public event.
         if (after.phase === "answer" && event.act === "mug") {
           mug = { from: event.id, to: event.target };
-          notes.push(`${name(mug.from)} → ${name(mug.to)} · 抢夺`);
+          notes.push(t("feedback.mugRequest", { from: name(mug.from), to: name(mug.to) }));
           hold = Math.max(hold, 800);
         }
-        if (after.phase === "answer" && event.act === "move") notes.push(`${name(event.id)}请${name(event.target)}换座`);
+        if (after.phase === "answer" && event.act === "move") notes.push(t("feedback.moveRequest", { from: name(event.id), to: name(event.target) }));
         break;
       case "fight":
-        notes.push(event.attackersWin ? "进攻方赢得打架" : "防守方赢得打架");
+        notes.push(event.attackersWin ? t("feedback.attackWin") : t("feedback.defendWin"));
         winners = [...(event.attackersWin ? before.fight?.attackers ?? [event.attacker] : before.fight?.defenders ?? [event.defender])];
         if (actor && action?.type === "join" && action.side === (event.attackersWin ? "attack" : "defend")) winners.push(actor);
         hold = Math.max(hold, 1000);
         break;
       case "fightFlare":
-        notes.push(`${name(event.id)}打出信号枪，战力 +8`);
+        notes.push(t("feedback.fightFlare", { name: name(event.id) }));
         break;
       case "heal":
-        notes.push(`${name(event.id)}给${name(event.target)}治疗了一处伤`);
+        notes.push(t("feedback.heal", { name: name(event.id), target: name(event.target) }));
         break;
       case "nav":
-        notes.push("航海结算");
+        notes.push(t("feedback.navigation"));
         navigation = true;
         break;
       case "flare":
-        if (!navigation) notes.push(`${name(event.id)}使用信号枪`);
+        if (!navigation) notes.push(t("feedback.flare", { name: name(event.id) }));
         navigation = true;
         break;
       case "lost":
-        notes.push(`${name(event.id)}沉海`);
+        notes.push(t("feedback.lost", { name: name(event.id) }));
         hold = Math.max(hold, 1000);
         break;
     }
@@ -97,25 +97,25 @@ export function describeTurn(before, after, action) {
   if (action?.type === "give") {
     const giver = before.characters.find(entry => entry.player === before.viewerId);
     if (giver) {
-      notes.push(`${name(giver.id)}送给${name(action.target)}一张物资牌`);
+      notes.push(t("feedback.gift", { from: name(giver.id), to: name(action.target) }));
       transfer = { from: giver.id, to: action.target };
     }
   }
   if (actor && action?.type === "sort" && !navigation) {
     const kept = after.rowCount - before.rowCount;
-    notes.push(kept > 0 ? `${name(actor)}留下 ${kept} 张航海牌` : `${name(actor)}完成划船`);
+    notes.push(kept > 0 ? t("feedback.kept", { name: name(actor), count: kept }) : t("feedback.rowed", { name: name(actor) }));
   }
   if (actor && action?.type === "join" && action.side !== "out") {
     joined = actor;
-    notes.push(`${name(actor)}加入${action.side === "attack" ? "进攻方" : "防守方"}`);
+    notes.push(t(action.side === "attack" ? "feedback.joinAttack" : "feedback.joinDefend", { name: name(actor) }));
     hold = Math.max(hold, 600);
   }
   if (after.falling.length && navigation) {
-    notes.push(`${after.falling.map(name).join("、")}落水`);
+    notes.push(t("feedback.overboard", { names: listNames(after.falling.map(name)) }));
   }
   if (navigation && after.birds !== before.birds) {
     const added = after.birds - before.birds;
-    notes.push(`海鸥 ${added > 0 ? "+" : "−"}${Math.abs(added)}`);
+    notes.push(t("feedback.birds", { change: `${added > 0 ? "+" : "−"}${Math.abs(added)}` }));
   }
 
   const injuries = [];
@@ -123,13 +123,13 @@ export function describeTurn(before, after, action) {
     const previous = before.characters.find(entry => entry.id === person.id);
     if (previous && person.wounds > previous.wounds) {
       injuries.push(person.id);
-      notes.push(`${name(person.id)}受伤 ${person.wounds - previous.wounds} 点`);
+      notes.push(t("feedback.injured", { name: name(person.id), count: person.wounds - previous.wounds }));
     }
     if (action?.type === "arm" && previous && person.shown.length > previous.shown.length) {
-      notes.push(`${name(person.id)}亮出武器`);
+      notes.push(t("feedback.armed", { name: name(person.id) }));
     }
   }
-  if (after.phase === "ended" && before.phase !== "ended") notes.push("救生艇靠岸");
+  if (after.phase === "ended" && before.phase !== "ended") notes.push(t("feedback.landfall"));
   if (!notes.length) return null;
 
   return {
