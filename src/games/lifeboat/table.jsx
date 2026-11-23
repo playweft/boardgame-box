@@ -11,17 +11,22 @@ import { CardDetail, CardFace } from "./provision-card.jsx";
 import { FIGHT_RESULT_MS } from "./turn-feedback.js";
 import { GameDialog, Raised } from "./ui.jsx";
 
-function CardFlight({ transfer, boardRef, duration }) {
+function CardFlight({ transfer, boardRef, duration, step, onFinish }) {
   const flight = useRef(null);
   useLayoutEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const board = boardRef.current;
     const card = flight.current;
-    if (!card?.animate || !board) return;
+    if (!card?.animate || !board || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onFinish?.(step);
+      return;
+    }
     const seat = id => board.querySelector(`[data-seat-id="${id}"] .seat-portrait`);
     const source = transfer.from ? seat(transfer.from) : board.querySelector("[data-supply-source]");
     const target = seat(transfer.to);
-    if (!source || !target) return;
+    if (!source || !target) {
+      onFinish?.(step);
+      return;
+    }
 
     const boardRect = board.getBoundingClientRect();
     const center = element => {
@@ -37,9 +42,12 @@ function CardFlight({ transfer, boardRef, duration }) {
       { transform: position((sx + tx) / 2, (sy + ty) / 2 - 10, 7), opacity: 1 },
       { transform: position(tx, ty, 0), opacity: 0 },
     ], { duration, easing: "ease-out" });
-    animation.onfinish = () => { card.hidden = true; };
+    animation.onfinish = () => {
+      card.hidden = true;
+      onFinish?.(step);
+    };
     return () => { animation.cancel(); card.hidden = true; };
-  }, [boardRef, duration, transfer]);
+  }, [boardRef, duration, transfer, step, onFinish]);
 
   return <div className="card-flight" aria-hidden="true" ref={flight} hidden><Icon name="supplies" /></div>;
 }
@@ -205,13 +213,14 @@ function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
 
 const EMPTY_DRAFT = { targetCard: null, mode: "", drinks: [] };
 
-export default function Table({ game, computer, feedback, fightResult, fightSkip, hasHistory, busy, trading, error, overlayOpen, navigationDraft, onNavigationDraft,
+export default function Table({ game, computer, feedback, fightResult, fightSkip, latestActivity, busy, trading, error, overlayOpen, navigationDraft, onNavigationDraft,
   onAction, onChooseTrader, onEndTrade, onComputerHold, onHistory, onInspect }) {
   const boardRef = useRef(null);
   const turnRef = useRef(null);
   const focusTarget = useRef(null);
   const [inspectedCard, setInspectedCard] = useState(null);
   const [draft, setDraft] = useState(null);
+  const [finishedMugStep, setFinishedMugStep] = useState(null);
   const { targetCard, mode, drinks } = draft?.step === game.step ? draft : EMPTY_DRAFT;
   const updateDraft = changes => setDraft(previous => ({
     ...(previous?.step === game.step ? previous : EMPTY_DRAFT), ...changes, step: game.step,
@@ -229,7 +238,9 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const dealing = active && game.phase === "deal";
   const demand = !fightResult && game.phase === "answer" ? game.demand : null;
   const mug = demand?.kind === "mug";
-  const highlightedMug = computer ? (mug ? demand : feedback?.mug) : null;
+  const cardTransfer = !fightResult && !fightSkip ? feedback?.transfer : null;
+  const mugInFlight = cardTransfer && feedback.mug && finishedMugStep !== feedback.step;
+  const highlightedMug = computer ? (mug ? demand : mugInFlight ? feedback.mug : null) : null;
   const thinking = computer && !active && !fightResult && !fightSkip && !overlayOpen && mode !== "give" && game.phase !== "ended" && !!game.queue.length;
   const requester = personName(demand?.from);
   const recipient = personName(demand?.to);
@@ -321,8 +332,8 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   }}>
     <header className="table-overview">
       {computer && <div className="turn-feedback">
-        <span className="feedback-text" role="status">{mug ? t("feedback.mugRequest", { from: personName(demand.from), to: personName(demand.to) }) : feedback?.text}</span>
-        <button type="button" className="feedback-link" disabled={!hasHistory} aria-haspopup="dialog" onClick={onHistory}>
+        <span className="feedback-text" role="status">{mug ? t("feedback.mugRequest", { from: requester, to: recipient }) : latestActivity?.text}</span>
+        <button type="button" className="feedback-link" disabled={!latestActivity} aria-haspopup="dialog" onClick={onHistory}>
           {t("history.view")} <span aria-hidden="true">›</span>
         </button>
       </div>}
@@ -449,6 +460,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
     </section>}
     <CardDetail anchor={handCard} content={cardDetail} onClose={closeCard}
       onChooseAction={chooseCardAction} takeFocusTarget={takeFocusTarget} />
-    {!fightResult && !fightSkip && feedback?.transfer && <CardFlight key={feedback.step} transfer={feedback.transfer} boardRef={boardRef} duration={feedback.mug ? 480 : 270} />}
+    {cardTransfer && <CardFlight key={feedback.step} transfer={cardTransfer} boardRef={boardRef}
+      duration={feedback.mug ? 480 : 270} step={feedback.step} onFinish={feedback.mug ? setFinishedMugStep : undefined} />}
   </main>;
 }

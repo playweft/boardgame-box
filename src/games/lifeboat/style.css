@@ -991,12 +991,14 @@ button.seat-supply:enabled {
   gap: 0.6rem 0.45rem;
   padding-bottom: 0.2rem;
 }
+:is(.card-rail, .character-supply-list) {
+  --supply-card-width: 4.75rem;
+}
 .card-rail {
-  --tray-card-width: 4.75rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  height: calc(var(--tray-card-width) * 1.25 + 0.5rem);
+  height: calc(var(--supply-card-width) * 1.25 + 0.5rem);
   padding: 0.25rem 0.22rem;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1012,12 +1014,12 @@ button.seat-supply:enabled {
   margin-inline: auto;
   padding: 0;
 }
-.card-rail .card {
+:is(.card-rail, .character-supply-list) .card {
   flex: none;
-  width: var(--tray-card-width);
+  width: var(--supply-card-width);
   min-height: 0;
 }
-.card-rail .card .sea-icon {
+:is(.card-rail, .character-supply-list) .card .sea-icon {
   width: 2.3rem;
 }
 .provision-offer {
@@ -1357,14 +1359,11 @@ button.card:disabled,
 }
 .sea-dialog.navigation-reveal {
   width: min(18rem, calc(100% - 2rem));
-  overflow: auto;
-  background: transparent;
 }
 .navigation-reveal .navigation-card {
   max-width: none;
   aspect-ratio: auto;
   grid-template-rows: none;
-  flex: none;
   padding: 0.45rem 0.85rem;
 }
 .navigation-reveal .navigation-detail {
@@ -1505,7 +1504,7 @@ button.card:disabled,
   width: 48px;
   height: 48px;
 }
-.hand-card-effect {
+.provision-effect {
   color: var(--muted);
   font-size: 0.875rem;
   line-height: 1.45;
@@ -1547,8 +1546,19 @@ button.card:disabled,
   margin: 0 0 0.35rem;
   font-size: 0.875rem;
 }
-.character-supplies .seat-supplies {
-  flex-wrap: wrap;
+.character-supply-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.character-supply-list > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  overflow-wrap: anywhere;
 }
 .navigation-drawer {
   position: fixed;
@@ -1738,8 +1748,8 @@ body:has(.navigation-drawer[open]) {
   .card .sea-icon {
     width: clamp(2rem, 10vw, 2.75rem);
   }
-  .card-rail {
-    --tray-card-width: 4.25rem;
+  :is(.card-rail, .character-supply-list) {
+    --supply-card-width: 4.25rem;
   }
 }
 
@@ -1784,14 +1794,14 @@ body:has(.navigation-drawer[open]) {
   .table .actions .choice {
     min-height: 44px;
   }
-  .card-rail {
-    --tray-card-width: 3.65rem;
+  :is(.card-rail, .character-supply-list) {
+    --supply-card-width: 3.65rem;
   }
-  .card-rail .card {
+  :is(.card-rail, .character-supply-list) .card {
     gap: 0.08rem;
     padding-block: 0.18rem;
   }
-  .card-rail .card .sea-icon {
+  :is(.card-rail, .character-supply-list) .card .sea-icon {
     width: 1.72rem;
   }
 }

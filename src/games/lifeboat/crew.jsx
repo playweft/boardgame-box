@@ -6,6 +6,7 @@ import BoatHull from "./boat-hull.jsx";
 import { CHARACTERS, cardInfo, characterById } from "./data.js";
 import { characterAbility, characterName, personName, provisionName, t, tParts } from "./i18n.js";
 import Icon from "./icon.jsx";
+import { CardFace, provisionEffect } from "./provision-card.jsx";
 
 function crewStatus(entry) {
   if (entry.removed) return t("crew.lost");
@@ -19,31 +20,23 @@ export function CrewPortrait({ id, dead = false }) {
     style={{ backgroundPosition: `${(index % 3) * 50}% ${Math.floor(index / 3) * 100}%` }} />;
 }
 
-function PublicSupplies({ entry, iconsOnly, onInspect, canTake, inspectedId, disabled, takeCard }) {
+function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, takeCard }) {
   if (!entry.shown.length) return null;
   const interactive = !!onInspect || canTake;
-  const cards = new Map();
-  for (const id of entry.shown) {
-    const card = cardInfo(id);
-    if (!card) continue;
-    const key = interactive || iconsOnly ? id : `${card.type}-${card.value}`;
-    const existing = cards.get(key);
-    if (existing) existing.count += 1;
-    else cards.set(key, { id, card, count: 1 });
-  }
   return <div className="seat-supplies" role="group" aria-label={t("crew.shownBy", { name: personName(entry.id) })}
-    tabIndex={cards.size > 1 ? 0 : undefined}>
-    {[...cards.values()].map(({ id, card, count }) => {
-      const label = `${provisionName(card.type)}${card.value ? t("crew.lootValue", { value: card.value }) : ""}${count > 1 ? ` ×${count}` : ""}`;
-      const face = <><Icon name={card.type} />{!iconsOnly && <span>{label}</span>}</>;
+    tabIndex={entry.shown.length > 1 ? 0 : undefined}>
+    {entry.shown.map(id => {
+      const card = cardInfo(id);
+      if (!card) return null;
+      const label = `${provisionName(card.type)}${card.value ? t("crew.lootValue", { value: card.value }) : ""}`;
+      const face = <Icon name={card.type} />;
       return interactive
         ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)}
           aria-label={canTake ? t("crew.mugCard", { name: personName(entry.id), card: label }) : label} title={label}
           aria-expanded={onInspect ? inspectedId === id : undefined}
           aria-controls={onInspect ? "hand-card-details" : undefined}
           onClick={event => onInspect ? onInspect(id, event.currentTarget) : takeCard(entry.id, id)}>{face}</button>
-        : <span key={id} className="seat-supply" role={iconsOnly ? "img" : undefined}
-          aria-label={iconsOnly ? label : undefined} title={iconsOnly ? label : undefined}>{face}</span>;
+        : <span key={id} className="seat-supply" role="img" aria-label={label} title={label}>{face}</span>;
     })}
   </div>;
 }
@@ -97,7 +90,7 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
             </div>
           </div>
           <div className="seat-supply-slot">
-            <PublicSupplies entry={entry} iconsOnly onInspect={own && inspectCard} inspectedId={inspectedId}
+            <PublicSupplies entry={entry} onInspect={own && inspectCard} inspectedId={inspectedId}
               canTake={taking && !own && !entry.removed} disabled={cardDisabled} takeCard={takeCard} />
           </div>
         </li>;
@@ -106,11 +99,13 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
   </div>;
 }
 
-export function CharacterDialog({ entry, player, open, onClose }) {
+export function CharacterDialog({ entry, player, seatNumber, open, onClose }) {
   const character = characterById[entry.id];
   const name = characterName(character.id);
   const status = crewStatus(entry);
   const ability = characterAbility(character.id);
+  const seat = !entry.removed && seatNumber > 0 ? t("crew.seatNumber", { number: seatNumber }) : "";
+  const subtitle = [player, seat].filter(Boolean).join(" · ");
   return <Dialog className="sea-dialog character-dialog" open={open} onClose={onClose} aria-labelledby="character-dialog-title">
     <button type="button" className="dialog-close-button" aria-label={t("common.close", { title: name })} onClick={onClose}>
       <LucideIcon icon={X} />
@@ -121,7 +116,7 @@ export function CharacterDialog({ entry, player, open, onClose }) {
           <CrewPortrait id={entry.id} dead={!entry.alive} />
           <div>
             <h2 id="character-dialog-title">{name}</h2>
-            <p className="character-player">{player}</p>
+            {subtitle && <p className="character-player">{subtitle}</p>}
           </div>
         </div>
         <dl className="character-stats">
@@ -134,7 +129,15 @@ export function CharacterDialog({ entry, player, open, onClose }) {
         {ability && <p>{ability}</p>}
         {!!entry.shown.length && <section className="character-supplies">
           <h3>{t("crew.shown")}</h3>
-          <PublicSupplies entry={entry} />
+          <ul className="character-supply-list" role="list">
+            {entry.shown.map(id => {
+              const card = cardInfo(id);
+              return card && <li key={id}>
+                <CardFace id={id} />
+                <p className="provision-effect">{provisionEffect(card)}</p>
+              </li>;
+            })}
+          </ul>
         </section>}
       </div>
     </div>

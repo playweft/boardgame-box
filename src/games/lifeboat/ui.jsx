@@ -18,10 +18,10 @@ export function GameDialog({ title, open, onClose, children, footer, className =
     <div className="dialog-inner">
       <header>
         <h2>{title}</h2>
-        <button type="button" className={closeLabel ? "dialog-back-button" : "dialog-close-button"}
+        {onClose && <button type="button" className={closeLabel ? "dialog-back-button" : "dialog-close-button"}
           aria-label={closeLabel ? undefined : t("common.close", { title: title })} onClick={onClose}>
           {closeLabel || <LucideIcon icon={X} />}
-        </button>
+        </button>}
       </header>
       <div className="dialog-body" ref={bodyRef}>{children}</div>
       {footer && <footer>{footer}</footer>}

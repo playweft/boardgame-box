@@ -1,6 +1,5 @@
 import { h } from "preact";
 import { useRef } from "preact/hooks";
-import Dialog from "../../shared/dialog.jsx";
 import { navigationById } from "./data.js";
 import { listNames, personName, t } from "./i18n.js";
 import Icon from "./icon.jsx";
@@ -65,7 +64,7 @@ export function NavigationDecision({ phase, cards, characters, draft, open, upda
 
 export function NavigationReveal({ reveal }) {
   const card = navigationById[reveal?.card];
-  return <Dialog className="sea-dialog navigation-reveal" open={!!card && reveal.open} aria-label={t("nav.resolved")}>
+  return <GameDialog title={t("nav.resolved")} className="navigation-reveal" open={!!card && reveal.open}>
     {card && <NavigationFace card={card} characters={reveal.characters} />}
-  </Dialog>;
+  </GameDialog>;
 }

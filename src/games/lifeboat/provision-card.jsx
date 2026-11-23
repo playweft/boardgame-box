@@ -9,7 +9,7 @@ const provisionEffects = new Set(["water", "oar", "chum", "medical", "parasol", 
 
 const doubleScoreOwners = { cash: "captain", painting: "stephen", jewels: "lauren" };
 
-function provisionEffect(card) {
+export function provisionEffect(card) {
   if (card.value) {
     return t("provisions.treasureEffect", { value: card.value, owner: characterName(doubleScoreOwners[card.type]) });
   }
@@ -202,7 +202,7 @@ export function CardDetail({ anchor, content, onClose, onChooseAction, takeFocus
         <Icon name={detail.card.type} />
         <strong id="hand-card-title">{provisionName(detail.card.type)}</strong>
       </header>
-      <p className="hand-card-effect">{provisionEffect(detail.card)}</p>
+      <p className="provision-effect">{provisionEffect(detail.card)}</p>
       {!!detail.actions.length && <div className={detail.actions.length > 1 ? "paired-actions" : undefined}>
         {detail.actions.map(action => <Raised key={action.label} secondary={detail.actions.length > 1}
           disabled={detail.busy} onClick={() => onChooseAction(action, detail.card.id)}>{action.label}</Raised>)}

@@ -206,7 +206,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
     </Notice>;
   } else if (game) scene = <Table key={`${game.viewerId}-${trading}`}
     game={game} computer={computer} feedback={computer && !fightSkip ? turnFeedback : null}
-    fightResult={fightResult} fightSkip={fightSkip} hasHistory={!!turnHistory.length}
+    fightResult={fightResult} fightSkip={fightSkip} latestActivity={turnHistory.at(-1)}
     busy={busy || !!fightResult || !!fightSkip || !!navigationReveal} trading={trading} error={error}
     overlayOpen={dialog !== null || !!navigationReveal} navigationDraft={navigationDraft} onNavigationDraft={updateNavigationDraft}
     onAction={onAction} onEndTrade={onEndTrade}
@@ -230,7 +230,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
       open={!!navigationDraft && !navigationDraft.dismissed && !dialog && !navigationReveal && !handoff && !connecting}
       updateDraft={updateNavigationDraft} busy={busy} error={error} onAction={onAction} />
     {inspected && <CharacterDialog entry={inspected} player={game.players.find(player => player.id === inspected.player)?.name}
-      open={dialog === "character"} onClose={close} />}
+      seatNumber={game.cast.indexOf(inspected.id) + 1} open={dialog === "character"} onClose={close} />}
     {computer && <GameDialog title={t("history.title")} open={dialog === "history"} onClose={close} bodyRef={historyBody}>
       <ActivityHistory events={turnHistory} />
     </GameDialog>}
