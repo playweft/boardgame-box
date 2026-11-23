@@ -1,6 +1,6 @@
-import { characterById } from "./data.js";
+import { characterName, t } from "./i18n.js";
 
-const name = id => characterById[id]?.short ?? "船员";
+const name = id => characterName(id, { short: true }) ?? t("characters.crew");
 
 export function computerDelay(action) {
   switch (action?.type) {

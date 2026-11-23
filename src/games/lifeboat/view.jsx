@@ -5,7 +5,8 @@ import Dialog from "../../shared/dialog.jsx";
 import GameTopbar from "../../shared/game-topbar.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
 import BoatHull from "./boat-hull.jsx";
-import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS, cardInfo, characterAbility, characterById, iconFor, navigationById, provisionEffect } from "./data.js";
+import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS, cardInfo, characterById, iconFor, navigationById } from "./data.js";
+import { characterAbility, characterName, provisionName, t } from "./i18n.js";
 import { fightWeapons } from "./engine.js";
 import Icon from "./icon.jsx";
 import Rules from "./rules.jsx";
@@ -77,7 +78,7 @@ function Setup({ computer, onStart, onBack }) {
           <legend>登船角色 · 已选 {cast.length}/{count}</legend>
           <div className="cast-picker">
             {CHARACTERS.map(person => <button key={person.id} type="button" className={computer ? "role-chip" : "secondary-button"}
-              aria-pressed={cast.includes(person.id)} onClick={() => toggle(person.id)}>{person.short}</button>)}
+              aria-pressed={cast.includes(person.id)} onClick={() => toggle(person.id)}>{personName(person.id)}</button>)}
           </div>
         </fieldset>
         {!computer && <>
@@ -100,7 +101,28 @@ function Setup({ computer, onStart, onBack }) {
 }
 
 function personName(id) {
-  return id ? characterById[id]?.short ?? id : "—";
+  return id ? characterName(id, { short: true }) ?? id : "—";
+}
+
+const provisionEffects = {
+  water: "航海结算口渴时，弃掉这张牌，为任意一名船员抵消一次口渴伤害。",
+  oar: "划船时，每用一把船桨就多抽一张航海牌。用到的船桨会亮出。",
+  chum: "有人落水时可弃掉鱼饵召来鲨鱼。若落水者已经亮出鱼饵，也会触发。水里每人额外受一处伤。",
+  medical: "花一次行动并弃掉这张牌，为船上任意一名还活着的伤员去掉一处伤。",
+  parasol: "花一次行动撑开。之后每天可抵消自己的一次口渴，直到落水或失去阳伞。",
+  preserver: "免受普通落水伤害。可抛给清醒的落水者，之后归对方。昏迷者要靠已亮出的救生圈获救。",
+  compass: "负责领航时，亮出罗盘，把航海牌堆顶的一张牌加入备选。",
+};
+
+const doubleScoreOwners = { cash: "captain", painting: "stephen", jewels: "lauren" };
+
+function provisionEffect(card) {
+  if (card.value) {
+    return t("provisions.treasureEffect", { value: card.value, owner: characterName(doubleScoreOwners[card.type]) });
+  }
+  if (card.type === "flare") return `打架时可弃掉这张牌，本场体型 +${card.size}。也可花一次行动发射，抽三张航海牌，只结算海鸥。`;
+  const weapon = card.size ? `打架时亮出，体型 +${card.size}。` : "";
+  return weapon + (provisionEffects[card.type] ?? "");
 }
 
 function crewStatus(entry) {
@@ -120,7 +142,7 @@ function CardFace({ id, disabled, onClick, detailsOpen }) {
   if (!card) return null;
   const face = <>
     <Icon name={iconFor(card.type)} />
-    <strong>{card.name}</strong>
+    <strong>{provisionName(card.type)}</strong>
     <small>{card.value ? `${card.value} 分` : card.size ? `武器 +${card.size}` : ""}</small>
   </>;
   return onClick
@@ -145,7 +167,7 @@ function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, take
   return <div className="seat-supplies" role="group" aria-label={`${personName(entry.id)}亮出的物资`}
     tabIndex={cards.size > 1 ? 0 : undefined}>
     {[...cards.values()].map(({ id, card, count }) => {
-      const label = `${card.name}${card.value ? ` ${card.value}分` : ""}${count > 1 ? ` ×${count}` : ""}`;
+      const label = `${provisionName(card.type)}${card.value ? ` ${card.value}分` : ""}${count > 1 ? ` ×${count}` : ""}`;
       const face = <><Icon name={iconFor(card.type)} /><span>{label}</span></>;
       return interactive
         ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)}
@@ -643,8 +665,8 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         {demand && !trading && <section className="panel">
           <h2>{respondToMug ? `${requester}要抢你的物资` : mug ? "抢夺请求" : "换座请求"}</h2>
           <p className="hint">{respondToMug
-            ? requestedCard ? `答应后，他会拿走你亮出的${requestedCard.name}。` : "答应后，他会随机拿走你的一张暗牌。"
-            : mug ? `${requester}要抢${recipient}${requestedCard ? `亮出的${requestedCard.name}` : "的一张暗牌"}，等待${recipient}回应。` : `${requester} → ${recipient}`}</p>
+            ? requestedCard ? `答应后，他会拿走你亮出的${provisionName(requestedCard.type)}。` : "答应后，他会随机拿走你的一张暗牌。"
+            : mug ? `${requester}要抢${recipient}${requestedCard ? `亮出的${provisionName(requestedCard.type)}` : "的一张暗牌"}，等待${recipient}回应。` : `${requester} → ${recipient}`}</p>
           {active && <div className="paired-actions">
             <Raised secondary disabled={busy} onClick={() => send({ type: "answer", accept: true })}>
               {mug ? "让他拿走" : "答应"}
@@ -731,7 +753,7 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
       {detail && <section ref={handPanelRef} className="hand-card-panel" aria-labelledby="hand-card-title" tabIndex={-1}>
         <header className="hand-card-heading">
           <Icon name={iconFor(detail.card.type)} />
-          <strong id="hand-card-title">{detail.card.name}</strong>
+          <strong id="hand-card-title">{provisionName(detail.card.type)}</strong>
         </header>
         <p className="hand-card-effect">{provisionEffect(detail.card)}</p>
         {!!detail.actions.length && <div className={detail.actions.length > 1 ? "paired-actions" : undefined}>
@@ -769,8 +791,8 @@ function GameDialog({ title, open, onClose, children, footer, className = "", cl
 function CharacterDialog({ entry, player, open, onClose }) {
   const character = characterById[entry.id];
   const status = crewStatus(entry);
-  const ability = characterAbility(character);
-  return <GameDialog title={character.name} className="character-dialog" open={open} onClose={onClose}>
+  const ability = characterAbility(character.id);
+  return <GameDialog title={characterName(character.id)} className="character-dialog" open={open} onClose={onClose}>
     <div className="character-overview">
       <CrewPortrait id={entry.id} />
       <div>

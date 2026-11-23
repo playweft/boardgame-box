@@ -4,6 +4,7 @@ import test from "node:test";
 import { LuaFactory } from "wasmoon";
 import { NAVIGATION, PROVISIONS } from "../src/games/lifeboat/data.js";
 import { actingPlayer, applyAction, createGame, projectGame } from "../src/games/lifeboat/engine.js";
+import { characterName, errorMessage, t } from "../src/games/lifeboat/i18n.js";
 import { normalizeRoomView } from "../src/games/lifeboat/room-state.js";
 
 const roster = count => Array.from({ length: count }, (_, index) => ({ id: `p${index}`, name: `玩家 ${index + 1}` }));
@@ -103,6 +104,20 @@ test("stale, foreign and repeated actions leave the boat untouched", () => {
     assert.equal(result.accepted, false);
     assert.deepEqual(initial, snapshot);
   }
+});
+
+test("the UI translates engine errors and preserves legacy room messages", () => {
+  const state = createGame(roster(4), "beef");
+  const result = send(state, actingPlayer(state), { type: "take", card: "missing" });
+  assert.equal(result.error.code, "PROVISION_NOT_OFFERED");
+  assert.equal(errorMessage(result.error), "这张牌不在待分配的物资里");
+  assert.equal(errorMessage({ code: "INVALID_ACTION", message: "旧房间的提示" }), "旧房间的提示");
+  assert.equal(errorMessage(), "操作失败");
+  assert.throws(() => createGame(roster(3), "beef"), error => errorMessage(error) === "需要 4–6 名玩家");
+  assert.equal(characterName("lauren"), "劳伦女士");
+  assert.equal(characterName("lauren", { short: true }), "劳伦");
+  assert.equal(characterName("mate", { short: true }), "大副");
+  assert.equal(t("provisions.treasureEffect", { owner: "劳伦女士", value: 3 }), "靠岸时，这张牌值 3 分。劳伦女士持有时翻倍。");
 });
 
 test("private hands and eligibility stay hidden, including historical room logs", () => {
@@ -213,6 +228,10 @@ test("Lua and JS play the same voyage", async () => {
       assert.deepEqual(align(remote, state), state);
       const initialView = await exec(`return view(state,{},{viewer={id="${actingPlayer(state)}"}}).state`);
       assert.deepEqual(normalizeRoomView(initialView), projectGame(state, actingPlayer(state)));
+      const invalidAction = { step: state.step, type: "take", card: "missing" };
+      const actor = actingPlayer(state);
+      const rejection = await exec(`return on_action(state,${luaLiteral(invalidAction)},{actor={id=${luaLiteral(actor)}}})`);
+      assert.deepEqual(rejection, applyAction(state, actor, invalidAction));
       let guard = 0;
       while (state.phase !== "ended" && guard < 500) {
         guard += 1;

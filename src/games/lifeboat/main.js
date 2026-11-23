@@ -12,6 +12,7 @@ import {
   projectBotGame,
   projectGame,
 } from "./engine.js";
+import { errorMessage, t } from "./i18n.js";
 import { normalizeRoomView } from "./room-state.js";
 import { computerDelay, describeTurn } from "./turn-feedback.js";
 import LifeboatApp from "./view.jsx";
@@ -68,13 +69,19 @@ function redraw() {
       launchUrl: embedded ? null : launchUrl.href,
       onCreateRoom: canCreateRoom ? openRoom : null,
       onStart(names, cast, computer) {
-        stopComputer();
-        humanId = computer ? "local-0" : null;
         const players = names.map((name, index) => ({
           id: `local-${index}`,
           name,
         }));
-        localGame = createGame(players, undefined, { cast });
+        try {
+          localGame = createGame(players, undefined, { cast });
+        } catch (cause) {
+          error = errorMessage(cause);
+          redraw();
+          return;
+        }
+        stopComputer();
+        humanId = computer ? "local-0" : null;
         turnHistory = [];
         tradeViewerId = null;
         handoff = !computer;
@@ -249,7 +256,7 @@ async function roomRequest(request, fallback) {
   try {
     await request();
   } catch (cause) {
-    error = cause instanceof Error ? cause.message : fallback;
+    error = errorMessage(cause, fallback);
   } finally {
     busy = false;
     redraw();
@@ -261,7 +268,7 @@ function openRoom() {
   return roomRequest(async () => {
     const next = await client.createRoom(roomOptions);
     if (mode === "solo") enterRoom(next);
-  }, "无法创建联机房间");
+  }, t("errors.createRoomFailed"));
 }
 
 function submit(intent) {
@@ -273,8 +280,8 @@ function submit(intent) {
     return roomRequest(async () => {
       const result = await client.action(action);
       if (result?.accepted === false)
-        throw new Error(result.error?.message || "操作失败");
-    }, "操作失败");
+        throw new Error(errorMessage(result.error));
+    }, t("errors.actionFailed"));
 
   const previous = actingPlayer(localGame);
   const offTurn = intent.type === "give" || intent.type === "reveal";
@@ -288,7 +295,7 @@ function submit(intent) {
     stopComputer();
     holdingComputer = false;
   }
-  error = result.accepted ? "" : result.error.message;
+  error = result.accepted ? "" : errorMessage(result.error);
   let hold = 0;
   if (result.accepted) {
     hold = acceptLocalGame(result.state, intent);
@@ -310,7 +317,7 @@ const client = embedded
           if (context.room && !presence) enterRoom(context.room);
           mode = "room";
         } else if (context.mode === "solo" && !presence) mode = "solo";
-        else if (context.mode !== "solo") error = "无法识别 Playweft 游戏模式";
+        else if (context.mode !== "solo") error = t("errors.unknownPlayweftMode");
         redraw();
       },
       onRoomState: enterRoom,

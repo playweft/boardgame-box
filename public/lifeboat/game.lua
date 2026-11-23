@@ -523,10 +523,10 @@ end
 
 local function make_state(players, seed_text)
   local count = #players
-  assert(count >= 4 and count <= 6, "需要 4–6 名玩家")
+  assert(count >= 4 and count <= 6, "Lifeboat requires 4–6 players.")
   local seen = {}
   for _, player in ipairs(players) do
-    assert(not seen[player.id], "玩家不能重复")
+    assert(not seen[player.id], "Player IDs must be unique.")
     seen[player.id] = true
   end
   local seed = hash_seed(seed_text)
@@ -576,14 +576,14 @@ local function make_state(players, seed_text)
   return state
 end
 
-local function reject(message)
-  return {accepted = false, error = {code = "INVALID_ACTION", message = message}}
+local function reject(code)
+  return {accepted = false, error = {code = code, message = "Invalid Lifeboat action."}}
 end
 
 local function require_actor(state, actor_id)
   local entry = acting(state)
-  if not entry or entry.player ~= actor_id then return "还没轮到你" end
-  if not conscious(entry) then return "这个角色现在不能行动" end
+  if not entry or entry.player ~= actor_id then return "NOT_YOUR_TURN" end
+  if not conscious(entry) then return "CANNOT_ACT" end
 end
 
 local function player_seated(state, actor_id)
@@ -701,10 +701,10 @@ end
 local function on_take(state, actor_id, action)
   local problem = require_actor(state, actor_id)
   if problem then return problem end
-  if action.type ~= "take" then return "请先从分到的物资里选一张" end
+  if action.type ~= "take" then return "CHOOSE_PROVISION" end
   local entry = acting(state)
   local index = index_of(state.offer, action.card)
-  if not index then return "这张牌不在待分配的物资里" end
+  if not index then return "PROVISION_NOT_OFFERED" end
   table.remove(state.offer, index)
   push(entry.hand, action.card)
   note(state, {type = "take", id = entry.id})
@@ -731,8 +731,8 @@ local function on_reveal(state, actor_id, card)
   for _, person in ipairs(state.characters) do
     if person.player == actor_id then entry = person break end
   end
-  if not conscious(entry) then return "这个角色现在不能亮牌" end
-  if not index_of(entry.hand, card) then return "只能亮出自己手里的牌" end
+  if not conscious(entry) then return "CANNOT_REVEAL" end
+  if not index_of(entry.hand, card) then return "CARD_NOT_IN_HAND" end
   reveal_card(state, entry, card)
   local kind = card_type(card)
   if state.phase == "fight" and WEAPON[kind] and kind ~= "flare" and is_fighting(state.fight, entry.id) then
@@ -741,20 +741,20 @@ local function on_reveal(state, actor_id, card)
 end
 
 local function on_give(state, actor_id, action)
-  if not trading_open(state) then return "只有行动阶段且未开战时可以交易" end
+  if not trading_open(state) then return "TRADING_CLOSED" end
   local entry
   for _, person in ipairs(state.characters) do
     if person.player == actor_id then entry = person break end
   end
-  if not conscious(entry) then return "这个角色现在不能交易" end
+  if not conscious(entry) then return "CANNOT_TRADE" end
   local target = character(state, action.target)
-  if not target or target.id == entry.id or not in_boat(target) then return "不能把牌交给这个角色" end
-  if not index_of(holding(entry, "both"), action.card) then return "你没有这张牌" end
+  if not target or target.id == entry.id or not in_boat(target) then return "INVALID_GIFT_TARGET" end
+  if not index_of(holding(entry, "both"), action.card) then return "CARD_NOT_OWNED" end
   local demand = state.demand
   if demand and demand.kind == "mug" and demand.to == entry.id then
     local required = demand.card == action.card or
       (not demand.card and #entry.hand == 1 and index_of(entry.hand, action.card))
-    if required then return "这张牌涉及尚未回应的抢夺" end
+    if required then return "CARD_IN_PENDING_MUGGING" end
   end
   local shown = index_of(entry.shown, action.card) ~= nil
   local open_parasol = shown and card_type(action.card) == "parasol" and entry.parasol
@@ -772,7 +772,7 @@ local function on_row(state, entry)
     if card_type(id) == "oar" then push(oars, id) end
   end
   local drawn = draw(state.navDeck, 2 + #oars)
-  if #drawn == 0 then return "航海牌已经看完了" end
+  if #drawn == 0 then return "NAVIGATION_DECK_EMPTY" end
   for i = 1, #drawn - 2 do
     if index_of(entry.hand, oars[i]) then reveal_card(state, entry, oars[i]) end
   end
@@ -784,10 +784,10 @@ end
 
 local function on_sort(state, action)
   if action.type ~= "sort" or type(action.keep) ~= "table" or #action.keep ~= #state.rowChoices then
-    return "请决定每张航海牌是留下划船，还是放回牌底"
+    return "SORT_ROW_CARDS"
   end
   for _, value in ipairs(action.keep) do
-    if value ~= true and value ~= false then return "请决定每张航海牌是留下划船，还是放回牌底" end
+    if value ~= true and value ~= false then return "SORT_ROW_CARDS" end
   end
   local back = {}
   for index, keep in ipairs(action.keep) do
@@ -801,7 +801,7 @@ end
 
 local function on_move(state, entry, target_id)
   local target = character(state, target_id)
-  if not target or target.id == entry.id or not in_boat(target) then return "请选择船上的另一个角色" end
+  if not target or target.id == entry.id or not in_boat(target) then return "CHOOSE_ANOTHER_CHARACTER" end
   note(state, {type = "act", id = entry.id, act = "move", target = target.id})
   if not conscious(target) then
     swap(state, entry.id, target.id)
@@ -817,10 +817,10 @@ end
 
 local function on_mug(state, entry, action)
   local target = character(state, action.target)
-  if not target or target.id == entry.id or not in_boat(target) then return "请选择船上的另一个角色" end
+  if not target or target.id == entry.id or not in_boat(target) then return "CHOOSE_ANOTHER_CHARACTER" end
   local hidden = not action.card
-  if not hidden and not index_of(target.shown, action.card) then return "只能指定对方亮出的牌，或随机摸一张暗牌" end
-  if hidden and #target.hand == 0 then return "对方没有可以摸走的暗牌" end
+  if not hidden and not index_of(target.shown, action.card) then return "MUG_CARD_NOT_SHOWN" end
+  if hidden and #target.hand == 0 then return "NO_HIDDEN_CARDS" end
   note(state, {type = "act", id = entry.id, act = "mug", target = target.id})
   local free = not conscious(target) or (hidden and META[entry.id].pickpocket)
   local stolen = false
@@ -838,7 +838,7 @@ local function on_mug(state, entry, action)
 end
 
 local function on_answer(state, action)
-  if action.type ~= "answer" or type(action.accept) ~= "boolean" then return "请答应，或者开口应战" end
+  if action.type ~= "answer" or type(action.accept) ~= "boolean" then return "ANSWER_DEMAND" end
   local demand = state.demand
   local attacker = character(state, demand.from)
   local defender = character(state, demand.to)
@@ -861,7 +861,7 @@ local function on_fight(state, action)
   local entry = acting(state)
   if fight.stage == "join" then
     if action.type ~= "join" or (action.side ~= "attack" and action.side ~= "defend" and action.side ~= "out") then
-      return "请选择加入哪一边，或者不参与"
+      return "CHOOSE_FIGHT_SIDE"
     end
     if action.side == "out" then pass_fight_decision(state, entry.id)
     else
@@ -870,12 +870,12 @@ local function on_fight(state, action)
     end
     return
   end
-  if action.type ~= "arm" then return "请亮出武器，或放弃加战力" end
+  if action.type ~= "arm" then return "CHOOSE_WEAPON" end
   if not action.card then
     pass_fight_decision(state, entry.id)
     return
   end
-  if not index_of(fight_weapons(entry), action.card) then return "这张牌不能当武器" end
+  if not index_of(fight_weapons(entry), action.card) then return "INVALID_WEAPON" end
   if card_type(action.card) == "flare" then
     take_card(entry, action.card)
     fight.flareBy = entry.id
@@ -888,10 +888,10 @@ end
 
 local function on_medical(state, entry, action)
   local kit = action.card
-  if not index_of(holding(entry, "both"), kit) or card_type(kit) ~= "medical" then return "你没有医药包" end
+  if not index_of(holding(entry, "both"), kit) or card_type(kit) ~= "medical" then return "NO_MEDICAL_KIT" end
   local target = character(state, action.target)
-  if not target or not in_boat(target) then return "请选择船上的伤员" end
-  if target.wounds <= 0 or target.wounds > META[target.id].size then return "医药包只能减少一名伤员的一处伤" end
+  if not target or not in_boat(target) then return "CHOOSE_INJURED_CHARACTER" end
+  if target.wounds <= 0 or target.wounds > META[target.id].size then return "INVALID_MEDICAL_TARGET" end
   take_card(entry, kit)
   target.wounds = target.wounds - 1
   note(state, {type = "heal", id = entry.id, target = target.id})
@@ -900,7 +900,7 @@ end
 
 local function on_flare(state, entry)
   local flare = find_type(entry, "flare")
-  if not flare then return "你没有信号枪" end
+  if not flare then return "NO_FLARE" end
   take_card(entry, flare)
   local drawn = draw(state.navDeck, 3)
   for _, id in ipairs(drawn) do
@@ -919,7 +919,7 @@ end
 
 local function on_parasol(state, entry)
   local card = find_type(entry, "parasol")
-  if not card or has_open_parasol(entry) then return "阳伞已经撑开，或者你没有阳伞" end
+  if not card or has_open_parasol(entry) then return "PARASOL_UNAVAILABLE" end
   if index_of(entry.hand, card) then reveal_card(state, entry, card) end
   entry.parasol = true
   note(state, {type = "act", id = entry.id, act = "parasol"})
@@ -939,11 +939,11 @@ local function on_choose(state, action)
   if action.type == "medical" then return on_medical(state, entry, action) end
   if action.type == "flare" then return on_flare(state, entry) end
   if action.type == "parasol" then return on_parasol(state, entry) end
-  return "现在不能这样做"
+  return "ACTION_UNAVAILABLE"
 end
 
 local function on_play(state, action)
-  if action.type ~= "play" or not index_of(state.rowChoices, action.card) then return "请从划船堆里选一张航海牌" end
+  if action.type ~= "play" or not index_of(state.rowChoices, action.card) then return "CHOOSE_NAVIGATION_CARD" end
   local rest = {}
   for _, id in ipairs(state.rowChoices) do
     if id ~= action.card then push(rest, id) end
@@ -955,21 +955,21 @@ local function on_play(state, action)
 end
 
 local function on_rescue(state, action)
-  if action.type ~= "rescue" then return "请决定是否抛出救生圈或鱼饵" end
+  if action.type ~= "rescue" then return "CHOOSE_RESCUE_ACTION" end
   local entry = acting(state)
   local preserver, target, chum = nil, nil, nil
   if action.to then
     target = character(state, action.to)
     preserver = find_type(entry, "preserver")
     if not preserver or not target or not contains(state.falling, target.id) or target.id == entry.id or not conscious(target) or has_type(target, "preserver") then
-      return "救生圈只能抛给落水、还清醒、而且自己没有救生圈的人"
+      return "INVALID_PRESERVER_TARGET"
     end
   end
   if action.chum then
     for _, id in ipairs(entry.hand) do
       if card_type(id) == "chum" then chum = id break end
     end
-    if not chum or #state.falling == 0 then return "现在不能投放鱼饵" end
+    if not chum or #state.falling == 0 then return "CHUM_UNAVAILABLE" end
   end
   if preserver then
     take_card(entry, preserver)
@@ -984,21 +984,21 @@ local function on_rescue(state, action)
 end
 
 local function on_drink(state, action)
-  if action.type ~= "drink" or type(action.uses) ~= "table" then return "请分配淡水，或放弃" end
+  if action.type ~= "drink" or type(action.uses) ~= "table" then return "ALLOCATE_WATER" end
   local entry = acting(state)
   local spent = {}
   local planned = {}
   for _, use in ipairs(action.uses) do
-    if type(use) ~= "table" then return "请选择淡水和喝水的人" end
+    if type(use) ~= "table" then return "CHOOSE_WATER_AND_RECIPIENT" end
     if spent[use.card] or not index_of(holding(entry, "both"), use.card) or card_type(use.card) ~= "water" then
-      return "只能用自己的淡水"
+      return "INVALID_WATER_CARD"
     end
     local need = nil
     local used = planned[use["for"]] or 0
     for _, item in ipairs(state.thirst) do
       if item.id == use["for"] and item.left - used > 0 then need = item end
     end
-    if not need then return "这个人现在不口渴" end
+    if not need then return "RECIPIENT_NOT_THIRSTY" end
     spent[use.card] = true
     planned[use["for"]] = used + 1
     push(planned, use.card)
@@ -1021,16 +1021,16 @@ local function on_drink(state, action)
 end
 
 local function mutate(state, actor_id, action)
-  if type(action) ~= "table" or type(action.type) ~= "string" then return "未知操作" end
+  if type(action) ~= "table" or type(action.type) ~= "string" then return "UNKNOWN_ACTION" end
   if action.type == "rematch" then
-    if state.phase ~= "ended" then return "船还没有靠岸" end
-    if not player_seated(state, actor_id) then return "只有入座玩家可以操作" end
+    if state.phase ~= "ended" then return "VOYAGE_IN_PROGRESS" end
+    if not player_seated(state, actor_id) then return "PLAYER_NOT_SEATED" end
     local fresh = make_state(state.players, string.format("%x", state.seed))
     fresh.step = state.step
     for key, value in pairs(fresh) do state[key] = value end
     return nil, true
   end
-  if state.phase == "ended" then return "这局已经结束" end
+  if state.phase == "ended" then return "VOYAGE_ENDED" end
   if action.type == "reveal" then return on_reveal(state, actor_id, action.card) end
   if action.type == "give" then return on_give(state, actor_id, action) end
   local problem = nil
@@ -1056,7 +1056,7 @@ local function mutate(state, actor_id, action)
   elseif state.phase == "thirst" then
     problem = require_actor(state, actor_id)
     if not problem then problem = on_drink(state, action) end
-  else return "未知操作" end
+  else return "UNKNOWN_ACTION" end
   return problem
 end
 
@@ -1065,8 +1065,8 @@ function setup(context)
 end
 
 function on_action(state, action, context)
-  if not player_seated(state, context.actor.id) then return reject("只有入座玩家可以操作") end
-  if type(action) ~= "table" or action.step ~= state.step then return reject("局面已更新，请重新选择") end
+  if not player_seated(state, context.actor.id) then return reject("PLAYER_NOT_SEATED") end
+  if type(action) ~= "table" or action.step ~= state.step then return reject("STALE_ACTION") end
   local problem = mutate(state, context.actor.id, action)
   if problem then return reject(problem) end
   state.step = state.step + 1

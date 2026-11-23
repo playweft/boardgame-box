@@ -26,8 +26,9 @@ function shuffle(list, seed) {
   return { deck, seed };
 }
 
-const reject = message => ({ accepted: false, error: { code: "INVALID_ACTION", message } });
-const fail = message => ({ ok: false, message });
+const reject = code => ({ accepted: false, error: { code, message: "Invalid Lifeboat action." } });
+const fail = code => ({ ok: false, code });
+const setupError = (code, message) => Object.assign(new Error(message), { code });
 const ok = () => ({ ok: true });
 
 function character(state, id) {
@@ -113,13 +114,13 @@ function blankTurn(state) {
 
 export function createGame(players, seedText = crypto.getRandomValues(new Uint32Array(1))[0].toString(16), options = {}) {
   const count = players.length;
-  if (count < MIN_PLAYERS || count > MAX_PLAYERS) throw new Error("需要 4–6 名玩家");
-  if (new Set(players.map(player => player.id)).size !== count) throw new Error("玩家不能重复");
+  if (count < MIN_PLAYERS || count > MAX_PLAYERS) throw setupError("INVALID_PLAYER_COUNT", "Lifeboat requires 4–6 players.");
+  if (new Set(players.map(player => player.id)).size !== count) throw setupError("DUPLICATE_PLAYER", "Player IDs must be unique.");
   let seed = hashSeed(seedText);
   let cast;
   if (options.cast) {
     cast = canonical(options.cast);
-    if (cast.length !== count || new Set(options.cast).size !== count) throw new Error("登船角色数量需要和玩家人数一致");
+    if (cast.length !== count || new Set(options.cast).size !== count) throw setupError("INVALID_CAST", "The cast must match the number of players.");
   } else {
     const dealt = shuffle(CHARACTERS.map(item => item.id), seed);
     seed = dealt.seed;
@@ -187,8 +188,8 @@ function acting(state) {
 
 function requireActor(state, actorId) {
   const entry = acting(state);
-  if (!entry || entry.player !== actorId) return fail("还没轮到你");
-  if (!conscious(entry)) return fail("这个角色现在不能行动");
+  if (!entry || entry.player !== actorId) return fail("NOT_YOUR_TURN");
+  if (!conscious(entry)) return fail("CANNOT_ACT");
   return ok();
 }
 
@@ -399,20 +400,20 @@ function scorePlayer(state, playerId) {
 }
 
 function mutate(state, actorId, action) {
-  if (!action || typeof action.type !== "string") return fail("未知操作");
+  if (!action || typeof action.type !== "string") return fail("UNKNOWN_ACTION");
   if (action.type === "rematch") {
-    if (state.phase !== "ended") return fail("船还没有靠岸");
-    if (!state.players.some(player => player.id === actorId)) return fail("只有入座玩家可以操作");
+    if (state.phase !== "ended") return fail("VOYAGE_IN_PROGRESS");
+    if (!state.players.some(player => player.id === actorId)) return fail("PLAYER_NOT_SEATED");
     const fresh = createGame(state.players, state.seed.toString(16));
     fresh.step = state.step;
     Object.assign(state, fresh);
     return ok();
   }
-  if (state.phase === "ended") return fail("这局已经结束");
+  if (state.phase === "ended") return fail("VOYAGE_ENDED");
   if (action.type === "reveal") {
     const entry = state.characters.find(person => person.player === actorId);
-    if (!conscious(entry)) return fail("这个角色现在不能亮牌");
-    if (!entry.hand.includes(action.card)) return fail("只能亮出自己手里的牌");
+    if (!conscious(entry)) return fail("CANNOT_REVEAL");
+    if (!entry.hand.includes(action.card)) return fail("CARD_NOT_IN_HAND");
     revealCard(state, entry, action.card);
     const card = cardInfo(action.card);
     if (state.phase === "fight" && card.size && card.type !== "flare" && isFighting(state.fight, entry.id)) {
@@ -429,16 +430,16 @@ function mutate(state, actorId, action) {
   if (state.phase === "navigate") return chooseNavigation(state, actorId, action);
   if (state.phase === "rescue") return rescueAction(state, actorId, action);
   if (state.phase === "thirst") return drink(state, actorId, action);
-  return fail("未知操作");
+  return fail("UNKNOWN_ACTION");
 }
 
 function takeProvision(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "take") return fail("请先从分到的物资里选一张");
+  if (action.type !== "take") return fail("CHOOSE_PROVISION");
   const entry = acting(state);
   const index = state.offer.indexOf(action.card);
-  if (index < 0) return fail("这张牌不在待分配的物资里");
+  if (index < 0) return fail("PROVISION_NOT_OFFERED");
   state.offer.splice(index, 1);
   entry.hand.push(action.card);
   note(state, { type: "take", id: entry.id });
@@ -466,7 +467,7 @@ function chooseAction(state, actorId, action) {
   if (action.type === "medical") return useMedical(state, entry, action);
   if (action.type === "flare") return useFlare(state, entry);
   if (action.type === "parasol") return openParasol(state, entry);
-  return fail("现在不能这样做");
+  return fail("ACTION_UNAVAILABLE");
 }
 
 function revealCard(state, entry, card) {
@@ -480,16 +481,16 @@ function revealCard(state, entry, card) {
 }
 
 function give(state, entry, action) {
-  if (!tradingOpen(state)) return fail("只有行动阶段且未开战时可以交易");
-  if (!conscious(entry)) return fail("这个角色现在不能交易");
+  if (!tradingOpen(state)) return fail("TRADING_CLOSED");
+  if (!conscious(entry)) return fail("CANNOT_TRADE");
   const target = character(state, action.target);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("不能把牌交给这个角色");
-  if (!holding(entry).includes(action.card)) return fail("你没有这张牌");
+  if (!target || target.id === entry.id || !inBoat(target)) return fail("INVALID_GIFT_TARGET");
+  if (!holding(entry).includes(action.card)) return fail("CARD_NOT_OWNED");
   const demand = state.demand;
   if (demand?.kind === "mug" && demand.to === entry.id) {
     const required = demand.card === action.card
       || (!demand.card && entry.hand.length === 1 && entry.hand.includes(action.card));
-    if (required) return fail("这张牌涉及尚未回应的抢夺");
+    if (required) return fail("CARD_IN_PENDING_MUGGING");
   }
   const shown = entry.shown.includes(action.card);
   const openParasol = shown && cardInfo(action.card)?.type === "parasol" && entry.parasol;
@@ -504,7 +505,7 @@ function startRow(state, entry) {
   const oars = holding(entry, "shown").filter(id => cardInfo(id)?.type === "oar")
     .concat(holding(entry, "hand").filter(id => cardInfo(id)?.type === "oar"));
   const drawn = draw(state.navDeck, 2 + oars.length);
-  if (!drawn.length) return fail("航海牌已经看完了");
+  if (!drawn.length) return fail("NAVIGATION_DECK_EMPTY");
   for (const id of oars.slice(0, Math.max(0, drawn.length - 2))) {
     if (entry.hand.includes(id)) revealCard(state, entry, id);
   }
@@ -519,9 +520,9 @@ function sortRow(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
   if (action.type !== "sort" || !Array.isArray(action.keep) || action.keep.length !== state.rowChoices.length) {
-    return fail("请决定每张航海牌是留下划船，还是放回牌底");
+    return fail("SORT_ROW_CARDS");
   }
-  if (action.keep.some(value => value !== true && value !== false)) return fail("请决定每张航海牌是留下划船，还是放回牌底");
+  if (action.keep.some(value => value !== true && value !== false)) return fail("SORT_ROW_CARDS");
   const back = [];
   action.keep.forEach((keep, index) => {
     const card = state.rowChoices[index];
@@ -536,7 +537,7 @@ function sortRow(state, actorId, action) {
 
 function startMove(state, entry, targetId) {
   const target = character(state, targetId);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("请选择船上的另一个角色");
+  if (!target || target.id === entry.id || !inBoat(target)) return fail("CHOOSE_ANOTHER_CHARACTER");
   note(state, { type: "act", id: entry.id, act: "move", target: target.id });
   if (!conscious(target)) {
     swap(state, entry.id, target.id);
@@ -552,10 +553,10 @@ function startMove(state, entry, targetId) {
 
 function startMug(state, entry, action) {
   const target = character(state, action.target);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("请选择船上的另一个角色");
+  if (!target || target.id === entry.id || !inBoat(target)) return fail("CHOOSE_ANOTHER_CHARACTER");
   const hidden = !action.card;
-  if (!hidden && !target.shown.includes(action.card)) return fail("只能指定对方亮出的牌，或随机摸一张暗牌");
-  if (hidden && !target.hand.length) return fail("对方没有可以摸走的暗牌");
+  if (!hidden && !target.shown.includes(action.card)) return fail("MUG_CARD_NOT_SHOWN");
+  if (hidden && !target.hand.length) return fail("NO_HIDDEN_CARDS");
   note(state, { type: "act", id: entry.id, act: "mug", target: target.id });
   const free = !conscious(target) || (hidden && characterById[entry.id].pickpocket);
   if (free) {
@@ -595,7 +596,7 @@ function swap(state, left, right) {
 function answerDemand(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "answer" || typeof action.accept !== "boolean") return fail("请答应，或者开口应战");
+  if (action.type !== "answer" || typeof action.accept !== "boolean") return fail("ANSWER_DEMAND");
   const demand = state.demand;
   const attacker = character(state, demand.from);
   const defender = character(state, demand.to);
@@ -657,7 +658,7 @@ function fightAction(state, actorId, action) {
   const fight = state.fight;
   const entry = acting(state);
   if (fight.stage === "join") {
-    if (action.type !== "join" || !["attack", "defend", "out"].includes(action.side)) return fail("请选择加入哪一边，或者不参与");
+    if (action.type !== "join" || !["attack", "defend", "out"].includes(action.side)) return fail("CHOOSE_FIGHT_SIDE");
     if (action.side !== "out") {
       const side = action.side === "attack" ? fight.attackers : fight.defenders;
       side.push(entry.id);
@@ -665,12 +666,12 @@ function fightAction(state, actorId, action) {
     } else passFightDecision(state, entry.id);
     return ok();
   }
-  if (action.type !== "arm") return fail("请亮出武器，或放弃加战力");
+  if (action.type !== "arm") return fail("CHOOSE_WEAPON");
   if (!action.card) {
     passFightDecision(state, entry.id);
     return ok();
   }
-  if (!fightWeapons(entry).includes(action.card)) return fail("这张牌不能当武器");
+  if (!fightWeapons(entry).includes(action.card)) return fail("INVALID_WEAPON");
   if (cardInfo(action.card).type === "flare") {
     takeCard(entry, action.card);
     fight.flareBy = entry.id;
@@ -713,10 +714,10 @@ function resolveFight(state) {
 
 function useMedical(state, entry, action) {
   const kit = action.card;
-  if (!holding(entry).includes(kit) || cardInfo(kit)?.type !== "medical") return fail("你没有医药包");
+  if (!holding(entry).includes(kit) || cardInfo(kit)?.type !== "medical") return fail("NO_MEDICAL_KIT");
   const target = character(state, action.target);
-  if (!target || !inBoat(target)) return fail("请选择船上的伤员");
-  if (target.wounds <= 0 || target.wounds > characterById[target.id].size) return fail("医药包只能减少一名伤员的一处伤");
+  if (!target || !inBoat(target)) return fail("CHOOSE_INJURED_CHARACTER");
+  if (target.wounds <= 0 || target.wounds > characterById[target.id].size) return fail("INVALID_MEDICAL_TARGET");
   takeCard(entry, kit);
   target.wounds -= 1;
   note(state, { type: "heal", id: entry.id, target: target.id });
@@ -726,7 +727,7 @@ function useMedical(state, entry, action) {
 
 function useFlare(state, entry) {
   const flare = holding(entry).find(id => cardInfo(id)?.type === "flare");
-  if (!flare) return fail("你没有信号枪");
+  if (!flare) return fail("NO_FLARE");
   takeCard(entry, flare);
   const drawn = draw(state.navDeck, 3);
   for (const id of drawn) {
@@ -746,7 +747,7 @@ function useFlare(state, entry) {
 
 function openParasol(state, entry) {
   const card = holding(entry).find(id => cardInfo(id)?.type === "parasol");
-  if (!card || hasOpenParasol(entry)) return fail("阳伞已经撑开，或者你没有阳伞");
+  if (!card || hasOpenParasol(entry)) return fail("PARASOL_UNAVAILABLE");
   if (entry.hand.includes(card)) revealCard(state, entry, card);
   entry.parasol = true;
   note(state, { type: "act", id: entry.id, act: "parasol" });
@@ -757,7 +758,7 @@ function openParasol(state, entry) {
 function chooseNavigation(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "play" || !state.rowChoices.includes(action.card)) return fail("请从划船堆里选一张航海牌");
+  if (action.type !== "play" || !state.rowChoices.includes(action.card)) return fail("CHOOSE_NAVIGATION_CARD");
   const rest = state.rowChoices.filter(id => id !== action.card);
   state.rowChoices = [];
   state.rowStack = [];
@@ -769,20 +770,20 @@ function chooseNavigation(state, actorId, action) {
 function rescueAction(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "rescue") return fail("请决定是否抛出救生圈或鱼饵");
+  if (action.type !== "rescue") return fail("CHOOSE_RESCUE_ACTION");
   const entry = acting(state);
   if (action.to) {
     const target = character(state, action.to);
     const preserver = holding(entry).find(id => cardInfo(id)?.type === "preserver");
     if (!preserver || !target || !state.falling.includes(target.id) || target.id === entry.id || !conscious(target) || hasType(target, "preserver")) {
-      return fail("救生圈只能抛给落水、还清醒、而且自己没有救生圈的人");
+      return fail("INVALID_PRESERVER_TARGET");
     }
     takeCard(entry, preserver);
     target.shown.push(preserver);
   }
   if (action.chum) {
     const chum = entry.hand.find(id => cardInfo(id)?.type === "chum");
-    if (!chum || !state.falling.length) return fail("现在不能投放鱼饵");
+    if (!chum || !state.falling.length) return fail("CHUM_UNAVAILABLE");
     takeCard(entry, chum);
     state.sharks = true;
   }
@@ -795,16 +796,16 @@ function rescueAction(state, actorId, action) {
 function drink(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "drink") return fail("请分配淡水，或放弃");
+  if (action.type !== "drink") return fail("ALLOCATE_WATER");
   const entry = acting(state);
   const uses = Array.isArray(action.uses) ? action.uses : null;
-  if (!uses) return fail("请分配淡水，或放弃");
+  if (!uses) return fail("ALLOCATE_WATER");
   const spent = new Set();
   for (const use of uses) {
-    if (!use || typeof use !== "object") return fail("请选择淡水和喝水的人");
-    if (spent.has(use.card) || !holding(entry).includes(use.card) || cardInfo(use.card)?.type !== "water") return fail("只能用自己的淡水");
+    if (!use || typeof use !== "object") return fail("CHOOSE_WATER_AND_RECIPIENT");
+    if (spent.has(use.card) || !holding(entry).includes(use.card) || cardInfo(use.card)?.type !== "water") return fail("INVALID_WATER_CARD");
     const need = state.thirst.find(item => item.id === use.for && item.left > 0);
-    if (!need) return fail("这个人现在不口渴");
+    if (!need) return fail("RECIPIENT_NOT_THIRSTY");
     spent.add(use.card);
     need.left -= 1;
   }
@@ -817,12 +818,12 @@ function drink(state, actorId, action) {
 
 export function applyAction(state, actorId, action) {
   if (!state.players.some(player => player.id === actorId) && action?.type !== "rematch") {
-    if (!state.players.some(player => player.id === actorId)) return reject("只有入座玩家可以操作");
+    if (!state.players.some(player => player.id === actorId)) return reject("PLAYER_NOT_SEATED");
   }
-  if (!action || action.step !== state.step) return reject("局面已更新，请重新选择");
+  if (!action || action.step !== state.step) return reject("STALE_ACTION");
   const next = structuredClone(state);
   const result = mutate(next, actorId, action);
-  if (!result.ok) return reject(result.message);
+  if (!result.ok) return reject(result.code);
   next.step += 1;
   return { accepted: true, state: next, events: [] };
 }
