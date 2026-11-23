@@ -30,9 +30,10 @@ export default function Dialog({
       contentRef.current = null;
       setMounted(false);
     };
+    const animationNames = getComputedStyle(dialog).animationName.split(/,\s*/);
     const animations = dialog
       .getAnimations()
-      .filter((animation) => animation.animationName === "app-dialog-exit");
+      .filter((animation) => animationNames.includes(animation.animationName));
     Promise.all(animations.map((animation) => animation.finished)).then(
       finish,
       finish,

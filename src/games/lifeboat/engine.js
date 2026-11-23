@@ -99,7 +99,7 @@ export function fightWeapons(entry) {
     );
 }
 
-function fightSize(entry, fight) {
+export function fightSize(entry, fight) {
   return entry.shown.reduce(
     (size, id) => {
       const card = cardInfo(id);
@@ -878,6 +878,11 @@ function resolveFight(state) {
     attacker: fight.attacker,
     defender: fight.defender,
     attackersWin,
+    attackers: fight.attackers,
+    defenders: fight.defenders,
+    attack,
+    defense,
+    flareBy: fight.flareBy || false,
     losers,
   });
   if (attackersWin) {

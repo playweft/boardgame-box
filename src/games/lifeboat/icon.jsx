@@ -4,8 +4,10 @@ import LucideIcon from "../../shared/lucide-icon.jsx";
 
 const icons = [
   "water", "cash", "jewels", "painting",
-  "oar", "weapon", "preserver", "compass",
+  "oar", "knife", "preserver", "compass",
   "bird", "parasol", "medical", "chum",
+  "blackjack", "hook", "flare", "row",
+  "navigation", "crate",
 ];
 const controls = { forward: ChevronRight, swap: ArrowLeftRight, supplies: Layers, wait: Armchair, lock: LockKeyhole };
 
@@ -15,6 +17,6 @@ export default function Icon({ name }) {
   const index = icons.indexOf(name);
   if (index < 0) return null;
   return <span className="sea-icon" aria-hidden="true" style={{
-    backgroundPosition: `${(index % 4) * 100 / 3}% ${Math.floor(index / 4) * 50}%`,
+    backgroundPosition: `${(index % 4) * 100 / 3}% ${Math.floor(index / 4) * 25}%`,
   }} />;
 }

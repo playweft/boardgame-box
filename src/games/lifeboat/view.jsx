@@ -1,13 +1,14 @@
 import { h } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import { Heart, HeartCrack, X } from "lucide";
+import { Check, Heart, HeartCrack, X } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
 import GameTopbar from "../../shared/game-topbar.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
 import BoatHull from "./boat-hull.jsx";
-import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS, cardInfo, characterById, iconFor, navigationById } from "./data.js";
+import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS, cardInfo, characterById, navigationById } from "./data.js";
 import { characterAbility, characterName, provisionName, t } from "./i18n.js";
-import { fightWeapons } from "./engine.js";
+import { fightSize, fightWeapons } from "./engine.js";
+import { FIGHT_RESULT_MS } from "./turn-feedback.js";
 import Icon from "./icon.jsx";
 import Rules from "./rules.jsx";
 import cover from "./assets/cover-flat.webp";
@@ -39,13 +40,24 @@ function Menu({ onSetup, onCreateRoom, launchUrl, busy }) {
   </main>;
 }
 
+function SetupSegments({ name, labelledBy, options, value, onChange }) {
+  return <div className="setup-segments" role="radiogroup" aria-labelledby={labelledBy}>
+    {options.map(([option, label]) => <label key={option}>
+      <input type="radio" name={name} checked={value === option} onChange={() => onChange(option)} />
+      <span>{label}</span>
+    </label>)}
+  </div>;
+}
+
 function Setup({ computer, onStart, onBack }) {
   const [count, setCount] = useState(MIN_PLAYERS);
   const [names, setNames] = useState(() => Array(MAX_PLAYERS).fill(""));
-  const [cast, setCast] = useState(() => CHARACTERS.slice(0, MIN_PLAYERS).map(person => person.id));
+  const [cast, setCast] = useState(null);
+  const canStart = !cast || cast.length === count;
   const chooseCount = value => {
     setCount(value);
-    setCast(current => current.length === value ? current : CHARACTERS.slice(0, value).map(person => person.id));
+    if (value === MAX_PLAYERS) setCast(null);
+    else if (cast?.length > value) setCast(cast.slice(0, value));
   };
   const toggle = id => setCast(current => {
     const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
@@ -53,34 +65,46 @@ function Setup({ computer, onStart, onBack }) {
   });
   function start(event) {
     event.preventDefault();
-    if (cast.length !== count) return;
+    if (!canStart) return;
     const players = computer ? Array.from({ length: count }, (_, index) => index === 0 ? "你" : `电脑 ${index}`)
       : names.slice(0, count);
     onStart(players, cast);
   }
-  const countPicker = <div className="count-picker">
-    {[4, 5, 6].map(value => <button key={value} type="button" className="secondary-button" aria-pressed={count === value}
-      onClick={() => chooseCount(value)}>{value} 人</button>)}
-  </div>;
   return <main className="sea-page setup" data-computer={computer}>
     {!computer && <h1>本地多人</h1>}
     <form onSubmit={start}>
       <div className="setup-options">
         {computer && <h1>人机对战</h1>}
-        {computer ? <div className="computer-count" role="group" aria-labelledby="computer-count-label">
-          <span id="computer-count-label">玩家人数</span>
-          {countPicker}
-        </div> : <fieldset>
-          <legend>玩家人数</legend>
-          {countPicker}
-        </fieldset>}
-        <fieldset>
-          <legend>登船角色 · 已选 {cast.length}/{count}</legend>
-          <div className="cast-picker">
-            {CHARACTERS.map(person => <button key={person.id} type="button" className={computer ? "role-chip" : "secondary-button"}
-              aria-pressed={cast.includes(person.id)} onClick={() => toggle(person.id)}>{personName(person.id)}</button>)}
+        <div className="setup-row">
+          <span id="setup-count-label">玩家人数</span>
+          <SetupSegments name="crew-count" labelledBy="setup-count-label" value={count} onChange={chooseCount}
+            options={[[4, "4 人"], [5, "5 人"], [6, "6 人"]]} />
+        </div>
+        <div>
+          <div className="setup-row">
+            <span id="setup-cast-label">登船角色</span>
+            {count === MAX_PLAYERS ? <span className="setup-value">全部角色登船</span>
+              : <SetupSegments name="crew-selection" labelledBy="setup-cast-label" value={cast ? "manual" : "random"}
+                options={[["random", "随机抽取"], ["manual", "手动选择"]]}
+                onChange={mode => setCast(mode === "manual" ? [] : null)} />}
           </div>
-        </fieldset>
+          <div className="cast-disclosure" data-expanded={!!cast} inert={!cast}>
+            <div className="cast-disclosure-content">
+              <p className="cast-count" id="setup-cast-count" aria-live="polite">已选 {cast?.length ?? 0}/{count}</p>
+              <div className="cast-picker" role="group" aria-labelledby="setup-cast-label" aria-describedby="setup-cast-count">
+                {CHARACTERS.map(person => {
+                  const selected = cast?.includes(person.id) ?? false;
+                  return <button key={person.id} type="button" className="setup-option" aria-pressed={selected}
+                    onClick={() => toggle(person.id)}>
+                    <CrewPortrait id={person.id} />
+                    <span>{personName(person.id)}</span>
+                    {selected && <LucideIcon icon={Check} />}
+                  </button>;
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
         {!computer && <>
           <div className="name-fields">
             {names.slice(0, count).map((name, index) => <label key={index} className="name-field">
@@ -93,7 +117,7 @@ function Setup({ computer, onStart, onBack }) {
         </>}
       </div>
       <div className="setup-actions">
-        <Raised type="submit" icon="forward" disabled={cast.length !== count}>上船</Raised>
+        <Raised type="submit" icon="forward" disabled={!canStart}>上船</Raised>
         <button type="button" className="return-to-modes" onClick={onBack}>返回模式选择</button>
       </div>
     </form>
@@ -131,35 +155,87 @@ function crewStatus(entry) {
   return entry.conscious ? "" : "昏迷";
 }
 
-function CrewPortrait({ id }) {
+function CrewPortrait({ id, dead = false }) {
   const index = CHARACTERS.findIndex(person => person.id === id);
-  return <span className="seat-portrait" aria-hidden="true"
+  return <span className="seat-portrait" data-dead={dead || undefined} aria-hidden="true"
     style={{ backgroundPosition: `${(index % 3) * 50}% ${Math.floor(index / 3) * 100}%` }} />;
 }
 
-function CardFace({ id, disabled, onClick, detailsOpen }) {
+const CARD_PREVIEW_DELAY = 500;
+const CARD_PREVIEW_SLOP = 10;
+
+function CardFace({ id, disabled, onClick, onPreview, detailsOpen }) {
+  const press = useRef(null);
+  const stopPress = () => {
+    clearTimeout(press.current?.timer);
+    press.current = null;
+  };
+  useLayoutEffect(() => stopPress, [id, disabled, !!onPreview]);
+
+  function startPress(event) {
+    if (event.button !== 0 || !event.isPrimary) return;
+    stopPress();
+    const { pointerId, clientX, clientY, currentTarget } = event;
+    const hold = { pointerId, clientX, clientY, previewed: false };
+    press.current = hold;
+    hold.timer = setTimeout(() => {
+      hold.previewed = true;
+      // Keep the release on the card when the popover opens over it.
+      currentTarget.setPointerCapture(pointerId);
+      onPreview(currentTarget);
+    }, CARD_PREVIEW_DELAY);
+  }
+
+  function movePress(event) {
+    const hold = press.current;
+    if (!hold || hold.previewed || hold.pointerId !== event.pointerId) return;
+    if (Math.hypot(event.clientX - hold.clientX, event.clientY - hold.clientY) > CARD_PREVIEW_SLOP) stopPress();
+  }
+
+  function endPress(event) {
+    if (press.current?.pointerId === event.pointerId && !press.current.previewed) stopPress();
+  }
+
+  function clickCard(event) {
+    const previewed = press.current?.previewed;
+    stopPress();
+    if (!previewed || event.detail === 0) onClick(event);
+  }
+
+  function previewByKeyboard(event) {
+    if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+    event.preventDefault();
+    stopPress();
+    onPreview(event.currentTarget);
+  }
+
   const card = cardInfo(id);
   if (!card) return null;
   const face = <>
-    <Icon name={iconFor(card.type)} />
+    <Icon name={card.type} />
     <strong>{provisionName(card.type)}</strong>
     <small>{card.value ? `${card.value} 分` : card.size ? `武器 +${card.size}` : ""}</small>
   </>;
   return onClick
     ? <button type="button" className="card" aria-expanded={detailsOpen}
       aria-controls={detailsOpen !== undefined ? "hand-card-details" : undefined}
-      disabled={disabled} onClick={onClick}>{face}</button>
+      aria-keyshortcuts={onPreview ? "Shift+F10" : undefined}
+      onPointerDown={onPreview && startPress} onPointerMove={onPreview && movePress}
+      onPointerLeave={onPreview && endPress} onPointerUp={onPreview && endPress}
+      onPointerCancel={onPreview && endPress} onKeyDown={onPreview && previewByKeyboard}
+      onContextMenu={onPreview && (event => event.preventDefault())}
+      disabled={disabled} onClick={onPreview ? clickCard : onClick}>{face}</button>
     : <div className="card">{face}</div>;
 }
 
-function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, takeCard }) {
+function PublicSupplies({ entry, iconsOnly, onInspect, canTake, inspectedId, disabled, takeCard }) {
   if (!entry.shown.length) return null;
   const interactive = !!onInspect || canTake;
   const cards = new Map();
   for (const id of entry.shown) {
     const card = cardInfo(id);
     if (!card) continue;
-    const key = interactive ? id : `${card.type}-${card.value}`;
+    const key = interactive || iconsOnly ? id : `${card.type}-${card.value}`;
     const existing = cards.get(key);
     if (existing) existing.count += 1;
     else cards.set(key, { id, card, count: 1 });
@@ -168,19 +244,20 @@ function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, take
     tabIndex={cards.size > 1 ? 0 : undefined}>
     {[...cards.values()].map(({ id, card, count }) => {
       const label = `${provisionName(card.type)}${card.value ? ` ${card.value}分` : ""}${count > 1 ? ` ×${count}` : ""}`;
-      const face = <><Icon name={iconFor(card.type)} /><span>{label}</span></>;
+      const face = <><Icon name={card.type} />{!iconsOnly && <span>{label}</span>}</>;
       return interactive
         ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)}
-          aria-label={canTake ? `抢夺${personName(entry.id)}的${label}` : undefined}
+          aria-label={canTake ? `抢夺${personName(entry.id)}的${label}` : label} title={label}
           aria-expanded={onInspect ? inspectedId === id : undefined}
           aria-controls={onInspect ? "hand-card-details" : undefined}
           onClick={event => onInspect ? onInspect(id, event.currentTarget) : takeCard(entry.id, id)}>{face}</button>
-        : <span key={id} className="seat-supply">{face}</span>;
+        : <span key={id} className="seat-supply" role={iconsOnly ? "img" : undefined}
+          aria-label={iconsOnly ? label : undefined} title={iconsOnly ? label : undefined}>{face}</span>;
     })}
   </div>;
 }
 
-function CrewBoard({ game, players, feedback, isTarget, pickSeat, inspectCard, inspectedId, cardDisabled, taking, takeCard }) {
+function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, isTarget, pickSeat, inspectCard, inspectedId, cardDisabled, taking, takeCard }) {
   const rows = Math.ceil(game.characters.length / 2);
   return <div className="crew-board" data-rows={rows} style={{ "--seat-rows": rows }}>
     <BoatHull rows={rows} />
@@ -190,13 +267,19 @@ function CrewBoard({ game, players, feedback, isTarget, pickSeat, inspectCard, i
         const current = entry.id === game.queue[0];
         const target = isTarget(entry);
         const hurt = feedback?.injuries.includes(entry.id);
+        const winner = feedback?.winners.includes(entry.id);
+        const mugRole = entry.id === mug?.from ? "from" : entry.id === mug?.to ? "to" : undefined;
         const name = personName(entry.id);
         const status = crewStatus(entry) || players[entry.player];
         return <li key={entry.id}>
-          <div data-seat-id={entry.id} className={`seat${current ? " is-current" : ""}${entry.removed ? " is-out" : ""}`}
-            aria-current={current ? "step" : undefined} data-target={target}>
+          <div data-seat-id={entry.id} className={`seat${current ? " is-current" : ""}`}
+            aria-current={current ? "step" : undefined} data-target={target} data-mug={mugRole}>
+            {winner && <span className="fight-winner-highlight" key={feedback.step} aria-hidden="true" />}
             <span className="seat-avatar">
-              <CrewPortrait id={entry.id} />
+              <CrewPortrait id={entry.id} dead={!entry.alive} />
+              {entry.id === fightSkip && <span className="seat-thinking" data-skipped="true" role="status"
+                aria-label={`${name}不参战`}>跳过</span>}
+              {current && thinking && <span className="seat-thinking" role="status" aria-label={`${name}思考中`}>···</span>}
               <small className="seat-count" role="img" aria-label={`${entry.handCount} 张暗牌`}>
                 <svg viewBox="0 0 18 16" aria-hidden="true">
                   <rect x="2.3" y="2.4" width="7.2" height="10.4" rx="1.1" transform="rotate(-15 5.9 7.6)" />
@@ -219,7 +302,7 @@ function CrewBoard({ game, players, feedback, isTarget, pickSeat, inspectCard, i
             </div>
           </div>
           <div className="seat-supply-slot">
-            <PublicSupplies entry={entry} onInspect={own && inspectCard} inspectedId={inspectedId}
+            <PublicSupplies entry={entry} iconsOnly onInspect={own && inspectCard} inspectedId={inspectedId}
               canTake={taking && !own && !entry.removed} disabled={cardDisabled} takeCard={takeCard} />
           </div>
         </li>;
@@ -228,7 +311,7 @@ function CrewBoard({ game, players, feedback, isTarget, pickSeat, inspectCard, i
   </div>;
 }
 
-function CardFlight({ transfer, boardRef }) {
+function CardFlight({ transfer, boardRef, duration }) {
   const flight = useRef(null);
   useLayoutEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -253,10 +336,10 @@ function CardFlight({ transfer, boardRef }) {
       { transform: position(sx, sy, -8), opacity: 1 },
       { transform: position((sx + tx) / 2, (sy + ty) / 2 - 10, 7), opacity: 1 },
       { transform: position(tx, ty, 0), opacity: 0 },
-    ], { duration: 270, easing: "ease-out" });
+    ], { duration, easing: "ease-out" });
     animation.onfinish = () => { card.hidden = true; };
     return () => { animation.cancel(); card.hidden = true; };
-  }, [boardRef, transfer]);
+  }, [boardRef, duration, transfer]);
 
   return <div className="card-flight" aria-hidden="true" ref={flight} hidden><Icon name="supplies" /></div>;
 }
@@ -340,14 +423,17 @@ function Choice({ icon, children, ...props }) {
   </Raised>;
 }
 
-function FightSide({ label, members, flareBy }) {
-  return <div className="fight-side">
-    <h3>{label}</h3>
+function FightSide({ label, members, fight, characters, joined, finalPower, won, losers }) {
+  const crew = members.map(id => characters.find(entry => entry.id === id));
+  const power = finalPower ?? crew.reduce((total, entry) => total + fightSize(entry, fight), 0);
+  return <div className="fight-side" data-won={won || undefined}>
+    <h3>{label} <strong aria-label={`战力 ${power}`}>{power}</strong></h3>
     <ul aria-label={label}>
-      {members.map(id => <li key={id} className="fight-member">
-        <CrewPortrait id={id} />
+      {crew.map(({ id, alive }) => <li key={id} className="fight-member" data-joined={id === joined}>
+        <CrewPortrait id={id} dead={!alive} />
         <strong>{personName(id)}</strong>
-        {id === flareBy && <small>信号枪 +8</small>}
+        {id === fight.flareBy && <small>信号枪 +8</small>}
+        {losers?.includes(id) && <small className="fight-injury">+1 伤势</small>}
       </li>)}
     </ul>
   </div>;
@@ -377,34 +463,46 @@ function NavigationFace({ card, characters }) {
   </span>;
 }
 
-const EMPTY_ROW_DRAFT = { dismissed: false, kept: [] };
+const EMPTY_NAVIGATION_DRAFT = { dismissed: false, kept: [] };
 
-function RowDecision({ cards, characters, draft, updateDraft, busy, error, overlayOpen, onConfirm }) {
+function NavigationDecision({ phase, cards, characters, draft, open, updateDraft, busy, error, onAction }) {
+  const displayedPhase = useRef(phase);
+  if (open) displayedPhase.current = phase;
+  const rowing = displayedPhase.current === "row";
+  const title = rowing ? "划船" : "选择航海牌";
   const close = () => updateDraft(() => ({ dismissed: true }));
-  const resume = () => updateDraft(() => ({ dismissed: false }));
-  return <>
-    <Raised secondary aria-haspopup="dialog" onClick={resume}>继续划船</Raised>
-    <GameDialog title="划船" closeLabel="返回棋桌" className="row-dialog" open={!draft.dismissed && !overlayOpen} onClose={close}
-      footer={<div className="row-dialog-footer">
-        {error && <p className="error table-error" role="alert">{error}</p>}
-        <p className="table-hint" role="status">留下 {draft.kept.length} 张 · 放回 {cards.length - draft.kept.length} 张</p>
-        <Raised disabled={busy} onClick={() => onConfirm(cards.map(id => draft.kept.includes(id)))}>确认划船</Raised>
-      </div>}>
-      <div className="navigation-choices" aria-label="划船抽到的航海牌" role="group">
-        {cards.map((id, index) => {
-          const kept = draft.kept.includes(id);
-          return <button type="button" key={id} className="navigation-choice" disabled={busy} aria-pressed={kept}
-            onClick={() => updateDraft(({ kept: previous }) => ({
-              kept: previous.includes(id) ? previous.filter(card => card !== id) : [...previous, id],
-            }))}>
-            <span className="navigation-label"><Icon name="compass" />航海牌 {index + 1}</span>
-            <NavigationFace card={navigationById[id]} characters={characters} />
-            <strong className="row-card-destination">{kept ? "留在划船堆" : "放回牌底"}</strong>
-          </button>;
-        })}
-      </div>
-    </GameDialog>
-  </>;
+  return <GameDialog title={title} closeLabel="返回棋桌"
+    className={rowing ? "navigation-drawer row-dialog" : "navigation-drawer navigation-dialog"} open={open} onClose={close}
+    footer={rowing && <>
+      {error && <p className="error table-error" role="alert">{error}</p>}
+      <Raised disabled={busy} onClick={() => onAction({ type: "sort", keep: cards.map(id => draft.kept.includes(id)) })}>确认划船</Raised>
+    </>}>
+    {rowing && <p className="table-hint">留下 0 ~ {cards.length} 张航海牌</p>}
+    {!rowing && error && <p className="error table-error" role="alert">{error}</p>}
+    <div className="navigation-choices" aria-label={rowing ? "划船抽到的航海牌" : "选择一张生效的航海牌"} role="group">
+      {cards.map((id, index) => {
+        const kept = draft.kept.includes(id);
+        const select = () => {
+          if (!rowing) return onAction({ type: "play", card: id });
+          updateDraft(({ kept: previous }) => ({
+            kept: previous.includes(id) ? previous.filter(card => card !== id) : [...previous, id],
+          }));
+        };
+        return <button type="button" key={id} className="navigation-choice" disabled={busy} aria-pressed={rowing ? kept : undefined} onClick={select}>
+          <span className="navigation-label"><Icon name="navigation" />航海牌 {index + 1}</span>
+          <NavigationFace card={navigationById[id]} characters={characters} />
+          {rowing && <strong className="row-card-destination">{kept ? "留在划船堆" : "放回牌底"}</strong>}
+        </button>;
+      })}
+    </div>
+  </GameDialog>;
+}
+
+function NavigationReveal({ reveal }) {
+  const card = navigationById[reveal?.card];
+  return <Dialog className="sea-dialog navigation-reveal" open={!!card && reveal.open} aria-label="生效航海牌">
+    {card && <NavigationFace card={card} characters={reveal.characters} />}
+  </Dialog>;
 }
 
 function WaterPanel({ game, waterCard, drinks, setDrinks, addDrink, busy, send }) {
@@ -438,12 +536,14 @@ function WaterPanel({ game, waterCard, drinks, setDrinks, addDrink, busy, send }
 
 const EMPTY_DRAFT = { targetCard: null, mode: "", drinks: [] };
 
-function Table({ game, computer, feedback, busy, trading, error, overlayOpen, rowDraft, onRowDraft,
+function Table({ game, computer, feedback, fightResult, fightSkip, hasHistory, busy, trading, error, overlayOpen, navigationDraft, onNavigationDraft,
   onAction, onChooseTrader, onEndTrade, onComputerHold, onHistory, onInspect }) {
   const boardRef = useRef(null);
   const turnRef = useRef(null);
   const handPopoverRef = useRef(null);
-  const handBackdropRef = useRef(null);
+  const handMaskHoleRef = useRef(null);
+  const handMaskClipRef = useRef(null);
+  const pressedHandBackdrop = useRef(false);
   const handPanelRef = useRef(null);
   const handContent = useRef(null);
   const handTrigger = useRef(null);
@@ -456,11 +556,19 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   }));
   const self = game.characters.find(entry => entry.player === game.viewerId);
   const players = Object.fromEntries(game.players.map(player => [player.id, player.name]));
-  const nav = game.navCard ? navigationById[game.navCard] : null;
-  const active = game.canAct && !trading;
+  const canAct = game.canAct && !trading;
+  const active = canAct && !fightResult && !fightSkip;
+  const fight = fightResult ?? game.fight;
+  let fightTitle = fight?.stage === "join" ? "选择阵营" : "亮出武器";
+  if (fightResult) {
+    fightTitle = fightResult.attackersWin ? "进攻方获胜" : "防守方获胜";
+    if (fightResult.attack === fightResult.defense) fightTitle = "平局守住";
+  }
   const dealing = active && game.phase === "deal";
-  const demand = game.phase === "answer" ? game.demand : null;
+  const demand = !fightResult && game.phase === "answer" ? game.demand : null;
   const mug = demand?.kind === "mug";
+  const highlightedMug = computer ? (mug ? demand : feedback?.mug) : null;
+  const thinking = computer && !active && !fightResult && !fightSkip && !overlayOpen && mode !== "give" && game.phase !== "ended" && !!game.queue.length;
   const requester = personName(demand?.from);
   const recipient = personName(demand?.to);
   const requestedCard = mug ? cardInfo(demand.card) : null;
@@ -470,7 +578,6 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   const usingWater = active && game.phase === "thirst";
   const ownCards = self ? [...(self.hand || []), ...self.shown] : [];
   const weapons = fightWeapons(self);
-  const publicActor = game.characters.find(entry => entry.id === game.queue[0]);
   const cardDisabled = id => busy || drinks.some(use => use.card === id);
   const inspectCard = (id, element) => setInspectedCard({ id, element });
   const closeCard = () => setInspectedCard(null);
@@ -487,15 +594,17 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   const actionPhase = active && game.phase === "action";
   const rescuePhase = active && game.phase === "rescue";
   const arming = active && game.phase === "fight" && game.fight.stage === "arm";
-  const handDetail = ownCards.includes(inspectedCard?.id) ? cardInfo(inspectedCard.id) : null;
   const anchor = inspectedCard?.element;
-  const handCard = !overlayOpen && handDetail && (arming || !anchor.closest(".turn-scroll")) ? anchor : null;
+  const previewingOffer = dealing && !busy && anchor?.closest(".provision-offer") && game.offer.includes(inspectedCard.id);
+  const handDetail = previewingOffer || ownCards.includes(inspectedCard?.id) ? cardInfo(inspectedCard.id) : null;
+  const handCard = !overlayOpen && !fightResult && !fightSkip && handDetail && (previewingOffer || arming || !anchor.closest(".turn-scroll")) ? anchor : null;
   const openSupplyId = handCard?.closest(".seat-supplies") ? inspectedCard.id : undefined;
   if (handCard) {
     const { id, type } = handDetail;
     const inHand = (self.hand || []).includes(id);
-    const actions = [
-      canReveal && inHand && { label: "亮出", intent: { type: "reveal", card: id } },
+    const canUseWeapon = arming && weapons.includes(id);
+    const actions = previewingOffer ? [] : [
+      canReveal && inHand && (!canUseWeapon || type === "flare") && { label: "亮出", intent: { type: "reveal", card: id } },
       canTrade && game.characters.some(canReceive) && { label: "交给别人", target: "give" },
       actionPhase && type === "medical" && game.characters.some(canHeal) && { label: "治疗", target: "medical" },
       usingWater && type === "water" && needsWater && { label: "分配淡水", target: "water" },
@@ -503,7 +612,7 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
       actionPhase && type === "flare" && { label: "发射信号枪", intent: { type: "flare" } },
       rescuePhase && type === "preserver" && game.characters.some(canRescue) && { label: "抛救生圈", target: "throw" },
       rescuePhase && type === "chum" && inHand && game.falling.length > 0 && { label: "投放鱼饵", intent: { type: "rescue", chum: true } },
-      arming && weapons.includes(id) && { label: "使用武器", intent: { type: "arm", card: id } },
+      canUseWeapon && { label: "使用武器", intent: { type: "arm", card: id } },
     ].filter(Boolean);
     handContent.current = { card: handDetail, actions, busy: cardDisabled(id) };
   }
@@ -532,17 +641,20 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
     }
 
     handTrigger.current = handCard;
+    pressedHandBackdrop.current = false;
     popover.showPopover();
-    const rail = handCard.closest(".card-rail, .seat-supplies") ?? handCard.parentElement;
-    const backdrop = handBackdropRef.current;
+    const rail = handCard.closest(".card-rail, .seat-supplies, .provision-offer") ?? handCard.parentElement;
+    const hole = handMaskHoleRef.current;
+    const clip = handMaskClipRef.current;
+    const radius = parseFloat(getComputedStyle(handCard).borderTopLeftRadius);
     const place = () => {
       const card = handCard.getBoundingClientRect();
       const railBounds = rail.getBoundingClientRect();
       const { clientWidth: width, clientHeight: height } = document.documentElement;
-      const left = Math.max(0, railBounds.left, Math.floor(card.left) - 3);
-      const right = Math.min(width, railBounds.right, Math.ceil(card.right) + 3);
-      const top = Math.max(0, railBounds.top, Math.floor(card.top) - 3);
-      const bottom = Math.min(height, railBounds.bottom, Math.ceil(card.bottom) + 3);
+      const left = Math.max(0, railBounds.left, card.left);
+      const right = Math.min(width, railBounds.right, card.right);
+      const top = Math.max(0, railBounds.top, card.top);
+      const bottom = Math.min(height, railBounds.bottom, card.bottom);
       const gap = 8;
       const above = top - 2 * gap;
       const below = height - bottom - 2 * gap;
@@ -553,13 +665,21 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
       panel.style.top = (openAbove ? top - panel.offsetHeight - gap : bottom + gap) + "px";
       panel.style.transformOrigin = Math.max(gap, Math.min(panel.offsetWidth - gap, (left + right) / 2 - panelLeft))
         + (openAbove ? "px bottom" : "px top");
-      backdrop.style.maskPosition = `0 0, ${left}px ${top}px`;
-      backdrop.style.maskSize = `100% 100%, ${Math.max(0, right - left)}px ${Math.max(0, bottom - top)}px`;
+      hole.setAttribute("x", card.left);
+      hole.setAttribute("y", card.top);
+      hole.setAttribute("width", card.width);
+      hole.setAttribute("height", card.height);
+      hole.setAttribute("rx", radius);
+      clip.setAttribute("x", left);
+      clip.setAttribute("y", top);
+      clip.setAttribute("width", Math.max(0, right - left));
+      clip.setAttribute("height", Math.max(0, bottom - top));
     };
     place();
     (panel.querySelector("button:not(:disabled)") ?? panel).focus({ preventScroll: true });
     const observer = new ResizeObserver(place);
     observer.observe(rail);
+    observer.observe(handCard);
     observer.observe(panel);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
@@ -606,18 +726,19 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
   }}>
     <header className="table-overview">
       {computer && <div className="turn-feedback">
-        <span className="feedback-text" role="status">{feedback?.text ?? "暂无行动记录"}</span>
-        <button type="button" className="feedback-link" disabled={!feedback} aria-haspopup="dialog" onClick={onHistory}>
+        <span className="feedback-text" role="status">{mug ? `${personName(demand.from)} → ${personName(demand.to)} · 抢夺` : feedback?.text}</span>
+        <button type="button" className="feedback-link" disabled={!hasHistory} aria-haspopup="dialog" onClick={onHistory}>
           查看记录 <span aria-hidden="true">›</span>
         </button>
       </div>}
       <div className="meters" role="group" aria-label="船况">
         <div className="meter"><Icon name="bird" /><span>海鸥</span><b>{game.birds}/4</b></div>
-        <div className="meter" data-supply-source><Icon name="supplies" /><span>物资牌</span><b>{game.supplyCount}</b></div>
-        <div className="meter"><Icon name="compass" /><span>航海牌</span><b>{game.navCount}</b></div>
+        <div className="meter" data-supply-source><Icon name="crate" /><span>物资牌</span><b>{game.supplyCount}</b></div>
+        <div className="meter"><Icon name="navigation" /><span>航海牌</span><b>{game.navCount}</b></div>
       </div>
     </header>
-    <CrewBoard game={game} players={players} feedback={feedback} isTarget={isTarget} pickSeat={pickSeat}
+    <CrewBoard game={game} players={players} feedback={fightResult || fightSkip ? null : feedback}
+      thinking={thinking} fightSkip={fightSkip} mug={highlightedMug} isTarget={isTarget} pickSeat={pickSeat}
       inspectCard={inspectCard} inspectedId={openSupplyId} cardDisabled={cardDisabled}
       taking={mode === "mug"} takeCard={(target, card) => send({ type: "mug", target, card })} />
     <section className="turn-panel panel" aria-label="当前行动">
@@ -626,43 +747,32 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
           第 {game.day} 天{dealing ? " · 分配物资" : active ? " · 轮到你" : ""}
         </h2>
       </header>
-      <div className="turn-scroll" ref={turnRef} key={`${game.day}-${game.phase}-${active}-${game.fight?.stage}`} tabIndex={0}>
+      <div className="turn-scroll" ref={turnRef} key={`${game.day}-${game.phase}-${canAct}-${game.fight?.stage}`} tabIndex={0}>
         {error && <p className="error table-error" role="alert">{error}</p>}
         {trading && <p className="table-hint">{game.tradeOpen ? "选择要亮出或转交的物资。" : "选择要亮出的物资。"}</p>}
-        {!active && !trading && game.phase !== "ended" &&
-          <p className="table-hint" role="status">{computer
-            ? `${players[publicActor?.player] ?? "电脑玩家"} 正在行动…`
-            : "等待当前行动结算"}</p>}
+        {!active && !trading && !fight && game.phase !== "ended" && (!computer || !game.queue.length) &&
+          <p className="table-hint" role="status">等待当前行动结算</p>}
         {dealing && <section className="card-tray provision-deal">
-          <p className="table-hint">选择一张物资</p>
+          <p className="table-hint">选择一张物资，长按可查看详情</p>
           <div className="hand provision-offer" aria-label="选择物资" style={{ "--card-columns": Math.min(4, game.offer.length) }}>
-            {game.offer.map(id => <CardFace key={id} id={id} disabled={busy} onClick={() => send({ type: "take", card: id })} />)}
+            {game.offer.map(id => <CardFace key={id} id={id} disabled={busy}
+              detailsOpen={!!handCard && !!previewingOffer && inspectedCard.id === id}
+              onPreview={element => inspectCard(id, element)} onClick={() => send({ type: "take", card: id })} />)}
           </div>
         </section>}
-        {active && rowDraft && <RowDecision cards={game.rowChoices} characters={game.characters} draft={rowDraft}
-          updateDraft={onRowDraft} busy={busy} error={error} overlayOpen={overlayOpen}
-          onConfirm={keep => send({ type: "sort", keep })} />}
-        {active && game.phase === "navigate" && <section className="panel">
-          <h2>选择航海牌</h2>
-          <div className="navigation-choices">
-            {game.rowChoices.map((id, index) =>
-              <button type="button" key={id} className="navigation-choice" disabled={busy} onClick={() => send({ type: "play", card: id })}>
-                <span className="navigation-label"><Icon name="compass" />航海牌 {index + 1}</span>
-                <NavigationFace card={navigationById[id]} characters={game.characters} />
-              </button>)}
-          </div>
-        </section>}
+        {active && navigationDraft && <Raised secondary aria-haspopup="dialog"
+          onClick={() => onNavigationDraft(() => ({ dismissed: false }))}>{game.phase === "row" ? "继续划船" : "继续领航"}</Raised>}
         {active && game.phase === "action" && <section className="card-tray" aria-label="行动选项">
           <div className="actions" aria-label="行动">
-            <Choice icon="oar" aria-haspopup="dialog" disabled={busy} onClick={() => send({ type: "row" })}>划船</Choice>
+            <Choice icon="row" aria-haspopup="dialog" disabled={busy} onClick={() => send({ type: "row" })}>划船</Choice>
             <Choice icon="swap" disabled={busy} aria-pressed={mode === "move"}
               onClick={() => updateDraft({ mode: "move", targetCard: null })}>换座</Choice>
-            <Choice icon="weapon" disabled={busy} aria-pressed={mode === "mug"}
+            <Choice icon="knife" disabled={busy} aria-pressed={mode === "mug"}
               onClick={() => updateDraft({ mode: "mug", targetCard: null })}>抢夺</Choice>
             <Choice icon="wait" disabled={busy} onClick={() => send({ type: "nothing" })}>不动</Choice>
           </div>
         </section>}
-        {demand && !trading && <section className="panel">
+        {demand && !trading && (active || !computer || !mug) && <section className="panel">
           <h2>{respondToMug ? `${requester}要抢你的物资` : mug ? "抢夺请求" : "换座请求"}</h2>
           <p className="hint">{respondToMug
             ? requestedCard ? `答应后，他会拿走你亮出的${provisionName(requestedCard.type)}。` : "答应后，他会随机拿走你的一张暗牌。"
@@ -676,11 +786,16 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
             </Raised>
           </div>}
         </section>}
-        {game.phase === "fight" && <section className="panel">
-          <h2>{game.fight.stage === "join" ? "选择阵营" : "亮出武器"}</h2>
+        {fight && <section className="panel fight-panel" data-resolved={!!fightResult}
+          style={fightResult ? { animationDuration: `${FIGHT_RESULT_MS}ms` } : undefined}>
+          <h2 aria-live="polite">{fightTitle}</h2>
           <div className="fight-sides">
-            <FightSide label="进攻方" members={game.fight.attackers} flareBy={game.fight.flareBy} />
-            <FightSide label="防守方" members={game.fight.defenders} flareBy={game.fight.flareBy} />
+            <FightSide label="进攻方" members={fight.attackers} fight={fight}
+              characters={game.characters} joined={feedback?.joined} finalPower={fightResult?.attack}
+              won={fightResult?.attackersWin} losers={fightResult?.losers} />
+            <FightSide label="防守方" members={fight.defenders} fight={fight}
+              characters={game.characters} joined={feedback?.joined} finalPower={fightResult?.defense}
+              won={fightResult && !fightResult.attackersWin} losers={fightResult?.losers} />
           </div>
           {active && (game.fight.stage === "join" ? <div className="actions fight-actions">
             <Choice data-fight-side="attack" disabled={busy} onClick={() => send({ type: "join", side: "attack" })}>帮进攻</Choice>
@@ -715,10 +830,6 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         {targetCard && <Raised secondary disabled={busy} onClick={cancelTarget}>取消操作</Raised>}
         {game.phase === "ended" && !!game.scores?.length && <Settlement key={game.step} game={game} players={players}
           busy={busy} error={error} overlayOpen={overlayOpen} onAction={onAction} />}
-        {nav && <section className="card-tray navigation-result">
-          <h2>刚才的航海</h2>
-          <NavigationFace card={nav} characters={game.characters} />
-        </section>}
         {(onChooseTrader || trading) && <div className="table-footer">
           {onChooseTrader && <Raised secondary disabled={busy} onClick={onChooseTrader}>{game.tradeOpen ? "传屏交易" : "传屏亮牌"}</Raised>}
           {trading && <Raised secondary onClick={onEndTrade}>返回当前回合</Raised>}
@@ -732,14 +843,24 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
       </header>
       <div className="card-rail" role="group" aria-label="你的物资" tabIndex={0}>
         {!!self.hand.length ? <div className="hand" aria-label="手牌">
-          {self.hand.map(id => <CardFace key={id} id={id}
-            detailsOpen={!!handCard && inspectedCard.id === id && !!handCard.closest(".card-rail")} disabled={cardDisabled(id)} onClick={event => inspectCard(id, event.currentTarget)} />)}
-        </div> : <p className="table-hint">手里没有牌。</p>}
+          {self.hand.map(id => {
+            const preview = element => inspectCard(id, element);
+            return <CardFace key={id} id={id} disabled={cardDisabled(id)}
+              detailsOpen={!!handCard && inspectedCard.id === id && !!handCard.closest(".card-rail")}
+              onPreview={preview} onClick={event => preview(event.currentTarget)} />;
+          })}
+        </div> : <p className="table-hint">{t("hand.empty")}</p>}
       </div>
     </section>}
     <div id="hand-card-details" ref={handPopoverRef} popover="manual" className="hand-card-popover"
-      data-closing={!handCard} onClick={event => {
-        if (handCard && event.target === event.currentTarget) closeCard();
+      data-closing={!handCard} onPointerDown={event => {
+        pressedHandBackdrop.current = event.target === event.currentTarget;
+      }} onMouseDown={event => {
+        if (event.target === event.currentTarget) event.preventDefault();
+      }} onClick={event => {
+        // A long press can release over the backdrop without starting there.
+        if (handCard && pressedHandBackdrop.current && event.target === event.currentTarget) closeCard();
+        pressedHandBackdrop.current = false;
       }} onKeyDown={event => {
         if (!handCard || event.key !== "Escape") return;
         event.preventDefault();
@@ -749,10 +870,19 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
           closeCard();
         }
       }}>
-      <div ref={handBackdropRef} className="hand-card-backdrop" aria-hidden="true" />
+      <svg className="hand-card-backdrop" aria-hidden="true">
+        <defs>
+          <clipPath id="hand-card-mask-clip"><rect ref={handMaskClipRef} /></clipPath>
+          <mask id="hand-card-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+            <rect width="100%" height="100%" fill="white" />
+            <rect ref={handMaskHoleRef} fill="black" clip-path="url(#hand-card-mask-clip)" />
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" mask="url(#hand-card-mask)" />
+      </svg>
       {detail && <section ref={handPanelRef} className="hand-card-panel" aria-labelledby="hand-card-title" tabIndex={-1}>
         <header className="hand-card-heading">
-          <Icon name={iconFor(detail.card.type)} />
+          <Icon name={detail.card.type} />
           <strong id="hand-card-title">{provisionName(detail.card.type)}</strong>
         </header>
         <p className="hand-card-effect">{provisionEffect(detail.card)}</p>
@@ -762,7 +892,7 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         </div>}
       </section>}
     </div>
-    {feedback?.transfer && <CardFlight key={feedback.step} transfer={feedback.transfer} boardRef={boardRef} />}
+    {!fightResult && !fightSkip && feedback?.transfer && <CardFlight key={feedback.step} transfer={feedback.transfer} boardRef={boardRef} duration={feedback.mug ? 480 : 270} />}
   </main>;
 }
 
@@ -790,27 +920,37 @@ function GameDialog({ title, open, onClose, children, footer, className = "", cl
 
 function CharacterDialog({ entry, player, open, onClose }) {
   const character = characterById[entry.id];
+  const name = characterName(character.id);
   const status = crewStatus(entry);
   const ability = characterAbility(character.id);
-  return <GameDialog title={characterName(character.id)} className="character-dialog" open={open} onClose={onClose}>
-    <div className="character-overview">
-      <CrewPortrait id={entry.id} />
-      <div>
-        <p className="character-player">{player}{status && ` · ${status}`}</p>
+  return <Dialog className="sea-dialog character-dialog" open={open} onClose={onClose} aria-labelledby="character-dialog-title">
+    <button type="button" className="dialog-close-button" aria-label={`关闭${name}`} onClick={onClose}>
+      <LucideIcon icon={X} />
+    </button>
+    <div className="dialog-inner">
+      <div className="dialog-body">
+        <div className="character-overview">
+          <CrewPortrait id={entry.id} dead={!entry.alive} />
+          <div>
+            <h2 id="character-dialog-title">{name}</h2>
+            <p className="character-player">{player}</p>
+          </div>
+        </div>
         <dl className="character-stats">
           <div><dt>体型</dt><dd>{entry.size}</dd></div>
           <div><dt>生存分</dt><dd>{entry.survival}</dd></div>
           <div><dt>伤势</dt><dd>{entry.wounds}/{entry.size}</dd></div>
           <div><dt>暗牌</dt><dd>{entry.handCount}</dd></div>
         </dl>
+        {status && <p>{status}</p>}
+        {ability && <p>{ability}</p>}
+        {!!entry.shown.length && <section className="character-supplies">
+          <h3>亮出的物资</h3>
+          <PublicSupplies entry={entry} />
+        </section>}
       </div>
     </div>
-    {ability && <p>{ability}</p>}
-    {!!entry.shown.length && <section className="character-supplies">
-      <h3>亮出的物资</h3>
-      <PublicSupplies entry={entry} />
-    </section>}
-  </GameDialog>;
+  </Dialog>;
 }
 
 function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
@@ -840,25 +980,27 @@ function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
   </>;
 }
 
-export default function LifeboatApp({ room, computer, turnHistory, standalone, game, connecting, waiting, handoff, trading, busy, error, launchUrl,
+export default function LifeboatApp({ room, computer, turnHistory, turnFeedback, fightResult, fightSkip, navigationReveal, standalone, game, connecting, waiting, handoff, trading, busy, error, launchUrl,
   onCreateRoom, onStart, onReady, onTrade, onEndTrade, onExit, onAction, onPauseChange, onComputerHold }) {
   const [setup, setSetup] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [inspectedId, setInspectedId] = useState(null);
-  const [savedRow, setSavedRow] = useState(null);
+  const [savedNavigation, setSavedNavigation] = useState(null);
   const inspected = game?.characters.find(entry => entry.id === inspectedId);
-  const rowKey = game?.phase === "row" && game.canAct && !trading && game.rowChoices?.length
-    ? JSON.stringify([game.day, game.viewerId, game.rowChoices]) : null;
-  const rowDraft = rowKey && (savedRow?.key === rowKey ? savedRow : EMPTY_ROW_DRAFT);
+  const hasNavigationChoice = game?.phase === "row" && game.rowChoices?.length
+    || game?.phase === "navigate" && game.rowChoices?.length > 1;
+  const navigationKey = hasNavigationChoice && game.canAct && !trading
+    ? JSON.stringify([game.day, game.phase, game.viewerId, game.rowChoices]) : null;
+  const navigationDraft = navigationKey && (savedNavigation?.key === navigationKey ? savedNavigation : EMPTY_NAVIGATION_DRAFT);
 
   useLayoutEffect(() => {
-    if (game?.phase !== "row") setSavedRow(null);
-  }, [game?.phase]);
+    if (!navigationKey) setSavedNavigation(null);
+  }, [navigationKey]);
 
-  function updateRowDraft(update) {
-    setSavedRow(previous => {
-      const current = previous?.key === rowKey ? previous : EMPTY_ROW_DRAFT;
-      return { ...current, ...update(current), key: rowKey };
+  function updateNavigationDraft(update) {
+    setSavedNavigation(previous => {
+      const current = previous?.key === navigationKey ? previous : EMPTY_NAVIGATION_DRAFT;
+      return { ...current, ...update(current), key: navigationKey };
     });
   }
 
@@ -873,14 +1015,14 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
   };
   const localMatch = !room && !!game;
   const confirmExit = dialog === "exit";
-  const traders = localMatch && !computer && game.phase !== "ended" && !trading
+  const traders = localMatch && !computer && !fightResult && game.phase !== "ended" && !trading
     ? game.players.filter(player => game.characters.some(entry => entry.player === player.id
       && entry.conscious && (entry.handCount || (game.tradeOpen && entry.shown.length))))
     : [];
   let scene;
   if (connecting || (room && !game)) {
     scene = <Notice icon="bird" title={connecting ? "正在连接 Playweft" : waiting ? "等待房间开局" : "正在装载救生艇"} />;
-  } else if (localMatch && handoff) {
+  } else if (localMatch && handoff && !fightResult) {
     const player = game.players.find(item => item.id === game.viewerId);
     scene = <Notice icon="lock" title={`交给 ${player?.name ?? "下一位"}`}>
       <p className="hint">{trading ? "请由这位玩家接过设备后继续。" : `第 ${game.day} 天。屏幕上会看到你的爱、恨和手牌。`}</p>
@@ -888,8 +1030,10 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
       {trading && <Raised secondary onClick={onEndTrade}>返回当前回合</Raised>}
     </Notice>;
   } else if (game) scene = <Table key={`${game.viewerId}-${trading}`}
-    game={game} computer={computer} feedback={computer ? turnHistory[0] : null}
-    busy={busy} trading={trading} error={error} overlayOpen={dialog !== null} rowDraft={rowDraft} onRowDraft={updateRowDraft}
+    game={game} computer={computer} feedback={computer && !fightSkip ? turnFeedback : null}
+    fightResult={fightResult} fightSkip={fightSkip} hasHistory={!!turnHistory.length}
+    busy={busy || !!fightResult || !!fightSkip || !!navigationReveal} trading={trading} error={error}
+    overlayOpen={dialog !== null || !!navigationReveal} navigationDraft={navigationDraft} onNavigationDraft={updateNavigationDraft}
     onAction={onAction} onEndTrade={onEndTrade}
     onHistory={() => showDialog("history")} onInspect={inspect}
     onComputerHold={onComputerHold}
@@ -905,6 +1049,10 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
       onHelp={() => showDialog("help")} />
     {error && (!game || handoff || connecting) && <p className="error" role="alert">{error}</p>}
     {scene}
+    <NavigationDecision phase={game?.phase} cards={navigationDraft ? game.rowChoices : []}
+      characters={game?.characters ?? []} draft={navigationDraft || EMPTY_NAVIGATION_DRAFT}
+      open={!!navigationDraft && !navigationDraft.dismissed && !dialog && !navigationReveal && !handoff && !connecting}
+      updateDraft={updateNavigationDraft} busy={busy} error={error} onAction={onAction} />
     {inspected && <CharacterDialog entry={inspected} player={game.players.find(player => player.id === inspected.player)?.name}
       open={dialog === "character"} onClose={close} />}
     {computer && <GameDialog title="行动记录" open={dialog === "history"} onClose={close}
@@ -941,5 +1089,6 @@ export default function LifeboatApp({ room, computer, turnHistory, standalone, g
           onClick={() => { close(); onTrade(player.id); }}>{player.name}</Raised>)}
       </div>
     </GameDialog>
+    <NavigationReveal reveal={navigationReveal} />
   </div>;
 }

@@ -213,17 +213,3 @@ export const navigationById = Object.fromEntries(
 export function cardInfo(id) {
   return provisionById[id] ?? null;
 }
-
-export function iconFor(type) {
-  if (type === "water") return "water";
-  if (type === "cash") return "cash";
-  if (type === "jewels") return "jewels";
-  if (type === "painting") return "painting";
-  if (type === "oar") return "oar";
-  if (type === "preserver") return "preserver";
-  if (type === "compass") return "compass";
-  if (type === "parasol") return "parasol";
-  if (type === "medical") return "medical";
-  if (type === "chum") return "chum";
-  return "weapon";
-}

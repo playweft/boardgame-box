@@ -14,10 +14,12 @@ import {
 } from "./engine.js";
 import { errorMessage, t } from "./i18n.js";
 import { normalizeRoomView } from "./room-state.js";
-import { computerDelay, describeTurn } from "./turn-feedback.js";
+import { computerDelay, describeTurn, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween } from "./turn-feedback.js";
 import LifeboatApp from "./view.jsx";
 
 const root = document.querySelector("#lifeboat-app");
+const NAVIGATION_REVEAL_MS = 3500;
+const NAVIGATION_EXIT_MS = 200;
 const embedded = window.parent !== window;
 const launchUrl = new URL("https://play.longern.com/");
 launchUrl.searchParams.set(
@@ -43,6 +45,10 @@ let holdingComputer = false;
 let botWorker = null;
 let botJob = null;
 let turnHistory = [];
+let turnFeedback = null;
+let feedbackUntil = 0;
+let fightPlayback = null;
+let navigationPlayback = null;
 let tradeViewerId = null;
 let handoff = false;
 let busy = false;
@@ -55,10 +61,14 @@ function redraw() {
   const game = room ? roomGame : localGame && projectGame(localGame, viewer);
   render(
     h(LifeboatApp, {
-      game,
+      game: fightPlayback?.game ?? game,
+      fightResult: fightPlayback?.skipped ? null : fightPlayback?.result,
+      fightSkip: fightPlayback?.skipped,
+      navigationReveal: fightPlayback ? null : navigationPlayback,
       room,
       computer: !room && !!humanId,
       turnHistory,
+      turnFeedback,
       standalone: !embedded,
       handoff,
       trading: !room && tradeViewerId !== null,
@@ -81,8 +91,12 @@ function redraw() {
           return;
         }
         stopComputer();
+        clearFightPlayback();
+        clearNavigationPlayback();
         humanId = computer ? "local-0" : null;
         turnHistory = [];
+        turnFeedback = null;
+        feedbackUntil = 0;
         tradeViewerId = null;
         handoff = !computer;
         paused = false;
@@ -109,8 +123,12 @@ function redraw() {
       },
       onExit() {
         stopComputer();
+        clearFightPlayback();
+        clearNavigationPlayback();
         localGame = null;
         turnHistory = [];
+        turnFeedback = null;
+        feedbackUntil = 0;
         humanId = null;
         tradeViewerId = null;
         handoff = false;
@@ -133,7 +151,63 @@ function stopComputer() {
   botWorker = null;
 }
 
+function clearFightPlayback() {
+  clearTimeout(fightPlayback?.timer);
+  fightPlayback = null;
+}
+
+function clearNavigationPlayback() {
+  clearTimeout(navigationPlayback?.timer);
+  navigationPlayback = null;
+}
+
+function prepareNavigationReveal(before, after) {
+  const card = navigationCardBetween(before, after);
+  if (!card) return;
+  clearNavigationPlayback();
+  navigationPlayback = { card, characters: after.characters, open: true };
+  if (!fightPlayback) playNavigationReveal();
+}
+
+function playNavigationReveal() {
+  if (!navigationPlayback || navigationPlayback.timer !== undefined) return;
+  navigationPlayback.timer = setTimeout(() => {
+    navigationPlayback.open = false;
+    navigationPlayback.timer = setTimeout(() => {
+      clearNavigationPlayback();
+      redraw();
+      queueComputer();
+    }, NAVIGATION_EXIT_MS);
+    redraw();
+  }, NAVIGATION_REVEAL_MS);
+}
+
+function playFightFeedback(game, result, skipped = null) {
+  clearFightPlayback();
+  fightPlayback = {
+    game,
+    result,
+    skipped,
+    timer: setTimeout(() => {
+      fightPlayback = null;
+      if (skipped && result) playFightFeedback(game, result);
+      else playNavigationReveal();
+      redraw();
+      if (!fightPlayback) queueComputer();
+    }, skipped ? FIGHT_SKIP_MS : FIGHT_RESULT_MS),
+  };
+}
+
 function acceptLocalGame(next, action) {
+  const fightResult = fightResultBetween(localGame, next);
+  const actor = actingPlayer(localGame);
+  const skipped = humanId && actor !== humanId && action.type === "join" && action.side === "out"
+    ? localGame.queue[0] : null;
+  if (fightResult || skipped) {
+    const viewer = humanId ?? tradeViewerId ?? actor;
+    playFightFeedback(projectGame(localGame, viewer), fightResult, skipped);
+  }
+  prepareNavigationReveal(localGame, next);
   let feedback;
   if (humanId) {
     if (action.type === "rematch") turnHistory = [];
@@ -147,15 +221,18 @@ function acceptLocalGame(next, action) {
     }
   }
   localGame = next;
-  return feedback?.hold ?? 0;
+  turnFeedback = feedback ?? null;
+  feedbackUntil = performance.now() + (skipped ? FIGHT_SKIP_MS : 0)
+    + Math.max(feedback?.hold ?? 0, fightResult ? FIGHT_RESULT_MS : 0);
 }
 
-function queueComputer(previousHold = 0) {
+function queueComputer() {
   if (
     !humanId ||
     !localGame ||
     localGame.phase === "ended" ||
     mode !== "solo" ||
+    navigationPlayback ||
     paused ||
     holdingComputer ||
     botJob
@@ -174,11 +251,12 @@ function queueComputer(previousHold = 0) {
     clearTimeout(job.watchdog);
     const planned = action ?? chooseRuleAction(view);
     // Search runs while the preceding result is visible. Use a single delay.
-    const readyAt = startedAt + Math.max(previousHold, computerDelay(planned));
+    const readyAt = Math.max(feedbackUntil, startedAt + computerDelay(planned));
     job.timer = setTimeout(
       () => {
         if (botJob !== job) return;
         botJob = null;
+        if (fightPlayback || navigationPlayback) return;
         let intent = planned;
         let result =
           intent && applyAction(localGame, actor, { ...intent, step });
@@ -186,12 +264,10 @@ function queueComputer(previousHold = 0) {
           intent = chooseRuleAction(view);
           result = intent && applyAction(localGame, actor, { ...intent, step });
         }
-        const hold = result?.accepted
-          ? acceptLocalGame(result.state, intent)
-          : 0;
-        if (!result?.accepted) error = "电脑未能完成行动。";
+        if (result?.accepted) acceptLocalGame(result.state, intent);
+        else error = "电脑未能完成行动。";
         redraw();
-        if (result?.accepted) queueComputer(hold);
+        if (result?.accepted) queueComputer();
       },
       Math.max(0, readyAt - performance.now()),
     );
@@ -248,8 +324,11 @@ function returnToTurn() {
 
 function enterRoom(next) {
   stopComputer();
-  if ((presence && presence.roomId !== next.roomId) || next.phase !== "playing")
+  if ((presence && presence.roomId !== next.roomId) || next.phase !== "playing") {
+    clearFightPlayback();
+    clearNavigationPlayback();
     roomGame = null;
+  }
   presence = next;
   mode = "room";
   error = "";
@@ -281,7 +360,7 @@ function openRoom() {
 function submit(intent) {
   const room = mode === "room";
   const game = room ? roomGame : localGame;
-  if (!game || busy || (room ? !client.connected : handoff || paused)) return;
+  if (!game || fightPlayback || navigationPlayback || busy || (room ? !client.connected : handoff || paused)) return;
   const action = { ...intent, step: game.step };
   if (room)
     return roomRequest(async () => {
@@ -304,9 +383,8 @@ function submit(intent) {
     holdingComputer = false;
   }
   error = result.accepted ? "" : errorMessage(result.error);
-  let hold = 0;
   if (result.accepted) {
-    hold = acceptLocalGame(result.state, intent);
+    acceptLocalGame(result.state, intent);
     if (!humanId && tradeViewerId === null) {
       handoff =
         localGame.phase !== "ended" &&
@@ -314,7 +392,7 @@ function submit(intent) {
     }
   }
   redraw();
-  queueComputer(hold);
+  queueComputer();
 }
 
 const client = embedded
@@ -331,6 +409,8 @@ const client = embedded
       },
       onRoomState: enterRoom,
       onRoomClosed() {
+        clearFightPlayback();
+        clearNavigationPlayback();
         mode = "solo";
         presence = null;
         roomGame = null;
@@ -340,7 +420,16 @@ const client = embedded
       },
       onState(state) {
         if (mode === "solo" || !state) return;
-        roomGame = normalizeRoomView(state);
+        const next = normalizeRoomView(state);
+        if (roomGame && (next.viewerId !== roomGame.viewerId || next.log.length < roomGame.log.length)) {
+          clearFightPlayback();
+          clearNavigationPlayback();
+        } else {
+          const fightResult = fightResultBetween(roomGame, next);
+          if (fightResult) playFightFeedback(roomGame, fightResult);
+          prepareNavigationReveal(roomGame, next);
+        }
+        roomGame = next;
         error = "";
         redraw();
       },

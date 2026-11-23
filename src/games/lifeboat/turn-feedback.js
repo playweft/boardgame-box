@@ -2,21 +2,24 @@ import { characterName, t } from "./i18n.js";
 
 const name = id => characterName(id, { short: true }) ?? t("characters.crew");
 
+export const FIGHT_RESULT_MS = 1080;
+export const FIGHT_SKIP_MS = 450;
+
+export function fightResultBetween(before, after) {
+  if (!before || after.step <= before.step || after.log.length <= before.log.length) return null;
+  return after.log.slice(before.log.length).findLast(event =>
+    event.type === "fight" && Array.isArray(event.attackers) && Array.isArray(event.defenders)
+  ) ?? null;
+}
+
+export function navigationCardBetween(before, after) {
+  if (!before || after.step <= before.step) return null;
+  return after.log.slice(before.log.length).findLast(event => event.type === "nav")?.card ?? null;
+}
+
 export function computerDelay(action) {
-  switch (action?.type) {
-    case "take":
-    case "nothing":
-    case "sort":
-      return 450;
-    case "move":
-    case "mug":
-    case "join":
-    case "answer":
-    case "play":
-      return 600;
-    default:
-      return 500;
-  }
+  if (action?.type === "join" && action.side === "out") return 275;
+  return ["move", "mug", "join", "answer", "play"].includes(action?.type) ? 450 : 300;
 }
 
 // Both snapshots are from the human seat's view. Feedback carries only public
@@ -25,7 +28,11 @@ export function describeTurn(before, after, action) {
   const events = after.log.slice(before.log.length);
   const notes = [];
   let transfer = null;
-  let significant = false;
+  let hold = 0;
+  let mug = null;
+  let joined = null;
+  let winners = [];
+  const actor = before.queue[0];
   let navigation = false;
 
   for (const event of events) {
@@ -33,25 +40,37 @@ export function describeTurn(before, after, action) {
       case "take":
         notes.push(`${name(event.id)}拿走一张物资牌`);
         transfer = { from: null, to: event.id };
+        hold = Math.max(hold, 350);
         break;
       case "mug":
         notes.push(`${name(event.from)}从${name(event.to)}那里抢走一张牌`);
         transfer = { from: event.to, to: event.from };
+        mug = { from: event.from, to: event.to };
+        hold = Math.max(hold, 650);
         break;
       case "move":
         notes.push(`${name(event.a)}和${name(event.b)}交换座位`);
         break;
       case "act":
-        if (event.act === "nothing") notes.push(`${name(event.id)}选择不动`);
+        if (event.act === "nothing") {
+          notes.push(`${name(event.id)}不动`);
+          hold = Math.max(hold, 250);
+        }
         if (event.act === "row") notes.push(`${name(event.id)}开始划船`);
         if (event.act === "parasol") notes.push(`${name(event.id)}撑开阳伞`);
         // A successful immediate mug or move already has its own public event.
-        if (after.phase === "answer" && event.act === "mug") notes.push(`${name(event.id)}向${name(event.target)}抢夺物资`);
+        if (after.phase === "answer" && event.act === "mug") {
+          mug = { from: event.id, to: event.target };
+          notes.push(`${name(mug.from)} → ${name(mug.to)} · 抢夺`);
+          hold = Math.max(hold, 800);
+        }
         if (after.phase === "answer" && event.act === "move") notes.push(`${name(event.id)}请${name(event.target)}换座`);
         break;
       case "fight":
         notes.push(event.attackersWin ? "进攻方赢得打架" : "防守方赢得打架");
-        significant = true;
+        winners = [...(event.attackersWin ? before.fight?.attackers ?? [event.attacker] : before.fight?.defenders ?? [event.defender])];
+        if (actor && action?.type === "join" && action.side === (event.attackersWin ? "attack" : "defend")) winners.push(actor);
+        hold = Math.max(hold, 1000);
         break;
       case "fightFlare":
         notes.push(`${name(event.id)}打出信号枪，战力 +8`);
@@ -69,7 +88,7 @@ export function describeTurn(before, after, action) {
         break;
       case "lost":
         notes.push(`${name(event.id)}沉海`);
-        significant = true;
+        hold = Math.max(hold, 1000);
         break;
     }
   }
@@ -82,13 +101,14 @@ export function describeTurn(before, after, action) {
       transfer = { from: giver.id, to: action.target };
     }
   }
-  const actor = before.queue[0];
   if (actor && action?.type === "sort" && !navigation) {
     const kept = after.rowCount - before.rowCount;
     notes.push(kept > 0 ? `${name(actor)}留下 ${kept} 张航海牌` : `${name(actor)}完成划船`);
   }
   if (actor && action?.type === "join" && action.side !== "out") {
+    joined = actor;
     notes.push(`${name(actor)}加入${action.side === "attack" ? "进攻方" : "防守方"}`);
+    hold = Math.max(hold, 600);
   }
   if (after.falling.length && navigation) {
     notes.push(`${after.falling.map(name).join("、")}落水`);
@@ -118,6 +138,10 @@ export function describeTurn(before, after, action) {
     text: notes.join(" · "),
     injuries,
     transfer,
-    hold: significant || navigation || injuries.length ? 850 : 0,
+    mug,
+    joined,
+    winners,
+    navigation,
+    hold: Math.max(hold, navigation || injuries.length ? 900 : 0),
   };
 }

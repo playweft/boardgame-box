@@ -18,6 +18,8 @@ export default {
   "characters.kid.ability": "When he steals a face-down card, the target cannot start a fight over it.",
   "characters.crew": "Crew member",
 
+  "hand.empty": "No cards in hand",
+
   // Card names are keyed by type. All copies of a card share a name.
   "provisions.water.name": "Fresh Water",
   "provisions.oar.name": "Oar",

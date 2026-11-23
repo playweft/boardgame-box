@@ -18,6 +18,8 @@ export default {
   "characters.kid.ability": "他摸走一张暗牌时，对方不能因此开战。",
   "characters.crew": "船员",
 
+  "hand.empty": "手里没有牌",
+
   // 物资名称按牌的类型查找，同类牌共用名称。
   "provisions.water.name": "淡水",
   "provisions.oar.name": "船桨",

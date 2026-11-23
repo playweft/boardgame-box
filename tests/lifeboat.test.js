@@ -346,7 +346,11 @@ test("reviewed rules behave the same in local and room games", async t => {
       assert.equal(continued.phase, "fight");
       assert.equal(continued.queue[0], "mate");
       const settled = await declineFightChoices();
-      assert.equal(fightResults(settled)[0].attackersWin, true);
+      assert.deepEqual(fightResults(settled)[0], {
+        type: "fight", attacker: "lauren", defender: "captain", attackersWin: true,
+        attackers: ["lauren"], defenders: ["captain"], attack: 8, defense: 7,
+        flareBy: false, losers: ["captain"],
+      });
       assert.deepEqual(seat(settled, "lauren").shown, ["knife-1", "oar-1"]);
       assert.equal(seat(settled, "captain").wounds, 1);
 
@@ -359,6 +363,8 @@ test("reviewed rules behave the same in local and room games", async t => {
       await late.act({ type: "arm", card: "knife-1" }, "lauren");
       const joined = await late.act({ type: "join", side: "defend" }, "mate");
       assert.equal(fightResults(joined)[0].attackersWin, false);
+      assert.deepEqual(fightResults(joined)[0].defenders, ["captain", "mate"]);
+      assert.equal(fightResults(joined)[0].defense, 15);
       assert.deepEqual(fightResults(joined)[0].losers, ["lauren", "kid"]);
     });
 

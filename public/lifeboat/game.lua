@@ -630,7 +630,11 @@ local function resolve_fight(state)
   for _, id in ipairs(losers) do character(state, id).wounds = character(state, id).wounds + 1 end
   for _, id in ipairs(fight.attackers) do character(state, id).fought = true end
   for _, id in ipairs(fight.defenders) do character(state, id).fought = true end
-  note(state, {type = "fight", attacker = fight.attacker, defender = fight.defender, attackersWin = attackers_win, losers = losers})
+  note(state, {
+    type = "fight", attacker = fight.attacker, defender = fight.defender, attackersWin = attackers_win,
+    attackers = fight.attackers, defenders = fight.defenders, attack = attack, defense = defense,
+    flareBy = fight.flareBy or false, losers = losers,
+  })
   if attackers_win then
     local demand = state.demand
     if demand.kind == "move" then swap(state, demand.from, demand.to)
