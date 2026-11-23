@@ -10,6 +10,7 @@ import Icon from "./icon.jsx";
 import { CardDetail, CardFace } from "./provision-card.jsx";
 import { FIGHT_RESULT_MS } from "./turn-feedback.js";
 import { GameDialog, Raised } from "./ui.jsx";
+import fightWound from "./assets/fight-wound.webp";
 
 function CardFlight({ transfer, boardRef, duration, step, onFinish }) {
   const flight = useRef(null);
@@ -139,17 +140,19 @@ function Choice({ icon, children, ...props }) {
   </Raised>;
 }
 
-function FightSide({ label, members, fight, characters, joined, finalPower, won, losers }) {
+function FightSide({ label, defending, members, fight, characters, joined, finalPower, won, losers }) {
   const crew = members.map(id => characters.find(entry => entry.id === id));
   const power = finalPower ?? crew.reduce((total, entry) => total + fightSize(entry, fight), 0);
+  const powerText = <strong aria-label={t("fight.power", { power })}>{power}</strong>;
   return <div className="fight-side" data-won={won || undefined}>
-    <h3>{label} <strong aria-label={t("fight.power", { power })}>{power}</strong></h3>
+    <h3>{defending ? <>{powerText} {label}</> : <>{label} {powerText}</>}</h3>
     <ul aria-label={label}>
       {crew.map(({ id, alive }) => <li key={id} className="fight-member" data-joined={id === joined}>
         <CrewPortrait id={id} dead={!alive} />
+        {losers?.includes(id) && <img className="fight-injury" src={fightWound}
+          width="96" height="96" alt={t("fight.injury")} />}
         <strong>{personName(id)}</strong>
         {id === fight.flareBy && <small>{t("fight.flare")}</small>}
-        {losers?.includes(id) && <small className="fight-injury">{t("fight.injury")}</small>}
       </li>)}
     </ul>
   </div>;
@@ -399,22 +402,23 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
             <FightSide label={t("fight.attackers")} members={fight.attackers} fight={fight}
               characters={game.characters} joined={feedback?.joined} finalPower={fightResult?.attack}
               won={fightResult?.attackersWin} losers={fightResult?.losers} />
-            <FightSide label={t("fight.defenders")} members={fight.defenders} fight={fight}
+            <FightSide label={t("fight.defenders")} defending members={fight.defenders} fight={fight}
               characters={game.characters} joined={feedback?.joined} finalPower={fightResult?.defense}
               won={fightResult && !fightResult.attackersWin} losers={fightResult?.losers} />
           </div>
-          {active && (game.fight.stage === "join" ? <div className="actions fight-actions">
-            <Choice data-fight-side="attack" disabled={busy} onClick={() => send({ type: "join", side: "attack" })}>{t("fight.joinAttack")}</Choice>
-            <Choice disabled={busy} onClick={() => send({ type: "join", side: "out" })}>{t("fight.stayOut")}</Choice>
-            <Choice data-fight-side="defend" disabled={busy} onClick={() => send({ type: "join", side: "defend" })}>{t("fight.joinDefend")}</Choice>
-          </div> : <>
-            {!!weapons.length && <div className="hand" aria-label={t("fight.weapons")}>
-              {weapons.map(id => <CardFace key={id} id={id} disabled={busy}
-                detailsOpen={!!handCard?.closest(".turn-scroll") && inspectedCard.id === id}
-                onClick={event => inspectCard(id, event.currentTarget)} />)}
-            </div>}
-            <Choice disabled={busy} onClick={() => send({ type: "arm", card: false })}>{t("fight.pass")}</Choice>
-          </>)}
+          {arming && !!weapons.length && <div className="hand" aria-label={t("fight.weapons")}>
+            {weapons.map(id => <CardFace key={id} id={id} disabled={busy}
+              detailsOpen={!!handCard?.closest(".turn-scroll") && inspectedCard.id === id}
+              onClick={event => inspectCard(id, event.currentTarget)} />)}
+          </div>}
+          <div className="actions fight-actions">
+            {active && game.fight.stage === "join" && <>
+              <Choice data-fight-side="attack" disabled={busy} onClick={() => send({ type: "join", side: "attack" })}>{t("fight.joinAttack")}</Choice>
+              <Choice disabled={busy} onClick={() => send({ type: "join", side: "out" })}>{t("fight.stayOut")}</Choice>
+              <Choice data-fight-side="defend" disabled={busy} onClick={() => send({ type: "join", side: "defend" })}>{t("fight.joinDefend")}</Choice>
+            </>}
+            {arming && <Choice disabled={busy} onClick={() => send({ type: "arm", card: false })}>{t("fight.pass")}</Choice>}
+          </div>
         </section>}
         {active && game.phase === "rescue" && <section className="panel">
           <h2>{t("nav.overboard")}</h2>

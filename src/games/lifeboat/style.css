@@ -1032,12 +1032,12 @@ button.seat-supply:enabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem 0.5rem;
 }
-.turn-scroll:has(> .fight-panel) {
-  align-content: start;
-}
 @media (prefers-reduced-motion: no-preference) {
   .fight-panel[data-resolved="true"] {
     animation: fight-result-out ease-in both;
+  }
+  .fight-injury {
+    animation: fight-wound-reveal 360ms linear;
   }
 }
 @keyframes fight-result-out {
@@ -1084,6 +1084,7 @@ button.seat-supply:enabled {
   flex-direction: row-reverse;
 }
 .fight-member {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1110,15 +1111,34 @@ button.seat-supply:enabled {
   color: var(--text-gold);
   font-size: 0.75rem;
 }
-.fight-member .fight-injury {
-  color: #ffd0c5;
-  white-space: nowrap;
+.fight-injury {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+@keyframes fight-wound-reveal {
+  from {
+    clip-path: polygon(100% 0, 100% 0, 100% 0, 100% 0, 100% 0);
+  }
+  50% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 100% 100%, 0 0);
+  }
+  to {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+  }
 }
 .fight-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-block-size: 44px;
 }
-.fight-actions .choice {
-  min-height: 44px;
+.fight-actions > .choice:only-child {
+  grid-column: 1 / -1;
+}
+.fight-actions > .choice:not(:only-child) {
   padding-inline: 0.25rem;
   white-space: nowrap;
 }
@@ -1359,12 +1379,15 @@ button.card:disabled,
 }
 .sea-dialog.navigation-reveal {
   width: min(18rem, calc(100% - 2rem));
+  background: #f1d4ad;
+  color: #1d1d1f;
 }
 .navigation-reveal .navigation-card {
   max-width: none;
   aspect-ratio: auto;
   grid-template-rows: none;
   padding: 0.45rem 0.85rem;
+  color: inherit;
 }
 .navigation-reveal .navigation-detail {
   min-height: 2.3rem;
