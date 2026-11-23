@@ -1,3 +1,7 @@
+:where([data-app-dialog]) {
+  border: 0;
+}
+
 [data-app-dialog][open] {
   animation: app-dialog-enter 180ms ease-out both;
 }

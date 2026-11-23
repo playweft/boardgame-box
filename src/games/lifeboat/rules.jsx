@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { CHARACTERS, LAND_BIRDS } from "./data.js";
+import { CHARACTERS, LAND_BIRDS, characterAbility } from "./data.js";
 
 export default function Rules() {
   return <div className="rules">
@@ -23,7 +23,7 @@ export default function Rules() {
       <ul>
         {CHARACTERS.map(person => <li key={person.id}>
           <strong>{person.name}</strong>
-          <span>体型 {person.size}，生存 {person.survival}。{person.doubles === "cash" ? "现金计双倍。" : person.doubles === "jewels" ? "珠宝计双倍。" : person.doubles === "painting" ? "画作计双倍。" : ""}{person.swimmer ? "他水性很好：落水本身不会让他受伤。" : ""}{person.pickpocket ? "他摸走一张暗牌时，对方不能因此开战。" : ""}</span>
+          <span>体型 {person.size}，生存 {person.survival}。{characterAbility(person)}</span>
         </li>)}
       </ul>
       <p>伤的数量等于体型时昏迷：不能抽牌、出牌或行动，别人仍可以拿你的东西或跟你换座，但你不能还手。别人可以把牌交给昏迷的人，也可以把自己的淡水用在他们身上，但不能直接替他们打出手里的牌。伤超过体型则死亡。尸体若还在船上，可以像昏迷的人一样被搜刮；靠岸时，身上的财物仍算给你的继承人。尸体若落水，人和牌都移出游戏。</p>

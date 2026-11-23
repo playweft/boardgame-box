@@ -13,6 +13,14 @@ export const CHARACTERS = [
 
 export const characterById = Object.fromEntries(CHARACTERS.map(character => [character.id, character]));
 
+const doubleScoreText = { cash: "现金计双倍。", jewels: "珠宝计双倍。", painting: "画作计双倍。" };
+
+export function characterAbility(person) {
+  if (person.swimmer) return "他水性很好：落水本身不会让他受伤。";
+  if (person.pickpocket) return "他摸走一张暗牌时，对方不能因此开战。";
+  return doubleScoreText[person.doubles] ?? "无特殊技能";
+}
+
 const WEAPONS = { oar: 1, blackjack: 2, knife: 3, hook: 4, flare: 8 };
 
 function card(id, type, extra = {}) {
@@ -81,6 +89,25 @@ export const navigationById = Object.fromEntries(NAVIGATION.map(item => [item.id
 
 export function cardInfo(id) {
   return provisionById[id] ?? null;
+}
+
+const provisionEffects = {
+  water: "航海结算口渴时，弃掉这张牌，为任意一名船员抵消一次口渴伤害。",
+  oar: "划船时，每用一把船桨就多抽一张航海牌。用到的船桨会亮出。",
+  chum: "有人落水时可弃掉鱼饵召来鲨鱼。若落水者已经亮出鱼饵，也会触发。水里每人额外受一处伤。",
+  medical: "花一次行动并弃掉这张牌，为船上任意一名还活着的伤员去掉一处伤。",
+  parasol: "花一次行动撑开。之后每天可抵消自己的一次口渴，直到落水或失去阳伞。",
+  preserver: "免受普通落水伤害。可抛给清醒的落水者，之后归对方。昏迷者要靠已亮出的救生圈获救。",
+  compass: "负责领航时，亮出罗盘，把航海牌堆顶的一张牌加入备选。",
+};
+
+const doubleScoreOwners = { cash: "船长", painting: "斯蒂芬爵士", jewels: "劳伦女士" };
+
+export function provisionEffect(card) {
+  if (card.value) return `靠岸时，这张牌值 ${card.value} 分。${doubleScoreOwners[card.type]}持有时翻倍。`;
+  if (card.type === "flare") return `打架时可弃掉这张牌，本场体型 +${card.size}。也可花一次行动发射，抽三张航海牌，只结算海鸥。`;
+  const weapon = card.size ? `打架时亮出，体型 +${card.size}。` : "";
+  return weapon + (provisionEffects[card.type] ?? "");
 }
 
 export function iconFor(type) {
