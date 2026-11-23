@@ -1689,12 +1689,19 @@ body:has(.row-dialog[open]) {
     column-gap: 0.1875rem;
     padding-inline: 0.125rem;
   }
-  .crew-board[data-rows="3"] .seats > :is(:nth-child(3), :nth-child(4)) .seat-count {
+  .crew-board[data-rows="3"]
+    .seats
+    > :is(:nth-child(3), :nth-child(4))
+    .seat-count {
     inset-inline: auto 0;
     transform: none;
     padding-inline: 0.125rem;
   }
-  .crew-board[data-rows="3"] .seats > :is(:nth-child(3), :nth-child(4)) .seat-count svg {
+  .crew-board[data-rows="3"]
+    .seats
+    > :is(:nth-child(3), :nth-child(4))
+    .seat-count
+    svg {
     width: 0.75rem;
   }
 }

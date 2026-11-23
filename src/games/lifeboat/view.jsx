@@ -748,7 +748,7 @@ function Table({ game, computer, feedback, busy, trading, error, overlayOpen, ro
         if (handCard && event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
           closeCard();
         }
-    }}>
+      }}>
       <div ref={handBackdropRef} className="hand-card-backdrop" aria-hidden="true" />
       {detail && <section ref={handPanelRef} className="hand-card-panel" aria-labelledby="hand-card-title" tabIndex={-1}>
         <header className="hand-card-heading">

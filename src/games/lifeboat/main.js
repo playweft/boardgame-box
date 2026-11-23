@@ -138,7 +138,11 @@ function acceptLocalGame(next, action) {
   if (humanId) {
     if (action.type === "rematch") turnHistory = [];
     else {
-      feedback = describeTurn(projectGame(localGame, humanId), projectGame(next, humanId), action);
+      feedback = describeTurn(
+        projectGame(localGame, humanId),
+        projectGame(next, humanId),
+        action,
+      );
       if (feedback) turnHistory = [feedback, ...turnHistory].slice(0, 8);
     }
   }
@@ -176,12 +180,15 @@ function queueComputer(previousHold = 0) {
         if (botJob !== job) return;
         botJob = null;
         let intent = planned;
-        let result = intent && applyAction(localGame, actor, { ...intent, step });
+        let result =
+          intent && applyAction(localGame, actor, { ...intent, step });
         if (!result?.accepted && action) {
           intent = chooseRuleAction(view);
           result = intent && applyAction(localGame, actor, { ...intent, step });
         }
-        const hold = result?.accepted ? acceptLocalGame(result.state, intent) : 0;
+        const hold = result?.accepted
+          ? acceptLocalGame(result.state, intent)
+          : 0;
         if (!result?.accepted) error = "电脑未能完成行动。";
         redraw();
         if (result?.accepted) queueComputer(hold);
@@ -223,7 +230,7 @@ function switchToTrader(playerId) {
   )
     return;
   const view = projectGame(localGame, playerId);
-  const player = view.characters.find(entry => entry.player === playerId);
+  const player = view.characters.find((entry) => entry.player === playerId);
   if (!view.canTrade && !(player?.conscious && player.hand.length)) return;
   tradeViewerId = playerId;
   handoff = playerId !== actingPlayer(localGame);
@@ -285,7 +292,8 @@ function submit(intent) {
 
   const previous = actingPlayer(localGame);
   const offTurn = intent.type === "give" || intent.type === "reveal";
-  if ((tradeViewerId !== null || (humanId && previous !== humanId)) && !offTurn) return;
+  if ((tradeViewerId !== null || (humanId && previous !== humanId)) && !offTurn)
+    return;
   const result = applyAction(
     localGame,
     humanId ?? tradeViewerId ?? previous,
@@ -317,7 +325,8 @@ const client = embedded
           if (context.room && !presence) enterRoom(context.room);
           mode = "room";
         } else if (context.mode === "solo" && !presence) mode = "solo";
-        else if (context.mode !== "solo") error = t("errors.unknownPlayweftMode");
+        else if (context.mode !== "solo")
+          error = t("errors.unknownPlayweftMode");
         redraw();
       },
       onRoomState: enterRoom,

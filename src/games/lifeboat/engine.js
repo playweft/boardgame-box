@@ -1,5 +1,13 @@
 import {
-  CHARACTERS, LAND_BIRDS, MAX_PLAYERS, MIN_PLAYERS, NAVIGATION, PROVISIONS, cardInfo, characterById, navigationById,
+  CHARACTERS,
+  LAND_BIRDS,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  NAVIGATION,
+  PROVISIONS,
+  cardInfo,
+  characterById,
+  navigationById,
 } from "./data.js";
 
 const MODULUS = 2147483647;
@@ -26,21 +34,29 @@ function shuffle(list, seed) {
   return { deck, seed };
 }
 
-const reject = code => ({ accepted: false, error: { code, message: "Invalid Lifeboat action." } });
-const fail = code => ({ ok: false, code });
-const setupError = (code, message) => Object.assign(new Error(message), { code });
+const reject = (code) => ({
+  accepted: false,
+  error: { code, message: "Invalid Lifeboat action." },
+});
+const fail = (code) => ({ ok: false, code });
+const setupError = (code, message) =>
+  Object.assign(new Error(message), { code });
 const ok = () => ({ ok: true });
 
 function character(state, id) {
-  return state.characters.find(entry => entry.id === id);
+  return state.characters.find((entry) => entry.id === id);
 }
 
 function alive(entry) {
-  return !!entry && !entry.removed && entry.wounds <= characterById[entry.id].size;
+  return (
+    !!entry && !entry.removed && entry.wounds <= characterById[entry.id].size
+  );
 }
 
 function conscious(entry) {
-  return !!entry && !entry.removed && entry.wounds < characterById[entry.id].size;
+  return (
+    !!entry && !entry.removed && entry.wounds < characterById[entry.id].size
+  );
 }
 
 function inBoat(entry) {
@@ -59,7 +75,7 @@ function holding(entry, where = "both") {
 }
 
 function hasType(entry, type, where = "both") {
-  return holding(entry, where).some(id => cardInfo(id)?.type === type);
+  return holding(entry, where).some((id) => cardInfo(id)?.type === type);
 }
 
 function hasOpenParasol(entry) {
@@ -76,20 +92,27 @@ function takeCard(entry, id) {
 }
 
 export function fightWeapons(entry) {
-  return holding(entry, "hand").filter(id => cardInfo(id)?.size)
-    .concat(holding(entry, "shown").filter(id => cardInfo(id)?.type === "flare"));
+  return holding(entry, "hand")
+    .filter((id) => cardInfo(id)?.size)
+    .concat(
+      holding(entry, "shown").filter((id) => cardInfo(id)?.type === "flare"),
+    );
 }
 
 function fightSize(entry, fight) {
-  return entry.shown.reduce((size, id) => {
-    const card = cardInfo(id);
-    return size + (card?.type === "flare" ? 0 : card?.size ?? 0);
-  }, characterById[entry.id].size + (fight.flareBy === entry.id ? cardInfo("flare-1").size : 0));
+  return entry.shown.reduce(
+    (size, id) => {
+      const card = cardInfo(id);
+      return size + (card?.type === "flare" ? 0 : (card?.size ?? 0));
+    },
+    characterById[entry.id].size +
+      (fight.flareBy === entry.id ? cardInfo("flare-1").size : 0),
+  );
 }
 
 function canonical(ids) {
   const present = new Set(ids);
-  return CHARACTERS.map(item => item.id).filter(id => present.has(id));
+  return CHARACTERS.map((item) => item.id).filter((id) => present.has(id));
 }
 
 function draw(deck, count) {
@@ -97,7 +120,7 @@ function draw(deck, count) {
 }
 
 function consciousSeats(state) {
-  return state.cast.filter(id => conscious(character(state, id)));
+  return state.cast.filter((id) => conscious(character(state, id)));
 }
 
 function blankTurn(state) {
@@ -112,17 +135,30 @@ function blankTurn(state) {
   state.navCard = false;
 }
 
-export function createGame(players, seedText = crypto.getRandomValues(new Uint32Array(1))[0].toString(16), options = {}) {
+export function createGame(
+  players,
+  seedText = crypto.getRandomValues(new Uint32Array(1))[0].toString(16),
+  options = {},
+) {
   const count = players.length;
-  if (count < MIN_PLAYERS || count > MAX_PLAYERS) throw setupError("INVALID_PLAYER_COUNT", "Lifeboat requires 4–6 players.");
-  if (new Set(players.map(player => player.id)).size !== count) throw setupError("DUPLICATE_PLAYER", "Player IDs must be unique.");
+  if (count < MIN_PLAYERS || count > MAX_PLAYERS)
+    throw setupError("INVALID_PLAYER_COUNT", "Lifeboat requires 4–6 players.");
+  if (new Set(players.map((player) => player.id)).size !== count)
+    throw setupError("DUPLICATE_PLAYER", "Player IDs must be unique.");
   let seed = hashSeed(seedText);
   let cast;
   if (options.cast) {
     cast = canonical(options.cast);
-    if (cast.length !== count || new Set(options.cast).size !== count) throw setupError("INVALID_CAST", "The cast must match the number of players.");
+    if (cast.length !== count || new Set(options.cast).size !== count)
+      throw setupError(
+        "INVALID_CAST",
+        "The cast must match the number of players.",
+      );
   } else {
-    const dealt = shuffle(CHARACTERS.map(item => item.id), seed);
+    const dealt = shuffle(
+      CHARACTERS.map((item) => item.id),
+      seed,
+    );
     seed = dealt.seed;
     cast = canonical(dealt.deck.slice(0, count));
   }
@@ -132,16 +168,33 @@ export function createGame(players, seedText = crypto.getRandomValues(new Uint32
   seed = loves.seed;
   const hates = shuffle(cast, seed);
   seed = hates.seed;
-  const provisions = shuffle(PROVISIONS.map(item => item.id), seed);
+  const provisions = shuffle(
+    PROVISIONS.map((item) => item.id),
+    seed,
+  );
   seed = provisions.seed;
-  const navigation = shuffle(NAVIGATION.map(item => item.id), seed);
+  const navigation = shuffle(
+    NAVIGATION.map((item) => item.id),
+    seed,
+  );
   seed = navigation.seed;
 
-  const characters = cast.map(id => ({
-    id, player: "", wounds: 0, rowed: false, fought: false, parasol: false, removed: false,
-    hand: [], shown: [], love: "", hate: "",
+  const characters = cast.map((id) => ({
+    id,
+    player: "",
+    wounds: 0,
+    rowed: false,
+    fought: false,
+    parasol: false,
+    removed: false,
+    hand: [],
+    shown: [],
+    love: "",
+    hate: "",
   }));
-  const bySeat = Object.fromEntries(characters.map(entry => [entry.id, entry]));
+  const bySeat = Object.fromEntries(
+    characters.map((entry) => [entry.id, entry]),
+  );
   players.forEach((player, index) => {
     const entry = bySeat[assigned.deck[index]];
     entry.player = player.id;
@@ -151,11 +204,33 @@ export function createGame(players, seedText = crypto.getRandomValues(new Uint32
   });
 
   const state = {
-    seed, day: 1, phase: "deal", step: 0, birds: 0,
-    supplyDeck: provisions.deck, navDeck: navigation.deck, rowStack: [],
-    cast, players: players.map(({ id, name }, index) => ({ id, name: name?.trim() || `玩家 ${index + 1}` })),
-    characters, queue: [], offer: [], rowChoices: [], demand: false, fight: false, savedQueue: [],
-    falling: [], sharks: false, thirst: [], navCard: false, log: [], scores: false, outcome: false,
+    seed,
+    day: 1,
+    phase: "deal",
+    step: 0,
+    birds: 0,
+    supplyDeck: provisions.deck,
+    navDeck: navigation.deck,
+    rowStack: [],
+    cast,
+    players: players.map(({ id, name }, index) => ({
+      id,
+      name: name?.trim() || `玩家 ${index + 1}`,
+    })),
+    characters,
+    queue: [],
+    offer: [],
+    rowChoices: [],
+    demand: false,
+    fight: false,
+    savedQueue: [],
+    falling: [],
+    sharks: false,
+    thirst: [],
+    navCard: false,
+    log: [],
+    scores: false,
+    outcome: false,
   };
   beginDeal(state);
   return state;
@@ -194,7 +269,8 @@ function requireActor(state, actorId) {
 }
 
 function skipUnconscious(state) {
-  while (state.queue.length && !conscious(character(state, state.queue[0]))) state.queue.shift();
+  while (state.queue.length && !conscious(character(state, state.queue[0])))
+    state.queue.shift();
 }
 
 function finishAction(state) {
@@ -212,10 +288,15 @@ function note(state, entry) {
 }
 
 function beginNavigate(state) {
-  const navigator = [...state.cast].reverse().map(id => character(state, id)).find(conscious);
+  const navigator = [...state.cast]
+    .reverse()
+    .map((id) => character(state, id))
+    .find(conscious);
   let cards = state.rowStack.splice(0);
   if (navigator && hasType(navigator, "compass")) {
-    const compass = holding(navigator).find(id => cardInfo(id)?.type === "compass");
+    const compass = holding(navigator).find(
+      (id) => cardInfo(id)?.type === "compass",
+    );
     takeCard(navigator, compass);
     if (!navigator.shown.includes(compass)) navigator.shown.push(compass);
     if (state.navDeck.length) cards.push(state.navDeck.shift());
@@ -254,35 +335,44 @@ function resolveNavigation(state, cardId) {
 function namedTargets(spec, seats) {
   if (spec === "all") return [...seats];
   if (spec === "none") return [];
-  if (Array.isArray(spec)) return seats.filter(id => spec.includes(id));
+  if (Array.isArray(spec)) return seats.filter((id) => spec.includes(id));
   return [];
 }
 
 function thirstTargets(spec, seats) {
   if (spec === "all") return [...seats];
   if (spec === "none") return [];
-  if (Array.isArray(spec)) return seats.filter(id => spec.includes(id));
-  if (spec?.except) return seats.filter(id => !spec.except.includes(id));
+  if (Array.isArray(spec)) return seats.filter((id) => spec.includes(id));
+  if (spec?.except) return seats.filter((id) => !spec.except.includes(id));
   return [];
 }
 
 function beginOverboard(state, card) {
-  const aboard = state.cast.filter(id => inBoat(character(state, id)));
+  const aboard = state.cast.filter((id) => inBoat(character(state, id)));
   state.falling = namedTargets(card.overboard, aboard);
   state.sharks = false;
   for (const id of state.falling) {
     const entry = character(state, id);
-    const chum = entry.shown.find(cardId => cardInfo(cardId)?.type === "chum");
+    const chum = entry.shown.find(
+      (cardId) => cardInfo(cardId)?.type === "chum",
+    );
     if (chum) {
       takeCard(entry, chum);
       state.sharks = true;
     }
   }
   state.phase = "rescue";
-  state.queue = state.cast.filter(id => {
+  state.queue = state.cast.filter((id) => {
     const entry = character(state, id);
     if (!conscious(entry)) return false;
-    const canThrow = hasType(entry, "preserver") && state.falling.some(target => target !== id && conscious(character(state, target)) && !hasType(character(state, target), "preserver"));
+    const canThrow =
+      hasType(entry, "preserver") &&
+      state.falling.some(
+        (target) =>
+          target !== id &&
+          conscious(character(state, target)) &&
+          !hasType(character(state, target), "preserver"),
+      );
     const canChum = hasType(entry, "chum", "hand") && state.falling.length;
     return canThrow || canChum;
   });
@@ -293,7 +383,11 @@ function resolveOverboard(state, card = navigationById[state.navCard]) {
   for (const id of state.falling) {
     const entry = character(state, id);
     if (!inBoat(entry)) continue;
-    const preserver = hasType(entry, "preserver", conscious(entry) ? "both" : "shown");
+    const preserver = hasType(
+      entry,
+      "preserver",
+      conscious(entry) ? "both" : "shown",
+    );
     const base = characterById[id].swimmer || preserver ? 0 : 1;
     entry.wounds += base + (state.sharks ? 1 : 0);
     const drown = entry.wounds >= characterById[id].size && !preserver;
@@ -305,8 +399,11 @@ function resolveOverboard(state, card = navigationById[state.navCard]) {
       entry.parasol = false;
       note(state, { type: "lost", id });
     } else {
-      entry.shown = entry.shown.filter(cardId => cardInfo(cardId)?.type === "preserver");
-      if (!entry.shown.some(cardId => cardInfo(cardId)?.type === "parasol")) entry.parasol = false;
+      entry.shown = entry.shown.filter(
+        (cardId) => cardInfo(cardId)?.type === "preserver",
+      );
+      if (!entry.shown.some((cardId) => cardInfo(cardId)?.type === "parasol"))
+        entry.parasol = false;
     }
   }
   state.falling = [];
@@ -315,7 +412,11 @@ function resolveOverboard(state, card = navigationById[state.navCard]) {
 }
 
 function beginThirst(state, card) {
-  const present = state.cast.filter(id => inBoat(character(state, id)) && character(state, id).wounds <= characterById[id].size);
+  const present = state.cast.filter(
+    (id) =>
+      inBoat(character(state, id)) &&
+      character(state, id).wounds <= characterById[id].size,
+  );
   state.thirst = [];
   for (const id of present) {
     const entry = character(state, id);
@@ -327,9 +428,13 @@ function beginThirst(state, card) {
     if (need) state.thirst.push({ id, left: need });
   }
   state.phase = "thirst";
-  state.queue = state.cast.filter(id => {
+  state.queue = state.cast.filter((id) => {
     const entry = character(state, id);
-    return conscious(entry) && hasType(entry, "water") && state.thirst.some(item => item.left > 0);
+    return (
+      conscious(entry) &&
+      hasType(entry, "water") &&
+      state.thirst.some((item) => item.left > 0)
+    );
   });
   if (!state.queue.length) applyThirst(state);
 }
@@ -365,7 +470,7 @@ function finish(state) {
   state.fight = false;
   state.falling = [];
   state.thirst = [];
-  state.scores = state.players.map(player => scorePlayer(state, player.id));
+  state.scores = state.players.map((player) => scorePlayer(state, player.id));
 }
 
 function treasureValue(owner, cardId) {
@@ -376,7 +481,7 @@ function treasureValue(owner, cardId) {
 }
 
 function scorePlayer(state, playerId) {
-  const self = state.characters.find(entry => entry.player === playerId);
+  const self = state.characters.find((entry) => entry.player === playerId);
   const loved = character(state, self.love);
   const hated = character(state, self.hate);
   let survival = 0;
@@ -384,9 +489,11 @@ function scorePlayer(state, playerId) {
   let hate = 0;
   if (self.hate === self.id) {
     for (const other of state.characters) {
-      if (other.id !== self.id && other.id !== self.love && !alive(other)) hate += characterById[other.id].size;
+      if (other.id !== self.id && other.id !== self.love && !alive(other))
+        hate += characterById[other.id].size;
     }
-    if (self.love === self.id && alive(self)) survival = characterById[self.id].survival;
+    if (self.love === self.id && alive(self))
+      survival = characterById[self.id].survival;
     else if (loved && alive(loved)) love = characterById[loved.id].survival;
   } else {
     if (alive(self)) survival += characterById[self.id].survival;
@@ -395,15 +502,25 @@ function scorePlayer(state, playerId) {
     } else if (alive(loved)) love = characterById[loved.id].survival;
     if (hated && !alive(hated)) hate = characterById[hated.id].size;
   }
-  const loot = inBoat(self) ? holding(self).reduce((total, id) => total + treasureValue(self, id), 0) : 0;
-  return { player: playerId, survival, love, hate, loot, total: survival + love + hate + loot };
+  const loot = inBoat(self)
+    ? holding(self).reduce((total, id) => total + treasureValue(self, id), 0)
+    : 0;
+  return {
+    player: playerId,
+    survival,
+    love,
+    hate,
+    loot,
+    total: survival + love + hate + loot,
+  };
 }
 
 function mutate(state, actorId, action) {
   if (!action || typeof action.type !== "string") return fail("UNKNOWN_ACTION");
   if (action.type === "rematch") {
     if (state.phase !== "ended") return fail("VOYAGE_IN_PROGRESS");
-    if (!state.players.some(player => player.id === actorId)) return fail("PLAYER_NOT_SEATED");
+    if (!state.players.some((player) => player.id === actorId))
+      return fail("PLAYER_NOT_SEATED");
     const fresh = createGame(state.players, state.seed.toString(16));
     fresh.step = state.step;
     Object.assign(state, fresh);
@@ -411,23 +528,34 @@ function mutate(state, actorId, action) {
   }
   if (state.phase === "ended") return fail("VOYAGE_ENDED");
   if (action.type === "reveal") {
-    const entry = state.characters.find(person => person.player === actorId);
+    const entry = state.characters.find((person) => person.player === actorId);
     if (!conscious(entry)) return fail("CANNOT_REVEAL");
     if (!entry.hand.includes(action.card)) return fail("CARD_NOT_IN_HAND");
     revealCard(state, entry, action.card);
     const card = cardInfo(action.card);
-    if (state.phase === "fight" && card.size && card.type !== "flare" && isFighting(state.fight, entry.id)) {
+    if (
+      state.phase === "fight" &&
+      card.size &&
+      card.type !== "flare" &&
+      isFighting(state.fight, entry.id)
+    ) {
       restartFightRound(state, entry.id);
     }
     return ok();
   }
-  if (action.type === "give") return give(state, state.characters.find(entry => entry.player === actorId), action);
+  if (action.type === "give")
+    return give(
+      state,
+      state.characters.find((entry) => entry.player === actorId),
+      action,
+    );
   if (state.phase === "deal") return takeProvision(state, actorId, action);
   if (state.phase === "action") return chooseAction(state, actorId, action);
   if (state.phase === "row") return sortRow(state, actorId, action);
   if (state.phase === "answer") return answerDemand(state, actorId, action);
   if (state.phase === "fight") return fightAction(state, actorId, action);
-  if (state.phase === "navigate") return chooseNavigation(state, actorId, action);
+  if (state.phase === "navigate")
+    return chooseNavigation(state, actorId, action);
   if (state.phase === "rescue") return rescueAction(state, actorId, action);
   if (state.phase === "thirst") return drink(state, actorId, action);
   return fail("UNKNOWN_ACTION");
@@ -475,7 +603,12 @@ function revealCard(state, entry, card) {
   entry.shown.push(card);
   const demand = state.demand;
   // A pending request for a dark card can still claim the last one when it is shown.
-  if (demand?.kind === "mug" && demand.to === entry.id && !demand.card && !entry.hand.length) {
+  if (
+    demand?.kind === "mug" &&
+    demand.to === entry.id &&
+    !demand.card &&
+    !entry.hand.length
+  ) {
     demand.card = card;
   }
 }
@@ -484,16 +617,21 @@ function give(state, entry, action) {
   if (!tradingOpen(state)) return fail("TRADING_CLOSED");
   if (!conscious(entry)) return fail("CANNOT_TRADE");
   const target = character(state, action.target);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("INVALID_GIFT_TARGET");
+  if (!target || target.id === entry.id || !inBoat(target))
+    return fail("INVALID_GIFT_TARGET");
   if (!holding(entry).includes(action.card)) return fail("CARD_NOT_OWNED");
   const demand = state.demand;
   if (demand?.kind === "mug" && demand.to === entry.id) {
-    const required = demand.card === action.card
-      || (!demand.card && entry.hand.length === 1 && entry.hand.includes(action.card));
+    const required =
+      demand.card === action.card ||
+      (!demand.card &&
+        entry.hand.length === 1 &&
+        entry.hand.includes(action.card));
     if (required) return fail("CARD_IN_PENDING_MUGGING");
   }
   const shown = entry.shown.includes(action.card);
-  const openParasol = shown && cardInfo(action.card)?.type === "parasol" && entry.parasol;
+  const openParasol =
+    shown && cardInfo(action.card)?.type === "parasol" && entry.parasol;
   takeCard(entry, action.card);
   if (shown) target.shown.push(action.card);
   else target.hand.push(action.card);
@@ -502,8 +640,11 @@ function give(state, entry, action) {
 }
 
 function startRow(state, entry) {
-  const oars = holding(entry, "shown").filter(id => cardInfo(id)?.type === "oar")
-    .concat(holding(entry, "hand").filter(id => cardInfo(id)?.type === "oar"));
+  const oars = holding(entry, "shown")
+    .filter((id) => cardInfo(id)?.type === "oar")
+    .concat(
+      holding(entry, "hand").filter((id) => cardInfo(id)?.type === "oar"),
+    );
   const drawn = draw(state.navDeck, 2 + oars.length);
   if (!drawn.length) return fail("NAVIGATION_DECK_EMPTY");
   for (const id of oars.slice(0, Math.max(0, drawn.length - 2))) {
@@ -519,10 +660,15 @@ function startRow(state, entry) {
 function sortRow(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "sort" || !Array.isArray(action.keep) || action.keep.length !== state.rowChoices.length) {
+  if (
+    action.type !== "sort" ||
+    !Array.isArray(action.keep) ||
+    action.keep.length !== state.rowChoices.length
+  ) {
     return fail("SORT_ROW_CARDS");
   }
-  if (action.keep.some(value => value !== true && value !== false)) return fail("SORT_ROW_CARDS");
+  if (action.keep.some((value) => value !== true && value !== false))
+    return fail("SORT_ROW_CARDS");
   const back = [];
   action.keep.forEach((keep, index) => {
     const card = state.rowChoices[index];
@@ -537,7 +683,8 @@ function sortRow(state, actorId, action) {
 
 function startMove(state, entry, targetId) {
   const target = character(state, targetId);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("CHOOSE_ANOTHER_CHARACTER");
+  if (!target || target.id === entry.id || !inBoat(target))
+    return fail("CHOOSE_ANOTHER_CHARACTER");
   note(state, { type: "act", id: entry.id, act: "move", target: target.id });
   if (!conscious(target)) {
     swap(state, entry.id, target.id);
@@ -553,12 +700,15 @@ function startMove(state, entry, targetId) {
 
 function startMug(state, entry, action) {
   const target = character(state, action.target);
-  if (!target || target.id === entry.id || !inBoat(target)) return fail("CHOOSE_ANOTHER_CHARACTER");
+  if (!target || target.id === entry.id || !inBoat(target))
+    return fail("CHOOSE_ANOTHER_CHARACTER");
   const hidden = !action.card;
-  if (!hidden && !target.shown.includes(action.card)) return fail("MUG_CARD_NOT_SHOWN");
+  if (!hidden && !target.shown.includes(action.card))
+    return fail("MUG_CARD_NOT_SHOWN");
   if (hidden && !target.hand.length) return fail("NO_HIDDEN_CARDS");
   note(state, { type: "act", id: entry.id, act: "mug", target: target.id });
-  const free = !conscious(target) || (hidden && characterById[entry.id].pickpocket);
+  const free =
+    !conscious(target) || (hidden && characterById[entry.id].pickpocket);
   if (free) {
     steal(state, entry, target, hidden ? false : action.card);
     finishAction(state);
@@ -566,7 +716,12 @@ function startMug(state, entry, action) {
   }
   state.savedQueue = state.queue.slice(1);
   state.phase = "answer";
-  state.demand = { kind: "mug", from: entry.id, to: target.id, card: hidden ? false : action.card };
+  state.demand = {
+    kind: "mug",
+    from: entry.id,
+    to: target.id,
+    card: hidden ? false : action.card,
+  };
   state.queue = [target.id];
   return ok();
 }
@@ -596,7 +751,8 @@ function swap(state, left, right) {
 function answerDemand(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "answer" || typeof action.accept !== "boolean") return fail("ANSWER_DEMAND");
+  if (action.type !== "answer" || typeof action.accept !== "boolean")
+    return fail("ANSWER_DEMAND");
   const demand = state.demand;
   const attacker = character(state, demand.from);
   const defender = character(state, demand.to);
@@ -616,9 +772,13 @@ function answerDemand(state, actorId, action) {
 function beginFight(state, attacker, defender) {
   state.phase = "fight";
   state.fight = {
-    attacker: attacker.id, defender: defender.id,
-    attackers: [attacker.id], defenders: [defender.id],
-    pending: consciousSeats(state), stage: "join", flareBy: false,
+    attacker: attacker.id,
+    defender: defender.id,
+    attackers: [attacker.id],
+    defenders: [defender.id],
+    pending: consciousSeats(state),
+    stage: "join",
+    flareBy: false,
   };
   nextFightDecision(state);
 }
@@ -647,7 +807,10 @@ function restartFightRound(state, id, includeCurrent = true) {
   const fight = state.fight;
   const seats = consciousSeats(state);
   const index = seats.indexOf(id);
-  fight.pending = [...seats.slice(index + 1), ...seats.slice(0, index + Number(includeCurrent))];
+  fight.pending = [
+    ...seats.slice(index + 1),
+    ...seats.slice(0, index + Number(includeCurrent)),
+  ];
   delete fight.arm;
   nextFightDecision(state);
 }
@@ -658,7 +821,11 @@ function fightAction(state, actorId, action) {
   const fight = state.fight;
   const entry = acting(state);
   if (fight.stage === "join") {
-    if (action.type !== "join" || !["attack", "defend", "out"].includes(action.side)) return fail("CHOOSE_FIGHT_SIDE");
+    if (
+      action.type !== "join" ||
+      !["attack", "defend", "out"].includes(action.side)
+    )
+      return fail("CHOOSE_FIGHT_SIDE");
     if (action.side !== "out") {
       const side = action.side === "attack" ? fight.attackers : fight.defenders;
       side.push(entry.id);
@@ -693,17 +860,36 @@ function passFightDecision(state, id) {
 
 function resolveFight(state) {
   const fight = state.fight;
-  const attack = fight.attackers.reduce((total, id) => total + fightSize(character(state, id), fight), 0);
-  const defense = fight.defenders.reduce((total, id) => total + fightSize(character(state, id), fight), 0);
+  const attack = fight.attackers.reduce(
+    (total, id) => total + fightSize(character(state, id), fight),
+    0,
+  );
+  const defense = fight.defenders.reduce(
+    (total, id) => total + fightSize(character(state, id), fight),
+    0,
+  );
   const attackersWin = attack > defense;
   const losers = attackersWin ? fight.defenders : fight.attackers;
   for (const id of losers) character(state, id).wounds += 1;
-  for (const id of [...fight.attackers, ...fight.defenders]) character(state, id).fought = true;
-  note(state, { type: "fight", attacker: fight.attacker, defender: fight.defender, attackersWin, losers });
+  for (const id of [...fight.attackers, ...fight.defenders])
+    character(state, id).fought = true;
+  note(state, {
+    type: "fight",
+    attacker: fight.attacker,
+    defender: fight.defender,
+    attackersWin,
+    losers,
+  });
   if (attackersWin) {
     const demand = state.demand;
     if (demand.kind === "move") swap(state, demand.from, demand.to);
-    else steal(state, character(state, demand.from), character(state, demand.to), demand.card);
+    else
+      steal(
+        state,
+        character(state, demand.from),
+        character(state, demand.to),
+        demand.card,
+      );
   }
   state.fight = false;
   state.demand = false;
@@ -714,10 +900,12 @@ function resolveFight(state) {
 
 function useMedical(state, entry, action) {
   const kit = action.card;
-  if (!holding(entry).includes(kit) || cardInfo(kit)?.type !== "medical") return fail("NO_MEDICAL_KIT");
+  if (!holding(entry).includes(kit) || cardInfo(kit)?.type !== "medical")
+    return fail("NO_MEDICAL_KIT");
   const target = character(state, action.target);
   if (!target || !inBoat(target)) return fail("CHOOSE_INJURED_CHARACTER");
-  if (target.wounds <= 0 || target.wounds > characterById[target.id].size) return fail("INVALID_MEDICAL_TARGET");
+  if (target.wounds <= 0 || target.wounds > characterById[target.id].size)
+    return fail("INVALID_MEDICAL_TARGET");
   takeCard(entry, kit);
   target.wounds -= 1;
   note(state, { type: "heal", id: entry.id, target: target.id });
@@ -726,7 +914,7 @@ function useMedical(state, entry, action) {
 }
 
 function useFlare(state, entry) {
-  const flare = holding(entry).find(id => cardInfo(id)?.type === "flare");
+  const flare = holding(entry).find((id) => cardInfo(id)?.type === "flare");
   if (!flare) return fail("NO_FLARE");
   takeCard(entry, flare);
   const drawn = draw(state.navDeck, 3);
@@ -746,7 +934,7 @@ function useFlare(state, entry) {
 }
 
 function openParasol(state, entry) {
-  const card = holding(entry).find(id => cardInfo(id)?.type === "parasol");
+  const card = holding(entry).find((id) => cardInfo(id)?.type === "parasol");
   if (!card || hasOpenParasol(entry)) return fail("PARASOL_UNAVAILABLE");
   if (entry.hand.includes(card)) revealCard(state, entry, card);
   entry.parasol = true;
@@ -758,8 +946,9 @@ function openParasol(state, entry) {
 function chooseNavigation(state, actorId, action) {
   const check = requireActor(state, actorId);
   if (!check.ok) return check;
-  if (action.type !== "play" || !state.rowChoices.includes(action.card)) return fail("CHOOSE_NAVIGATION_CARD");
-  const rest = state.rowChoices.filter(id => id !== action.card);
+  if (action.type !== "play" || !state.rowChoices.includes(action.card))
+    return fail("CHOOSE_NAVIGATION_CARD");
+  const rest = state.rowChoices.filter((id) => id !== action.card);
   state.rowChoices = [];
   state.rowStack = [];
   state.navDeck.push(...rest);
@@ -774,15 +963,24 @@ function rescueAction(state, actorId, action) {
   const entry = acting(state);
   if (action.to) {
     const target = character(state, action.to);
-    const preserver = holding(entry).find(id => cardInfo(id)?.type === "preserver");
-    if (!preserver || !target || !state.falling.includes(target.id) || target.id === entry.id || !conscious(target) || hasType(target, "preserver")) {
+    const preserver = holding(entry).find(
+      (id) => cardInfo(id)?.type === "preserver",
+    );
+    if (
+      !preserver ||
+      !target ||
+      !state.falling.includes(target.id) ||
+      target.id === entry.id ||
+      !conscious(target) ||
+      hasType(target, "preserver")
+    ) {
       return fail("INVALID_PRESERVER_TARGET");
     }
     takeCard(entry, preserver);
     target.shown.push(preserver);
   }
   if (action.chum) {
-    const chum = entry.hand.find(id => cardInfo(id)?.type === "chum");
+    const chum = entry.hand.find((id) => cardInfo(id)?.type === "chum");
     if (!chum || !state.falling.length) return fail("CHUM_UNAVAILABLE");
     takeCard(entry, chum);
     state.sharks = true;
@@ -802,23 +1000,39 @@ function drink(state, actorId, action) {
   if (!uses) return fail("ALLOCATE_WATER");
   const spent = new Set();
   for (const use of uses) {
-    if (!use || typeof use !== "object") return fail("CHOOSE_WATER_AND_RECIPIENT");
-    if (spent.has(use.card) || !holding(entry).includes(use.card) || cardInfo(use.card)?.type !== "water") return fail("INVALID_WATER_CARD");
-    const need = state.thirst.find(item => item.id === use.for && item.left > 0);
+    if (!use || typeof use !== "object")
+      return fail("CHOOSE_WATER_AND_RECIPIENT");
+    if (
+      spent.has(use.card) ||
+      !holding(entry).includes(use.card) ||
+      cardInfo(use.card)?.type !== "water"
+    )
+      return fail("INVALID_WATER_CARD");
+    const need = state.thirst.find(
+      (item) => item.id === use.for && item.left > 0,
+    );
     if (!need) return fail("RECIPIENT_NOT_THIRSTY");
     spent.add(use.card);
     need.left -= 1;
   }
   for (const card of spent) takeCard(entry, card);
   state.queue.shift();
-  state.queue = state.queue.filter(id => hasType(character(state, id), "water") && state.thirst.some(item => item.left > 0));
+  state.queue = state.queue.filter(
+    (id) =>
+      hasType(character(state, id), "water") &&
+      state.thirst.some((item) => item.left > 0),
+  );
   if (!state.queue.length) applyThirst(state);
   return ok();
 }
 
 export function applyAction(state, actorId, action) {
-  if (!state.players.some(player => player.id === actorId) && action?.type !== "rematch") {
-    if (!state.players.some(player => player.id === actorId)) return reject("PLAYER_NOT_SEATED");
+  if (
+    !state.players.some((player) => player.id === actorId) &&
+    action?.type !== "rematch"
+  ) {
+    if (!state.players.some((player) => player.id === actorId))
+      return reject("PLAYER_NOT_SEATED");
   }
   if (!action || action.step !== state.step) return reject("STALE_ACTION");
   const next = structuredClone(state);
@@ -837,10 +1051,19 @@ function publicCharacter(state, entry, viewer, ended) {
   const mine = entry.player === viewer;
   const info = characterById[entry.id];
   return {
-    id: entry.id, player: entry.player, wounds: entry.wounds, size: info.size, survival: info.survival,
-    rowed: entry.rowed, fought: entry.fought, parasol: hasOpenParasol(entry), removed: entry.removed,
-    conscious: conscious(entry), alive: alive(entry),
-    shown: entry.shown, handCount: entry.hand.length,
+    id: entry.id,
+    player: entry.player,
+    wounds: entry.wounds,
+    size: info.size,
+    survival: info.survival,
+    rowed: entry.rowed,
+    fought: entry.fought,
+    parasol: hasOpenParasol(entry),
+    removed: entry.removed,
+    conscious: conscious(entry),
+    alive: alive(entry),
+    shown: entry.shown,
+    handCount: entry.hand.length,
     love: ended || mine ? entry.love : false,
     hate: ended || mine ? entry.hate : false,
     hand: ended || mine ? entry.hand : false,
@@ -852,39 +1075,59 @@ export function projectGame(state, viewerId) {
   const actor = acting(state);
   const mine = actor?.player === viewerId;
   const tradeOpen = tradingOpen(state);
-  const privatePrompt = state.phase === "rescue" || state.phase === "thirst"
-    || (state.phase === "fight" && state.fight.stage === "arm");
+  const privatePrompt =
+    state.phase === "rescue" ||
+    state.phase === "thirst" ||
+    (state.phase === "fight" && state.fight.stage === "arm");
   const fight = state.fight;
   return {
     players: state.players,
     cast: state.cast,
-    characters: state.characters.map(entry => publicCharacter(state, entry, viewerId, ended)),
-    viewerId, day: state.day, phase: state.phase, step: state.step, birds: state.birds,
-    supplyCount: state.supplyDeck.length, navCount: state.navDeck.length, rowCount: state.rowStack.length,
+    characters: state.characters.map((entry) =>
+      publicCharacter(state, entry, viewerId, ended),
+    ),
+    viewerId,
+    day: state.day,
+    phase: state.phase,
+    step: state.step,
+    birds: state.birds,
+    supplyCount: state.supplyDeck.length,
+    navCount: state.navDeck.length,
+    rowCount: state.rowStack.length,
     offer: state.phase === "deal" && mine ? state.offer : false,
     offerCount: state.offer.length,
-    rowChoices: (state.phase === "row" || state.phase === "navigate") && mine ? state.rowChoices : false,
+    rowChoices:
+      (state.phase === "row" || state.phase === "navigate") && mine
+        ? state.rowChoices
+        : false,
     demand: state.demand,
     fight: fight && {
-      attacker: fight.attacker, defender: fight.defender, stage: fight.stage,
-      attackers: fight.attackers, defenders: fight.defenders, flareBy: fight.flareBy || false,
+      attacker: fight.attacker,
+      defender: fight.defender,
+      stage: fight.stage,
+      attackers: fight.attackers,
+      defenders: fight.defenders,
+      flareBy: fight.flareBy || false,
     },
     falling: state.falling,
     thirst: state.thirst,
     navCard: state.navCard,
     queue: privatePrompt ? (mine ? state.queue.slice(0, 1) : []) : state.queue,
     // Durable rooms may still contain records created before card IDs were removed.
-    log: state.log.map(entry => {
+    log: state.log.map((entry) => {
       if (entry.type === "take") return { type: entry.type, id: entry.id };
-      if (entry.type === "mug") return { type: entry.type, from: entry.from, to: entry.to };
+      if (entry.type === "mug")
+        return { type: entry.type, from: entry.from, to: entry.to };
       return entry;
     }),
     scores: state.scores,
     outcome: state.outcome,
     canAct: mine && state.phase !== "ended",
     tradeOpen,
-    canTrade: tradeOpen && conscious(state.characters.find(entry => entry.player === viewerId)),
-    canRematch: ended && state.players.some(player => player.id === viewerId),
+    canTrade:
+      tradeOpen &&
+      conscious(state.characters.find((entry) => entry.player === viewerId)),
+    canRematch: ended && state.players.some((player) => player.id === viewerId),
   };
 }
 
