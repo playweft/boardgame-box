@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { actingPlayer, applyAction, createGame, projectGame } from "../src/games/lifeboat/engine.js";
 import { t } from "../src/games/lifeboat/i18n.js";
-import { computerDelay, describeTurn, navigationCardBetween, treatmentBetween } from "../src/games/lifeboat/turn-feedback.js";
+import { computerDelay, describeTurn, navigationCardBetween, recordTurn, treatmentBetween } from "../src/games/lifeboat/turn-feedback.js";
 
 const roster = Array.from({ length: 4 }, (_, index) => ({ id: `p${index}` }));
 
@@ -83,9 +83,11 @@ test("navigation feedback keeps a public wound change visible through the next c
   assert.deepEqual(cue.lines.map(line => line.map(part => part.label ?? part).join("")), [
     t("feedback.pass", { name: "大副" }),
     "航海结算，从牌库顶翻开了一张航海牌",
-    "海鸥 +1 · 大副受伤 1 点",
+    "海鸥 +1，这是第 1 只",
+    "大副受伤 1 点",
   ]);
   assert.ok(cue.lines[1].some(part => part.navigationCard === "nav-10"));
+  assert.ok(cue.lines[2].some(part => part.icon === "bird" && part.label === "海鸥"));
   assert.equal(cue.hold, 900);
 
   const thirst = describeTurn(after, {
@@ -106,6 +108,30 @@ test("navigation feedback identifies the navigator only when someone chose the c
   assert.ok(chosen.parts.some(part => part.navigationCard === card.card));
   const automatic = describeTurn(before, { ...after, log: [{ ...card, source: "row" }] });
   assert.equal(automatic.text, "航海结算，翻开了一张航海牌");
+});
+
+test("confirming a rowing choice updates the original activity even when navigation starts immediately", () => {
+  const before = { ...projectGame(createGame(roster, "beef"), "p0"), phase: "action", queue: ["mate"] };
+  const rowing = {
+    ...before, step: before.step + 1, phase: "row",
+    log: [...before.log, { type: "act", act: "row", id: "mate", cards: 2 }],
+  };
+  for (const keep of [[false, false], [true, false]]) {
+    const history = [];
+    recordTurn(history, before, rowing, { type: "row" });
+    assert.deepEqual(history.map(entry => entry.text), ["大副开始划船"]);
+
+    const source = keep[0] ? "row" : "deck";
+    const done = {
+      ...rowing, step: rowing.step + 1, phase: "thirst", rowCount: 0,
+      log: [...rowing.log, { type: "nav", card: "nav-10", birds: rowing.birds, source }],
+    };
+    recordTurn(history, rowing, done, { type: "sort", keep });
+    assert.equal(history.length, 2);
+    assert.equal(history[0].step, rowing.step);
+    assert.equal(history[0].text, keep[0] ? "大副完成划船，留下 1 张航海牌" : "大副完成划船，留下 0 张航海牌");
+    assert.ok(history[1].parts.some(part => part.navigationCard === "nav-10"));
+  }
 });
 
 test("private prompts yield no feedback until they cause a public change", () => {

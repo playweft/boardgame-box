@@ -14,7 +14,7 @@ import {
 } from "./engine.js";
 import { errorMessage, locale, t } from "./i18n.js";
 import { normalizeRoomView } from "./room-state.js";
-import { computerDelay, describeTurn, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween, treatmentBetween } from "./turn-feedback.js";
+import { computerDelay, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween, recordTurn, treatmentBetween } from "./turn-feedback.js";
 import LifeboatApp from "./view.jsx";
 
 document.documentElement.lang = locale;
@@ -252,12 +252,12 @@ function acceptLocalGame(next, action) {
   if (humanId) {
     if (action.type === "rematch") turnHistory.length = 0;
     else {
-      feedback = describeTurn(
+      feedback = recordTurn(
+        turnHistory,
         projectGame(localGame, humanId),
         projectGame(next, humanId),
         action,
       );
-      if (feedback) turnHistory.push(feedback);
     }
   }
   localGame = next;

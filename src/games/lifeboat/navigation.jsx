@@ -1,31 +1,47 @@
 import { h } from "preact";
 import { useId, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { CrewPortrait } from "./crew.jsx";
 import { navigationById } from "./data.js";
-import { listNames, personName, t } from "./i18n.js";
+import { characterName, listNames, t } from "./i18n.js";
 import Icon from "./icon.jsx";
 import { GameDialog, Raised } from "./ui.jsx";
 
-function navigationTargets(spec, characters) {
+function NavigationTargets({ spec, characters }) {
   if (spec === "all") return t("nav.everyone");
   if (spec === "none") return t("nav.nobody");
-  const names = (Array.isArray(spec) ? spec : spec.except)
-    .filter(id => characters.some(entry => entry.id === id))
-    .map(personName);
-  if (Array.isArray(spec)) return listNames(names) || t("nav.nobody");
-  return names.length ? t("nav.except", { names: listNames(names) }) : t("nav.everyone");
+  const excluded = !Array.isArray(spec);
+  const targets = (excluded ? spec.except : spec).filter(id => characters.some(entry => entry.id === id));
+  if (!targets.length) return t(excluded ? "nav.everyone" : "nav.nobody");
+
+  const names = listNames(targets.map(id => characterName(id)));
+  const description = excluded ? t("nav.except", { names }) : names;
+  return <span className="navigation-targets" role="img" aria-label={description} title={description}>
+    {excluded && <span aria-hidden="true">{t("nav.exceptShort")}</span>}
+    <span className="navigation-portraits">{targets.map(id => <CrewPortrait key={id} id={id} />)}</span>
+  </span>;
 }
 
 function NavigationFace({ card, characters }) {
-  const details = [
-    [t("nav.overboard"), navigationTargets(card.overboard, characters)],
-    [t("nav.thirst"), navigationTargets(card.thirst, characters)],
-    [t("nav.rowThirst"), card.row ? t("common.yes") : t("common.no")],
-    [t("nav.fightThirst"), card.fight ? t("common.yes") : t("common.no")],
-    [t("table.birds"), card.bird > 0 ? "+1" : card.bird < 0 ? "−1" : "0"],
-  ];
   return <span className="navigation-card">
-    {details.map(([label, value]) =>
-      <span className="navigation-detail" key={label}><span>{label}</span><strong>{value}</strong></span>)}
+    <span className="navigation-gulls">
+      {card.bird !== 0 && <span className="navigation-gull" data-crossed-out={card.bird < 0 || undefined}
+        role="img" aria-label={t("feedback.birds", { change: card.bird < 0 ? "−1" : "+1" })}>
+        <Icon name="bird" />
+      </span>}
+    </span>
+    <span className="navigation-detail">
+      <span>{t("nav.overboard")}</span>
+      <strong><NavigationTargets spec={card.overboard} characters={characters} /></strong>
+    </span>
+    <span className="navigation-detail">
+      <span>{t("nav.thirst")}</span>
+      <strong><NavigationTargets spec={card.thirst} characters={characters} /></strong>
+    </span>
+    {[["nav.rowThirst", card.row], ["nav.fightThirst", card.fight]].map(([label, enabled]) =>
+      <span className="navigation-detail" key={label}>
+        <span>{t(label)}</span>
+        <strong className="navigation-mark" role="img" aria-label={t(enabled ? "common.yes" : "common.no")}>{enabled ? "✓" : "—"}</strong>
+      </span>)}
   </span>;
 }
 
@@ -127,7 +143,7 @@ export function NavigationDecision({ phase, cards, characters, draft, open, upda
   const title = rowing ? t("action.row") : t("nav.choose");
   const close = () => updateDraft(() => ({ dismissed: true }));
   return <GameDialog title={title} closeLabel={t("common.backToTable")}
-    className={rowing ? "navigation-drawer row-dialog" : "navigation-drawer navigation-dialog"} open={open} onClose={close}
+    className={rowing ? "navigation-drawer row-dialog" : "navigation-drawer"} open={open} onClose={close}
     footer={rowing && <>
       {error && <p className="error table-error" role="alert">{error}</p>}
       <Raised disabled={busy} onClick={() => onAction({ type: "sort", keep: cards.map(id => draft.kept.includes(id)) })}>{t("nav.confirmRow")}</Raised>
