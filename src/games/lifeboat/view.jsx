@@ -11,7 +11,7 @@ import Icon from "./icon.jsx";
 import { NavigationDecision, NavigationReveal } from "./navigation.jsx";
 import Rules from "./rules.jsx";
 import Table from "./table.jsx";
-import { GameDialog, Raised } from "./ui.jsx";
+import { FloatingNotice, GameDialog, Raised } from "./ui.jsx";
 import cover from "./assets/cover-flat.webp";
 
 function Menu({ onSetup, onCreateRoom, launchUrl, busy }) {
@@ -157,6 +157,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
   const navigationKey = hasNavigationChoice && game.canAct && !trading
     ? JSON.stringify([game.day, game.phase, game.viewerId, game.rowChoices]) : null;
   const navigationDraft = navigationKey && (savedNavigation?.key === navigationKey ? savedNavigation : EMPTY_NAVIGATION_DRAFT);
+  const navigationOpen = !!navigationDraft && !navigationDraft.dismissed && !dialog && !navigationReveal && !handoff && !connecting;
 
   useLayoutEffect(() => {
     if (!navigationKey) setSavedNavigation(null);
@@ -188,6 +189,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
     showDialog("character");
   };
   const localMatch = !room && !!game;
+  const showHandoff = localMatch && handoff && !fightResult && !treatment;
   const confirmExit = dialog === "exit";
   const traders = localMatch && !computer && !fightResult && game.phase !== "ended" && !trading
     ? game.players.filter(player => game.characters.some(entry => entry.player === player.id
@@ -196,7 +198,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
   let scene;
   if (connecting || (room && !game)) {
     scene = <Notice icon="bird" title={connecting ? t("room.connecting") : waiting ? t("room.waiting") : t("room.loading")} />;
-  } else if (localMatch && handoff && !fightResult && !treatment) {
+  } else if (showHandoff) {
     const player = game.players.find(item => item.id === game.viewerId);
     scene = <Notice icon="lock" title={t("handoff.title", { player: player?.name ?? t("handoff.next") })}>
       <p className="hint">{trading ? t("handoff.tradeHint") : t("handoff.privateHint", { day: game.day })}</p>
@@ -206,7 +208,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
   } else if (game) scene = <Table key={`${game.viewerId}-${trading}`}
     game={game} computer={computer} feedback={computer && !fightSkip ? turnFeedback : null}
     fightResult={fightResult} fightSkip={fightSkip} treatment={treatment} latestActivity={turnHistory.at(-1)}
-    busy={busy || !!fightResult || !!fightSkip || !!treatment || !!navigationReveal} trading={trading} error={error}
+    busy={busy || !!fightResult || !!fightSkip || !!treatment || !!navigationReveal} trading={trading} error={navigationOpen ? "" : error}
     overlayOpen={dialog !== null || !!treatment || !!navigationReveal} navigationDraft={navigationDraft} onNavigationDraft={updateNavigationDraft}
     onAction={onAction} onEndTrade={onEndTrade}
     onHistory={() => showDialog("history")} onInspect={inspect}
@@ -222,11 +224,11 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
       pauseLabel={t("chrome.pause")} backLabel={t("chrome.back")} helpLabel={t("rules.title")}
       onPause={!connecting && localMatch ? () => showDialog("pause") : undefined}
       onHelp={() => showDialog("help")} />
-    {error && (!game || handoff || connecting) && <p className="error" role="alert">{error}</p>}
+    {(!game || showHandoff || connecting) && <FloatingNotice error={error} />}
     {scene}
     <NavigationDecision phase={game?.phase} cards={navigationDraft ? game.rowChoices : []}
       characters={game?.characters ?? []} draft={navigationDraft || EMPTY_NAVIGATION_DRAFT}
-      open={!!navigationDraft && !navigationDraft.dismissed && !dialog && !navigationReveal && !handoff && !connecting}
+      open={navigationOpen}
       updateDraft={updateNavigationDraft} busy={busy} error={error} onAction={onAction} />
     {inspected && <CharacterDialog entry={inspected} player={game.players.find(player => player.id === inspected.player)?.name}
       seatNumber={game.cast.indexOf(inspected.id) + 1} open={dialog === "character"} onClose={close} />}

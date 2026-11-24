@@ -60,6 +60,18 @@ let tradeViewerId = null;
 let handoff = false;
 let busy = false;
 let error = "";
+let errorTimer;
+
+function showError(message = "") {
+  clearTimeout(errorTimer);
+  error = message;
+  if (message) {
+    errorTimer = setTimeout(() => {
+      error = "";
+      redraw();
+    }, 4000);
+  }
+}
 
 function redraw() {
   const room = mode === "room";
@@ -94,7 +106,7 @@ function redraw() {
         try {
           localGame = createGame(players, undefined, { cast });
         } catch (cause) {
-          error = errorMessage(cause);
+          showError(errorMessage(cause));
           redraw();
           return;
         }
@@ -110,7 +122,7 @@ function redraw() {
         handoff = !computer;
         paused = false;
         holdingComputer = false;
-        error = "";
+        showError();
         redraw();
         queueComputer();
       },
@@ -144,7 +156,7 @@ function redraw() {
         handoff = false;
         paused = false;
         holdingComputer = false;
-        error = "";
+        showError();
         redraw();
       },
       onAction: submit,
@@ -306,7 +318,7 @@ function queueComputer() {
           result = intent && applyAction(localGame, actor, { ...intent, step });
         }
         if (result?.accepted) acceptLocalGame(result.state, intent);
-        else error = t("errors.botActionFailed");
+        else showError(t("errors.botActionFailed"));
         redraw();
         if (result?.accepted) queueComputer();
       },
@@ -351,7 +363,7 @@ function switchToTrader(playerId) {
   if (!view.canTrade && !(player?.conscious && player.hand.length)) return;
   tradeViewerId = playerId;
   handoff = playerId !== actingPlayer(localGame);
-  error = "";
+  showError();
   redraw();
 }
 
@@ -359,7 +371,7 @@ function returnToTurn() {
   if (!localGame || tradeViewerId === null) return;
   handoff = tradeViewerId !== actingPlayer(localGame);
   tradeViewerId = null;
-  error = "";
+  showError();
   redraw();
 }
 
@@ -373,18 +385,18 @@ function enterRoom(next) {
   }
   presence = next;
   mode = "room";
-  error = "";
+  showError();
   redraw();
 }
 
 async function roomRequest(request, fallback) {
   busy = true;
-  error = "";
+  showError();
   redraw();
   try {
     await request();
   } catch (cause) {
-    error = errorMessage(cause, fallback);
+    showError(errorMessage(cause, fallback));
   } finally {
     busy = false;
     redraw();
@@ -424,7 +436,7 @@ function submit(intent) {
     stopComputer();
     holdingComputer = false;
   }
-  error = result.accepted ? "" : errorMessage(result.error);
+  showError(result.accepted ? "" : errorMessage(result.error));
   if (result.accepted) {
     acceptLocalGame(result.state, intent);
     if (!humanId && tradeViewerId === null) {
@@ -446,7 +458,7 @@ const client = embedded
           mode = "room";
         } else if (context.mode === "solo" && !presence) mode = "solo";
         else if (context.mode !== "solo")
-          error = t("errors.unknownPlayweftMode");
+          showError(t("errors.unknownPlayweftMode"));
         redraw();
       },
       onRoomState: enterRoom,
@@ -457,7 +469,7 @@ const client = embedded
         mode = "solo";
         presence = null;
         roomGame = null;
-        error = "";
+        showError();
         redraw();
         queueComputer();
       },
@@ -475,11 +487,11 @@ const client = embedded
           prepareNavigationReveal(roomGame, next);
         }
         roomGame = next;
-        error = "";
+        showError();
         redraw();
       },
       onError(message) {
-        error = message;
+        showError(message);
         redraw();
       },
     })

@@ -9,8 +9,8 @@ import { fightSize, fightWeapons } from "./engine.js";
 import { listNames, personName, provisionName, t, tParts } from "./i18n.js";
 import Icon from "./icon.jsx";
 import { CardDetail, CardFace } from "./provision-card.jsx";
-import { FIGHT_RESULT_MS } from "./turn-feedback.js";
-import { GameDialog, Raised } from "./ui.jsx";
+import { FIGHT_RESULT_MS, mugRequestParts } from "./turn-feedback.js";
+import { FloatingNotice, GameDialog, Raised } from "./ui.jsx";
 import WaterPanel from "./water-panel.jsx";
 import fightWound from "./assets/fight-wound.webp";
 
@@ -162,18 +162,17 @@ function FightSide({ label, defending, members, fight, characters, joined, final
 
 function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
   const [open, setOpen] = useState(true);
+  const showing = open && !overlayOpen;
   const close = () => setOpen(false);
   const scores = [...game.scores].sort((a, b) => b.total - a.total);
   return <>
     <Raised secondary className="open-settlement" onClick={() => setOpen(true)}>{t("score.view")}</Raised>
-    <GameDialog title={t("score.title")} className="settlement-dialog" open={open && !overlayOpen} onClose={close}
-      footer={<>
-        {error && <p className="error settlement-error" role="alert">{error}</p>}
-        <div className={game.canRematch ? "paired-actions" : "table-footer"}>
-          <Raised secondary onClick={close}>{t("common.backToTable")}</Raised>
-          {game.canRematch && <Raised disabled={busy} onClick={() => onAction({ type: "rematch" })}>{t("score.rematch")}</Raised>}
-        </div>
-      </>}>
+    {!showing && <FloatingNotice error={error} />}
+    <GameDialog title={t("score.title")} className="settlement-dialog" open={showing} onClose={close} error={error}
+      footer={<div className={game.canRematch ? "paired-actions" : "table-footer"}>
+        <Raised secondary onClick={close}>{t("common.backToTable")}</Raised>
+        {game.canRematch && <Raised disabled={busy} onClick={() => onAction({ type: "rematch" })}>{t("score.rematch")}</Raised>}
+      </div>}>
       <ol className="settlement-scores" aria-label={t("score.list")} tabIndex={0}>
         {scores.map(score => <li key={score.player} className={`score${score.total === scores[0].total ? " is-leader" : ""}`}>
           <div className="score-summary">
@@ -225,6 +224,11 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const canTrade = game.canTrade && !!self;
   const canReveal = self?.conscious && game.phase !== "ended";
   const usingWater = active && game.phase === "thirst";
+  const rescuing = active && game.phase === "rescue";
+  const hasSettlement = game.phase === "ended" && !!game.scores?.length;
+  const guidance = mode ? t(`target.${mode}`)
+    : trading ? t(game.tradeOpen ? "trade.chooseToGive" : "trade.chooseToReveal")
+    : rescuing ? t("rescue.hint") : undefined;
   const ownCards = self ? [...(self.hand || []), ...self.shown] : [];
   const waterCards = usingWater ? ownCards.filter(id => cardInfo(id)?.type === "water") : [];
   const weapons = fightWeapons(self);
@@ -251,7 +255,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const anchor = inspectedCard?.element;
   const previewingOffer = dealing && !busy && anchor?.closest(".provision-offer") && game.offer.includes(inspectedCard.id);
   const handDetail = previewingOffer || ownCards.includes(inspectedCard?.id) ? cardInfo(inspectedCard.id) : null;
-  const handCard = !overlayOpen && !fightResult && !fightSkip && handDetail && (previewingOffer || arming || !anchor.closest(".turn-scroll")) ? anchor : null;
+  const handCard = !overlayOpen && !fightResult && !fightSkip && handDetail && (previewingOffer || !anchor.closest(".turn-scroll")) ? anchor : null;
   const openSupplyId = handCard?.closest(".seat-supplies") ? inspectedCard.id : undefined;
   let cardDetail = null;
   if (handCard) {
@@ -303,13 +307,13 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   }
 
   return <main className="table" ref={boardRef} onKeyDown={event => {
-    if (!event.defaultPrevented && event.key === "Escape" && targetCard) cancelTarget();
+    if (!event.defaultPrevented && event.key === "Escape" && mode) cancelTarget();
   }}>
     <header className="table-overview">
       {computer && <div className="turn-feedback">
         <span className="feedback-text" role="status">{mug
-          ? t("feedback.mugRequest", { from: requester, to: recipient })
-          : latestActivity && <ActivityText key={latestActivity.step} parts={latestActivity.parts} characters={game.characters} />}</span>
+          ? <ActivityText parts={mugRequestParts(demand)} characters={game.characters} />
+          : latestActivity && <ActivityText key={latestActivity.step} parts={latestActivity.lines.at(-1)} characters={game.characters} />}</span>
         <button type="button" className="feedback-link" disabled={!latestActivity} aria-haspopup="dialog" onClick={onHistory}>
           {t("history.view")} <span aria-hidden="true">›</span>
         </button>
@@ -331,8 +335,6 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
         </h2>
       </header>
       <div className="turn-scroll" ref={turnRef} key={`${game.day}-${game.phase}-${canAct}-${game.fight?.stage}`} tabIndex={0}>
-        {error && <p className="error table-error" role="alert">{error}</p>}
-        {trading && <p className="table-hint">{game.tradeOpen ? t("trade.chooseToGive") : t("trade.chooseToReveal")}</p>}
         {!active && !trading && !fight && game.phase !== "ended" && (!computer || !game.queue.length) &&
           <p className="table-hint" role="status">{t("table.waiting")}</p>}
         {dealing && <section className="card-tray provision-deal">
@@ -380,11 +382,6 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
               characters={game.characters} joined={feedback?.joined} finalPower={fightResult?.defense}
               won={fightResult && !fightResult.attackersWin} losers={fightResult?.losers} />
           </div>
-          {arming && !!weapons.length && <div className="hand" aria-label={t("fight.weapons")}>
-            {weapons.map(id => <CardFace key={id} id={id} disabled={busy}
-              detailsOpen={!!handCard?.closest(".turn-scroll") && inspectedCard.id === id}
-              onClick={event => inspectCard(id, event.currentTarget)} />)}
-          </div>}
           <div className="actions fight-actions">
             {active && game.fight.stage === "join" && <>
               <Choice data-fight-side="attack" disabled={busy} onClick={() => send({ type: "join", side: "attack" })}>{t("fight.joinAttack")}</Choice>
@@ -394,23 +391,14 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
             {arming && <Choice disabled={busy} onClick={() => send({ type: "arm", card: false })}>{t("fight.pass")}</Choice>}
           </div>
         </section>}
-        {active && game.phase === "rescue" && <section className="panel">
+        {rescuing && <section className="panel">
           <h2>{t("nav.overboard")}</h2>
           <p className="hint">{listNames(game.falling.map(personName))}</p>
-          <p className="hint">{t("rescue.hint")}</p>
           <Choice disabled={busy} onClick={() => send({ type: "rescue" })}>{t("common.skip")}</Choice>
         </section>}
         {usingWater && <WaterPanel key={game.step} game={game} self={self} waterCards={waterCards} drinks={drinks}
           setDrinks={next => updateDraft({ drinks: next })} busy={busy} send={send} />}
-        {mode && <p className="hint" role="status">{{
-          give: t("target.give"),
-          medical: t("target.medical"),
-          throw: t("target.throw"),
-          mug: t("target.mug"),
-          move: t("target.move"),
-        }[mode]}</p>}
-        {targetCard && <Raised secondary disabled={busy} onClick={cancelTarget}>{t("target.cancel")}</Raised>}
-        {game.phase === "ended" && !!game.scores?.length && <Settlement key={game.step} game={game} players={players}
+        {hasSettlement && <Settlement key={game.step} game={game} players={players}
           busy={busy} error={error} overlayOpen={overlayOpen} onAction={onAction} />}
         {(onChooseTrader || trading) && <div className="table-footer">
           {onChooseTrader && <Raised secondary disabled={busy} onClick={onChooseTrader}>{game.tradeOpen ? t("trade.passToTrade") : t("trade.passToReveal")}</Raised>}
@@ -428,6 +416,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
           {self.hand.map(id => {
             const preview = element => inspectCard(id, element);
             return <CardFace key={id} id={id} disabled={cardDisabled(id)} spent={treatment?.card === id}
+              dimmed={arming && !weapons.includes(id)}
               detailsOpen={!!handCard && inspectedCard.id === id && !!handCard.closest(".card-rail")}
               onPreview={preview} onClick={event => preview(event.currentTarget)} />;
           })}
@@ -436,6 +425,8 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
     </section>}
     <CardDetail anchor={handCard} content={cardDetail} onClose={closeCard}
       onChooseAction={chooseCardAction} takeFocusTarget={takeFocusTarget} />
+    {!overlayOpen && !hasSettlement && <FloatingNotice error={error} message={guidance} busy={busy}
+      onCancel={mode ? cancelTarget : undefined} />}
     {cardTransfer && <CardFlight key={feedback.step} transfer={cardTransfer} boardRef={boardRef}
       duration={feedback.mug ? 480 : 270} step={feedback.step} onFinish={feedback.mug ? setFinishedMugStep : undefined} />}
   </main>;

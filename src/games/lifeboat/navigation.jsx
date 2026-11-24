@@ -143,13 +143,9 @@ export function NavigationDecision({ phase, cards, characters, draft, open, upda
   const title = rowing ? t("action.row") : t("nav.choose");
   const close = () => updateDraft(() => ({ dismissed: true }));
   return <GameDialog title={title} closeLabel={t("common.backToTable")}
-    className={rowing ? "navigation-drawer row-dialog" : "navigation-drawer"} open={open} onClose={close}
-    footer={rowing && <>
-      {error && <p className="error table-error" role="alert">{error}</p>}
-      <Raised disabled={busy} onClick={() => onAction({ type: "sort", keep: cards.map(id => draft.kept.includes(id)) })}>{t("nav.confirmRow")}</Raised>
-    </>}>
+    className={rowing ? "navigation-drawer row-dialog" : "navigation-drawer"} open={open} onClose={close} error={error}
+    footer={rowing && <Raised disabled={busy} onClick={() => onAction({ type: "sort", keep: cards.map(id => draft.kept.includes(id)) })}>{t("nav.confirmRow")}</Raised>}>
     {rowing && <p className="table-hint">{t("nav.keepCount", { count: cards.length })}</p>}
-    {!rowing && error && <p className="error table-error" role="alert">{error}</p>}
     <div className="navigation-choices" aria-label={rowing ? t("nav.drawn") : t("nav.pickOne")} role="group">
       {cards.map((id, index) => {
         const kept = draft.kept.includes(id);

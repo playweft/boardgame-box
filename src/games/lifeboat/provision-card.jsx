@@ -21,7 +21,7 @@ export function provisionEffect(card) {
 const CARD_PREVIEW_DELAY = 500;
 const CARD_PREVIEW_SLOP = 10;
 
-export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent }) {
+export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent, dimmed }) {
   const press = useRef(null);
   const stopPress = () => {
     clearTimeout(press.current?.timer);
@@ -74,7 +74,7 @@ export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent 
     <small>{card.value ? t("score.points", { value: card.value }) : card.size ? t("provisions.weapon", { size: card.size }) : ""}</small>
   </>;
   return onClick
-    ? <button type="button" className="card" data-spent={spent || undefined} aria-expanded={detailsOpen}
+    ? <button type="button" className="card" data-spent={spent || undefined} data-dimmed={dimmed || undefined} aria-expanded={detailsOpen}
       aria-controls={detailsOpen !== undefined ? "hand-card-details" : undefined}
       aria-keyshortcuts={onPreview ? "Shift+F10" : undefined}
       onPointerDown={onPreview && startPress} onPointerMove={onPreview && movePress}

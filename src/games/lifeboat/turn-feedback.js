@@ -1,13 +1,25 @@
 import { cardInfo } from "./data.js";
-import { characterName, listNameParts, provisionName, t, tParts } from "./i18n.js";
+import { characterName, listNameParts, listNames, provisionName, t, tParts } from "./i18n.js";
 
 function name(id) {
   const label = characterName(id, { short: true });
   return label ? { id, label } : t("characters.crew");
 }
 
-function weapon(type) {
+function provision(type) {
   return { icon: type, label: provisionName(type) };
+}
+
+export function mugRequestParts({ from, to, card }) {
+  const shown = cardInfo(card);
+  const people = { from: name(from), to: name(to) };
+  return shown
+    ? tParts("feedback.mugRequestShown", { ...people, card: provision(shown.type) })
+    : tParts("feedback.mugRequestHand", people);
+}
+
+function portraits(ids) {
+  return { portraits: ids, label: listNames(ids.map(id => characterName(id, { short: true }))) };
 }
 
 export const FIGHT_RESULT_MS = 1080;
@@ -47,8 +59,7 @@ export function computerDelay(action) {
 }
 
 function activityContent(lines) {
-  const parts = lines.flatMap((line, index) => index ? [" · ", ...line] : line);
-  return { lines, parts, text: parts.map(part => part.label ?? part).join("") };
+  return { lines, text: lines.map(line => line.map(part => part.label ?? part).join("")).join("\n") };
 }
 
 export function recordTurn(history, before, after, action) {
@@ -70,16 +81,8 @@ export function recordTurn(history, before, after, action) {
 // roles, counts, revealed weapons, and movement endpoints for face-down transfers.
 export function describeTurn(before, after, action) {
   const events = after.log.slice(before.log.length);
-  let line;
   const lines = [];
-  const note = (key, values = {}) => {
-    if (line) line.push(" · ");
-    else {
-      line = [];
-      lines.push(line);
-    }
-    line.push(...tParts(key, values).flat());
-  };
+  const note = (key, values = {}) => lines.push(tParts(key, values).flat());
   let transfer = null;
   let hold = 0;
   let mug = null;
@@ -95,6 +98,15 @@ export function describeTurn(before, after, action) {
     note("feedback.birds", { change: flareChange > 0 ? "+" + flareChange : "−" + Math.abs(flareChange) });
     flareChange = 0;
   };
+
+  const armedCard = action?.type === "arm" ? cardInfo(action.card) : null;
+  if (armedCard?.size) {
+    const wielder = after.characters.find(person => person.shown.includes(armedCard.id));
+    const previous = before.characters.find(person => person.id === wielder?.id);
+    if (previous && !previous.shown.includes(armedCard.id)) {
+      note("feedback.armed", { name: name(wielder.id), weapon: provision(armedCard.type) });
+    }
+  }
 
   for (const event of events) {
     switch (event.type) {
@@ -125,39 +137,44 @@ export function describeTurn(before, after, action) {
         // A successful immediate mug or move already has its own public event.
         if (after.phase === "answer" && event.act === "mug") {
           mug = { from: event.id, to: event.target };
-          note("feedback.mugRequest", { from: name(mug.from), to: name(mug.to) });
+          lines.push(mugRequestParts({ ...mug, card: after.demand?.card }));
           hold = Math.max(hold, 800);
         }
         if (after.phase === "answer" && event.act === "move") note("feedback.moveRequest", { from: name(event.id), to: name(event.target) });
         break;
-      case "fight":
-        note(event.attackersWin ? "feedback.attackWin" : "feedback.defendWin");
+      case "fight": {
+        const result = event.attackersWin ? "feedback.attackWin" : "feedback.defendWin";
+        if (Array.isArray(event.attackers) && Array.isArray(event.defenders) &&
+            Number.isFinite(event.attack) && Number.isFinite(event.defense)) {
+          note("feedback.fightResult", {
+            attackers: portraits(event.attackers), attack: event.attack,
+            defenders: portraits(event.defenders), defense: event.defense, result: t(result),
+          });
+        } else note(result);
         winners = [...(event.attackersWin ? before.fight?.attackers ?? [event.attacker] : before.fight?.defenders ?? [event.defender])];
         if (actor && action?.type === "join" && action.side === (event.attackersWin ? "attack" : "defend")) winners.push(actor);
         hold = Math.max(hold, 1000);
         break;
+      }
       case "fightFlare":
-        note("feedback.fightFlare", { name: name(event.id), weapon: weapon("flare") });
+        note("feedback.fightFlare", { name: name(event.id), weapon: provision("flare") });
         break;
       case "heal":
         note("feedback.heal", { name: name(event.id), target: name(event.target) });
         break;
       case "nav": {
         noteFlareBirds();
-        line = null;
         const card = { navigationCard: event.card, label: t("nav.card") };
         if (event.source === "choice") {
           note("feedback.navigationChoice", { name: name(event.navigator), card });
         } else {
           note(event.source === "deck" ? "feedback.navigationDeck" : "feedback.navigationReveal", { card });
         }
-        line = null;
         if (event.birds > birds) {
           note("feedback.gullAdded", { gull: { icon: "bird", label: t("feedback.gull") }, count: event.birds });
         } else if (event.birds < birds) {
           note("feedback.birds", { change: "−1" });
         }
-        line = null;
         birds = event.birds;
         navigation = true;
         break;
@@ -194,7 +211,6 @@ export function describeTurn(before, after, action) {
   noteFlareBirds();
 
   const injuries = [];
-  const armedCard = action?.type === "arm" ? cardInfo(action.card) : null;
   for (const person of after.characters) {
     const previous = before.characters.find(entry => entry.id === person.id);
     if (previous) {
@@ -204,9 +220,6 @@ export function describeTurn(before, after, action) {
       if (otherWounds > 0 || thirst > 0) injuries.push(person.id);
       if (otherWounds > 0) note("feedback.injured", { name: name(person.id), count: otherWounds });
       if (thirst > 0) note("feedback.thirstInjury", { name: name(person.id), count: thirst });
-    }
-    if (armedCard?.size && previous && !previous.shown.includes(armedCard.id) && person.shown.includes(armedCard.id)) {
-      note("feedback.armed", { name: name(person.id), weapon: weapon(armedCard.type) });
     }
   }
   if (after.phase === "ended" && before.phase !== "ended") note("feedback.landfall");

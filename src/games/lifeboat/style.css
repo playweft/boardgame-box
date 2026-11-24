@@ -525,6 +525,16 @@ button.back-link {
 .activity-navigation button > .sea-icon {
   height: 1.125rem;
 }
+.activity-portraits {
+  display: inline-flex;
+  gap: 0.125rem;
+  margin-inline: 0.18rem;
+  vertical-align: middle;
+  vertical-align: calc((1cap - 1.125rem) / 2);
+}
+.activity-portraits .seat-portrait {
+  width: 1.125rem;
+}
 .activity-navigation button {
   padding: 0;
   border: 0;
@@ -1091,6 +1101,17 @@ button.seat-supply:enabled {
   margin-inline: auto;
   padding: 0;
 }
+.card-rail .card[data-dimmed="true"] {
+  position: relative;
+}
+.card-rail .card[data-dimmed="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 25%);
+  pointer-events: none;
+}
 :is(.card-rail, .character-supply-list) .card {
   flex: none;
   width: var(--supply-card-width);
@@ -1490,9 +1511,38 @@ button.card:disabled,
   border-radius: 10px;
   background: #6e2d32;
 }
-.settlement-error,
-.table-error {
-  margin: 0;
+.floating-notice {
+  position: fixed;
+  z-index: 5;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  max-width: min(21rem, calc(100% - 2rem));
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.625rem;
+  background: rgb(0 0 0 / 78%);
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.sea-dialog > .floating-notice {
+  position: absolute;
+}
+.floating-notice button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 0.3rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .rules {

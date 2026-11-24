@@ -13,7 +13,15 @@ export function Raised({ secondary, href, icon, children, className = "", ...pro
     : <button type="button" className={classes} {...props}>{content}</button>;
 }
 
-export function GameDialog({ title, open, onClose, children, footer, className = "", closeLabel, bodyRef }) {
+export function FloatingNotice({ message, error, onCancel, busy }) {
+  if (!error && !message) return null;
+  return <div className="floating-notice">
+    {error ? <span role="alert">{error}</span> : <span role="status">{message}</span>}
+    {!error && onCancel && <button type="button" disabled={busy} onClick={onCancel}>{t("target.cancel")}</button>}
+  </div>;
+}
+
+export function GameDialog({ title, open, onClose, children, footer, className = "", closeLabel, bodyRef, error }) {
   return <Dialog className={`sea-dialog ${className}`} open={open} onClose={onClose} aria-label={title}>
     <div className="dialog-inner">
       <header>
@@ -26,5 +34,6 @@ export function GameDialog({ title, open, onClose, children, footer, className =
       <div className="dialog-body" ref={bodyRef}>{children}</div>
       {footer && <footer>{footer}</footer>}
     </div>
+    {open && error && <FloatingNotice error={error} />}
   </Dialog>;
 }

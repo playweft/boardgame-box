@@ -47,7 +47,7 @@ test("computer taking a provision moves a card back without revealing its identi
   const cue = describeTurn(projectGame(state, viewer), projectGame(result.state, viewer), { type: "take", card });
   assert.deepEqual(cue.transfer, { from: null, to: state.queue[0] });
   assert.match(cue.text, /拿走一张物资牌/);
-  assert.ok(cue.parts.some(part => part.icon === "crate" && part.label === "物资牌"));
+  assert.ok(cue.lines[0].some(part => part.icon === "crate" && part.label === "物资牌"));
   assert.equal(JSON.stringify(cue).includes(card), false);
   assert.equal(computerDelay({ type: "take" }), 300);
   assert.equal(cue.hold, 350);
@@ -62,7 +62,7 @@ test("a stolen card travels from the former owner to the recipient using public 
   const cue = describeTurn(before, after, { type: "mug", card: "knife-1" });
   assert.deepEqual(cue.transfer, { from: "mate", to: "captain" });
   assert.equal(cue.text, "船长从大副那里抢走一张牌");
-  assert.deepEqual(cue.parts.filter(part => typeof part === "object"), [
+  assert.deepEqual(cue.lines[0].filter(part => typeof part === "object"), [
     { id: "captain", label: "船长" },
     { id: "mate", label: "大副" },
   ]);
@@ -105,7 +105,7 @@ test("navigation feedback identifies the navigator only when someone chose the c
   const card = { type: "nav", card: "nav-10", birds: 0 };
   const chosen = describeTurn(before, { ...after, log: [{ ...card, source: "choice", navigator: "stephen" }] });
   assert.equal(chosen.text, "航海结算，斯蒂芬选择了一张航海牌");
-  assert.ok(chosen.parts.some(part => part.navigationCard === card.card));
+  assert.ok(chosen.lines[0].some(part => part.navigationCard === card.card));
   const automatic = describeTurn(before, { ...after, log: [{ ...card, source: "row" }] });
   assert.equal(automatic.text, "航海结算，翻开了一张航海牌");
 });
@@ -130,7 +130,7 @@ test("confirming a rowing choice updates the original activity even when navigat
     assert.equal(history.length, 2);
     assert.equal(history[0].step, rowing.step);
     assert.equal(history[0].text, keep[0] ? "大副完成划船，留下 1 张航海牌" : "大副完成划船，留下 0 张航海牌");
-    assert.ok(history[1].parts.some(part => part.navigationCard === "nav-10"));
+    assert.ok(history[1].lines[0].some(part => part.navigationCard === "nav-10"));
   }
 });
 
@@ -151,12 +151,18 @@ test("fight feedback names and illustrates weapons after they become public", ()
   ) };
   const cue = describeTurn(before, armed, action);
   assert.equal(cue.text, "大副亮出短刀");
-  assert.ok(cue.parts.some(part => part.icon === "knife" && part.label === "短刀"));
+  assert.ok(cue.lines[0].some(part => part.icon === "knife" && part.label === "短刀"));
+
+  const resolved = describeTurn(before, { ...armed, log: [...before.log,
+    { type: "fight", attacker: "captain", defender: "mate", attackersWin: true },
+    { type: "mug", from: "captain", to: "mate" },
+  ] }, action);
+  assert.deepEqual(resolved.text.split("\n"), ["大副亮出短刀", "进攻方赢得打架", "船长从大副那里抢走一张牌"]);
 
   const flare = { ...after, log: [...before.log, { type: "fightFlare", id: "mate" }] };
   const fired = describeTurn(before, flare, { type: "arm", card: "flare-1" });
   assert.equal(fired.text, "大副打出信号枪，战力 +8");
-  assert.ok(fired.parts.some(part => part.icon === "flare" && part.label === "信号枪"));
+  assert.ok(fired.lines[0].some(part => part.icon === "flare" && part.label === "信号枪"));
 });
 
 
@@ -164,12 +170,27 @@ test("a mugging request shows both public seats without moving a card yet", () =
   const before = projectGame(createGame(roster, "beef"), "p0");
   const after = { ...before, phase: "answer", step: before.step + 1,
     log: [{ type: "act", id: "mate", act: "mug", target: "lauren" }],
+    demand: { kind: "mug", from: "mate", to: "lauren", card: false },
   };
   const cue = describeTurn(before, after, { type: "mug", target: "lauren" });
-  assert.equal(cue.text, "大副发起了对劳伦的物资的抢夺");
+  assert.equal(cue.text, "大副要随机抢走劳伦的一张手牌");
   assert.deepEqual(cue.mug, { from: "mate", to: "lauren" });
   assert.equal(cue.transfer, null);
   assert.equal(cue.hold, 800);
+
+  const shown = describeTurn(before, { ...after, demand: { ...after.demand, card: "oar-1" } });
+  assert.equal(shown.text, "大副要抢走劳伦亮出的船桨");
+  assert.ok(shown.lines[0].some(part => part.icon === "oar" && part.label === "船桨"));
+});
+
+test("fight results include the final strength and portraits of both sides", () => {
+  const before = projectGame(createGame(roster, "beef"), "p0");
+  const fight = { type: "fight", attacker: "captain", defender: "lauren",
+    attackers: ["captain", "mate"], defenders: ["lauren", "stephen"],
+    attack: 14, defense: 14, attackersWin: false };
+  const cue = describeTurn(before, { ...before, step: before.step + 1, log: [...before.log, fight] });
+  assert.equal(cue.text, "进攻方船长、大副战力 14 点，防守方劳伦、斯蒂芬战力 14 点，防守方赢得打架");
+  assert.deepEqual(cue.lines[0].filter(part => part.portraits).map(part => part.portraits), [fight.attackers, fight.defenders]);
 });
 
 test("joining a side stays visible and a simultaneous fight result uses the longer hold", () => {
