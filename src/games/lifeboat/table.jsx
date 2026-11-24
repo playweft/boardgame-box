@@ -11,6 +11,7 @@ import Icon from "./icon.jsx";
 import { CardDetail, CardFace } from "./provision-card.jsx";
 import { FIGHT_RESULT_MS } from "./turn-feedback.js";
 import { GameDialog, Raised } from "./ui.jsx";
+import WaterPanel from "./water-panel.jsx";
 import fightWound from "./assets/fight-wound.webp";
 
 function CardFlight({ transfer, boardRef, duration, step, onFinish }) {
@@ -159,35 +160,6 @@ function FightSide({ label, defending, members, fight, characters, joined, final
   </div>;
 }
 
-function WaterPanel({ game, waterCard, drinks, setDrinks, addDrink, busy, send }) {
-  return <section className="panel" aria-label={t("action.water")}>
-    <h2>{t("action.water")}</h2>
-    <p className="hint">{waterCard ? t("water.pickCrew") : t("water.pickCard")}</p>
-    <div className="actions">
-      {game.thirst.filter(item => item.left > 0).map(({ id, left }) => {
-        const remaining = left - drinks.filter(use => use.for === id).length;
-        const own = game.characters.some(entry => entry.id === id && entry.player === game.viewerId);
-        return <Choice key={id} data-water-target={!!waterCard && remaining > 0} disabled={busy || !waterCard || remaining <= 0}
-          onClick={() => addDrink(id)}>
-          <span>{personName(id)}{own ? t("water.self") : ""}<small>{t("water.remaining", { remaining })}</small></span>
-        </Choice>;
-      })}
-    </div>
-    {!!drinks.length && <ul className="water-draft" aria-label={t("water.draft")}>
-      {drinks.map(use => <li key={use.card}>
-        <span><Icon name="water" />{t("water.use", { name: personName(use.for) })}</span>
-        <Choice disabled={busy} onClick={() => setDrinks(drinks.filter(item => item.card !== use.card))}>
-          {t("water.undo")}
-        </Choice>
-      </li>)}
-    </ul>}
-    <div className="paired-actions">
-      <Raised secondary disabled={busy} onClick={() => send({ type: "drink", uses: [] })}>{t("common.skip")}</Raised>
-      <Raised disabled={busy || !drinks.length} onClick={() => send({ type: "drink", uses: drinks })}>{t("water.confirm")}</Raised>
-    </div>
-  </section>;
-}
-
 function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
   const [open, setOpen] = useState(true);
   const close = () => setOpen(false);
@@ -254,6 +226,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const canReveal = self?.conscious && game.phase !== "ended";
   const usingWater = active && game.phase === "thirst";
   const ownCards = self ? [...(self.hand || []), ...self.shown] : [];
+  const waterCards = usingWater ? ownCards.filter(id => cardInfo(id)?.type === "water") : [];
   const weapons = fightWeapons(self);
   const cardDisabled = id => busy || drinks.some(use => use.card === id);
   const inspectCard = (id, element) => setInspectedCard({ id, element });
@@ -272,7 +245,6 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const canHeal = entry => !entry.removed && entry.alive && entry.wounds > 0;
   const canReceive = entry => !entry.removed && entry.id !== self?.id;
   const canRescue = entry => canReceive(entry) && entry.conscious && game.falling.includes(entry.id);
-  const needsWater = game.thirst?.some(({ id, left }) => left > drinks.filter(use => use.for === id).length);
   const actionPhase = active && game.phase === "action";
   const rescuePhase = active && game.phase === "rescue";
   const arming = active && game.phase === "fight" && game.fight.stage === "arm";
@@ -290,7 +262,6 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
       canReveal && inHand && (!canUseWeapon || type === "flare") && { label: t("action.reveal"), intent: { type: "reveal", card: id } },
       canTrade && game.characters.some(canReceive) && { label: t("action.give"), target: "give" },
       actionPhase && type === "medical" && game.characters.some(canHeal) && { label: t("action.heal"), target: "medical" },
-      usingWater && type === "water" && needsWater && { label: t("action.water"), target: "water" },
       actionPhase && type === "parasol" && !self.parasol && { label: t("action.parasol"), intent: { type: "parasol" } },
       actionPhase && type === "flare" && { label: t("action.flare"), intent: { type: "flare" } },
       rescuePhase && type === "preserver" && game.characters.some(canRescue) && { label: t("action.preserver"), target: "throw" },
@@ -303,7 +274,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   function chooseCardAction(action, card) {
     if (action.intent) return send(action.intent);
     if (computer && !active && action.target === "give") onComputerHold(true);
-    focusTarget.current = action.target === "water" ? '[data-water-target="true"]:enabled' : '[data-target="true"] .seat-button';
+    focusTarget.current = '[data-target="true"] .seat-button';
     updateDraft({ mode: action.target, targetCard: card });
     closeCard();
   }
@@ -429,11 +400,9 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
           <p className="hint">{t("rescue.hint")}</p>
           <Choice disabled={busy} onClick={() => send({ type: "rescue" })}>{t("common.skip")}</Choice>
         </section>}
-        {usingWater && <WaterPanel game={game} waterCard={mode === "water" && targetCard} drinks={drinks}
-          setDrinks={next => updateDraft({ drinks: next })}
-          addDrink={id => updateDraft({ drinks: [...drinks, { card: targetCard, for: id }], mode: "", targetCard: null })}
-          busy={busy} send={send} />}
-        {mode && mode !== "water" && <p className="hint" role="status">{{
+        {usingWater && <WaterPanel key={game.step} game={game} self={self} waterCards={waterCards} drinks={drinks}
+          setDrinks={next => updateDraft({ drinks: next })} busy={busy} send={send} />}
+        {mode && <p className="hint" role="status">{{
           give: t("target.give"),
           medical: t("target.medical"),
           throw: t("target.throw"),

@@ -407,12 +407,10 @@ export default {
   "trade.reveal": "亮牌",
   "trade.trade": "交易",
 
-  "water.confirm": "确认淡水",
-  "water.draft": "待使用的淡水",
-  "water.pickCard": "点一张淡水，在详情里选择分配淡水。",
-  "water.pickCrew": "选择喝水的船员。",
+  "water.allocateCount": "分配 {{count}} 张淡水",
+  "water.amount": "分配数量",
+  "water.confirm": "提交分配",
+  "water.confirmAllocation": "确认分配",
+  "water.pickCrew": "选择喝水的船员",
   "water.remaining": "还需 {{remaining}} 份",
-  "water.self": "（自己）",
-  "water.undo": "撤销",
-  "water.use": "淡水 → {{name}}",
 };

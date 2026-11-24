@@ -407,12 +407,10 @@ export default {
   "trade.reveal": "Reveal",
   "trade.trade": "Trade",
 
-  "water.confirm": "Confirm Water",
-  "water.draft": "Water to be used",
-  "water.pickCard": "Open a Fresh Water card and choose Allocate Water.",
-  "water.pickCrew": "Choose who gets the water.",
+  "water.allocateCount": "Allocate {{count}} fresh water cards",
+  "water.amount": "Amount to allocate",
+  "water.confirm": "Submit Allocations",
+  "water.confirmAllocation": "Confirm Allocation",
+  "water.pickCrew": "Choose Who Gets Water",
   "water.remaining": "Still needed: {{remaining}}",
-  "water.self": " (you)",
-  "water.undo": "Undo",
-  "water.use": "Water → {{name}}",
 };
