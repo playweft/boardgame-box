@@ -736,6 +736,7 @@ local function on_reveal(state, actor_id, card)
   reveal_card(state, entry, card)
   local kind = card_type(card)
   if state.phase == "fight" and WEAPON[kind] and kind ~= "flare" and is_fighting(state.fight, entry.id) then
+    note(state, {type = "fightArm", id = entry.id, weapon = kind})
     restart_fight_round(state, entry.id, true)
   end
 end
@@ -866,6 +867,7 @@ local function on_fight(state, action)
     if action.side == "out" then pass_fight_decision(state, entry.id)
     else
       push(action.side == "attack" and fight.attackers or fight.defenders, entry.id)
+      note(state, {type = "fightJoin", id = entry.id, side = action.side})
       restart_fight_round(state, entry.id, true)
     end
     return
@@ -876,12 +878,14 @@ local function on_fight(state, action)
     return
   end
   if not index_of(fight_weapons(entry), action.card) then return "INVALID_WEAPON" end
-  if card_type(action.card) == "flare" then
+  local weapon = card_type(action.card)
+  if weapon == "flare" then
     take_card(entry, action.card)
     fight.flareBy = entry.id
     note(state, {type = "fightFlare", id = entry.id})
   else
     reveal_card(state, entry, action.card)
+    note(state, {type = "fightArm", id = entry.id, weapon = weapon})
   end
   restart_fight_round(state, entry.id, true)
 end

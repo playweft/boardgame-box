@@ -534,6 +534,7 @@ function mutate(state, actorId, action) {
       card.type !== "flare" &&
       isFighting(state.fight, entry.id)
     ) {
+      note(state, { type: "fightArm", id: entry.id, weapon: card.type });
       restartFightRound(state, entry.id);
     }
     return ok();
@@ -824,6 +825,7 @@ function fightAction(state, actorId, action) {
     if (action.side !== "out") {
       const side = action.side === "attack" ? fight.attackers : fight.defenders;
       side.push(entry.id);
+      note(state, { type: "fightJoin", id: entry.id, side: action.side });
       restartFightRound(state, entry.id);
     } else passFightDecision(state, entry.id);
     return ok();
@@ -834,11 +836,15 @@ function fightAction(state, actorId, action) {
     return ok();
   }
   if (!fightWeapons(entry).includes(action.card)) return fail("INVALID_WEAPON");
-  if (cardInfo(action.card).type === "flare") {
+  const weapon = cardInfo(action.card).type;
+  if (weapon === "flare") {
     takeCard(entry, action.card);
     fight.flareBy = entry.id;
     note(state, { type: "fightFlare", id: entry.id });
-  } else revealCard(state, entry, action.card);
+  } else {
+    revealCard(state, entry, action.card);
+    note(state, { type: "fightArm", id: entry.id, weapon });
+  }
   restartFightRound(state, entry.id);
   return ok();
 }

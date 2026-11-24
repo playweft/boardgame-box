@@ -349,12 +349,16 @@ test("reviewed rules behave the same in local and room games", async t => {
       assert.deepEqual(projectGame(armed, seat(armed, "mate").player).queue, []);
       const spectator = await exec('return view(state,{},{viewer={id="spectator"}}).state');
       assert.deepEqual(normalizeRoomView(spectator), projectGame(armed, "spectator"));
-      await act({ type: "arm", card: "knife-1" });
+      const knife = await act({ type: "arm", card: "knife-1" });
+      assert.deepEqual(knife.log.at(-1), { type: "fightArm", id: "lauren", weapon: "knife" });
       await act({ type: "join", side: "out" }, "mate");
       await act({ type: "join", side: "out" }, "kid");
-      const continued = await act({ type: "arm", card: "oar-1" }, "lauren");
+      const continued = await act({ type: "reveal", card: "oar-1" }, "lauren");
       assert.equal(continued.phase, "fight");
       assert.equal(continued.queue[0], "mate");
+      assert.deepEqual(continued.log.at(-1), { type: "fightArm", id: "lauren", weapon: "oar" });
+      const publicView = await exec('return view(state,{},{viewer={id="spectator"}}).state');
+      assert.deepEqual(normalizeRoomView(publicView), projectGame(continued, "spectator"));
       const settled = await declineFightChoices();
       assert.deepEqual(fightResults(settled)[0], {
         type: "fight", attacker: "lauren", defender: "captain", attackersWin: true,
@@ -370,8 +374,11 @@ test("reviewed rules behave the same in local and room games", async t => {
       await late.act({ type: "arm", card: false });
       await late.act({ type: "join", side: "out" }, "mate");
       await late.act({ type: "join", side: "attack" }, "kid");
-      await late.act({ type: "arm", card: "knife-1" }, "lauren");
+      const beforeJoin = await late.act({ type: "arm", card: "knife-1" }, "lauren");
       const joined = await late.act({ type: "join", side: "defend" }, "mate");
+      assert.deepEqual(joined.log.slice(beforeJoin.log.length, beforeJoin.log.length + 2), [
+        { type: "fightJoin", id: "mate", side: "defend" }, fightResults(joined)[0],
+      ]);
       assert.equal(fightResults(joined)[0].attackersWin, false);
       assert.deepEqual(fightResults(joined)[0].defenders, ["captain", "mate"]);
       assert.equal(fightResults(joined)[0].defense, 15);

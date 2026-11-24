@@ -6,7 +6,7 @@ import ActivityText from "./activity-text.jsx";
 import { CrewBoard, CrewPortrait } from "./crew.jsx";
 import { cardInfo, characterById } from "./data.js";
 import { fightSize, fightWeapons } from "./engine.js";
-import { listNames, personName, provisionName, t, tParts } from "./i18n.js";
+import { characterName, listNames, personName, provisionName, t, tParts } from "./i18n.js";
 import Icon from "./icon.jsx";
 import { CardDetail, CardFace } from "./provision-card.jsx";
 import { FIGHT_RESULT_MS, mugRequestParts } from "./turn-feedback.js";
@@ -160,6 +160,11 @@ function FightSide({ label, defending, members, fight, characters, joined, final
   </div>;
 }
 
+const SCORE_COLUMNS = [
+  ["survival", "crew.survival"], ["love", "score.love"], ["hate", "score.hate"],
+  ["loot", "score.loot"], ["total", "score.total"],
+];
+
 function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
   const [open, setOpen] = useState(true);
   const showing = open && !overlayOpen;
@@ -173,15 +178,32 @@ function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
         <Raised secondary onClick={close}>{t("common.backToTable")}</Raised>
         {game.canRematch && <Raised disabled={busy} onClick={() => onAction({ type: "rematch" })}>{t("score.rematch")}</Raised>}
       </div>}>
-      <ol className="settlement-scores" aria-label={t("score.list")} tabIndex={0}>
-        {scores.map(score => <li key={score.player} className={`score${score.total === scores[0].total ? " is-leader" : ""}`}>
-          <div className="score-summary">
-            <strong>{players[score.player]} · {personName(game.characters.find(entry => entry.player === score.player)?.id)}</strong>
-            <b>{t("score.points", { value: score.total })}</b>
-          </div>
-          <small>{t("score.breakdown", score)}</small>
-        </li>)}
-      </ol>
+      <table className="settlement-scores" aria-label={t("score.list")} tabIndex={0}>
+        <thead>
+          <tr>
+            <th scope="col">{t("score.character")}</th>
+            {SCORE_COLUMNS.map(([key, label]) => <th key={key} scope="col">{t(label)}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {scores.map(score => {
+            const entry = game.characters.find(character => character.player === score.player);
+            return <tr key={score.player} data-own={score.player === game.viewerId || undefined}
+              data-leader={score.total === scores[0].total || undefined}>
+              <th scope="row">
+                <div className="settlement-identity">
+                  {entry && <CrewPortrait id={entry.id} dead={!entry.alive} />}
+                  <div>
+                    {entry && <strong>{characterName(entry.id)}</strong>}
+                    <span className="character-player">{players[score.player]}</span>
+                  </div>
+                </div>
+              </th>
+              {SCORE_COLUMNS.map(([key]) => <td key={key}>{score[key]}</td>)}
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </GameDialog>
   </>;
 }

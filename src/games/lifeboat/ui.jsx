@@ -1,4 +1,5 @@
 import { h } from "preact";
+import { useLayoutEffect, useState } from "preact/hooks";
 import { X } from "lucide";
 import Dialog from "../../shared/dialog.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
@@ -14,10 +15,24 @@ export function Raised({ secondary, href, icon, children, className = "", ...pro
 }
 
 export function FloatingNotice({ message, error, onCancel, busy }) {
-  if (!error && !message) return null;
+  const [lastError, setLastError] = useState(error);
+  useLayoutEffect(() => {
+    if (error) setLastError(error);
+  }, [error]);
+
+  const toast = error || lastError;
+  const exiting = !!toast && !error;
+  if (toast) return <div key={toast} className="floating-notice floating-toast" data-exiting={exiting || undefined}
+    aria-hidden={exiting || undefined} onAnimationEnd={event => {
+      if (exiting && event.animationName === "app-backdrop-exit") setLastError("");
+    }}>
+    <span role="alert">{toast}</span>
+  </div>;
+
+  if (!message) return null;
   return <div className="floating-notice">
-    {error ? <span role="alert">{error}</span> : <span role="status">{message}</span>}
-    {!error && onCancel && <button type="button" disabled={busy} onClick={onCancel}>{t("target.cancel")}</button>}
+    <span role="status">{message}</span>
+    {onCancel && <button type="button" disabled={busy} onClick={onCancel}>{t("target.cancel")}</button>}
   </div>;
 }
 
@@ -34,6 +49,6 @@ export function GameDialog({ title, open, onClose, children, footer, className =
       <div className="dialog-body" ref={bodyRef}>{children}</div>
       {footer && <footer>{footer}</footer>}
     </div>
-    {open && error && <FloatingNotice error={error} />}
+    {open && <FloatingNotice error={error} />}
   </Dialog>;
 }

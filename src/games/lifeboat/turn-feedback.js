@@ -1,5 +1,12 @@
 import { cardInfo } from "./data.js";
-import { characterName, listNameParts, listNames, provisionName, t, tParts } from "./i18n.js";
+import {
+  characterName,
+  listNameParts,
+  listNames,
+  provisionName,
+  t,
+  tParts,
+} from "./i18n.js";
 
 function name(id) {
   const label = characterName(id, { short: true });
@@ -14,57 +21,101 @@ export function mugRequestParts({ from, to, card }) {
   const shown = cardInfo(card);
   const people = { from: name(from), to: name(to) };
   return shown
-    ? tParts("feedback.mugRequestShown", { ...people, card: provision(shown.type) })
+    ? tParts("feedback.mugRequestShown", {
+        ...people,
+        card: provision(shown.type),
+      })
     : tParts("feedback.mugRequestHand", people);
 }
 
 function portraits(ids) {
-  return { portraits: ids, label: listNames(ids.map(id => characterName(id, { short: true }))) };
+  return {
+    portraits: ids,
+    label: listNames(ids.map((id) => characterName(id, { short: true }))),
+  };
 }
 
 export const FIGHT_RESULT_MS = 1080;
 export const FIGHT_SKIP_MS = 450;
 
 export function fightResultBetween(before, after) {
-  if (!before || after.step <= before.step || after.log.length <= before.log.length) return null;
-  return after.log.slice(before.log.length).findLast(event =>
-    event.type === "fight" && Array.isArray(event.attackers) && Array.isArray(event.defenders)
-  ) ?? null;
+  if (
+    !before ||
+    after.step <= before.step ||
+    after.log.length <= before.log.length
+  )
+    return null;
+  return (
+    after.log
+      .slice(before.log.length)
+      .findLast(
+        (event) =>
+          event.type === "fight" &&
+          Array.isArray(event.attackers) &&
+          Array.isArray(event.defenders),
+      ) ?? null
+  );
 }
 
 export function navigationCardBetween(before, after) {
   if (!before || after.step <= before.step) return null;
-  return after.log.slice(before.log.length).findLast(event => event.type === "nav")?.card ?? null;
+  return (
+    after.log.slice(before.log.length).findLast((event) => event.type === "nav")
+      ?.card ?? null
+  );
 }
 
 export function treatmentBetween(before, after, usedCard) {
-  if (!before || after.step <= before.step || after.log.length <= before.log.length) return null;
-  const heal = after.log.slice(before.log.length).findLast(event => event.type === "heal");
+  if (
+    !before ||
+    after.step <= before.step ||
+    after.log.length <= before.log.length
+  )
+    return null;
+  const heal = after.log
+    .slice(before.log.length)
+    .findLast((event) => event.type === "heal");
   if (!heal) return null;
-  const source = before.characters.find(entry => entry.id === heal.id);
-  const target = before.characters.find(entry => entry.id === heal.target);
-  const remaining = after.characters.find(entry => entry.id === heal.id);
+  const source = before.characters.find((entry) => entry.id === heal.id);
+  const target = before.characters.find((entry) => entry.id === heal.target);
+  const remaining = after.characters.find((entry) => entry.id === heal.id);
   if (!source || !target || !remaining) return null;
   const visible = [...source.shown, ...(source.hand || [])];
   const stillHeld = new Set([...remaining.shown, ...(remaining.hand || [])]);
-  const card = visible.includes(usedCard) ? usedCard : visible.find(id =>
-    cardInfo(id)?.type === "medical" && !stillHeld.has(id),
-  );
-  return { from: source.id, target: target.id, card, wounds: Math.max(0, target.wounds - 1) };
+  const card = visible.includes(usedCard)
+    ? usedCard
+    : visible.find(
+        (id) => cardInfo(id)?.type === "medical" && !stillHeld.has(id),
+      );
+  return {
+    from: source.id,
+    target: target.id,
+    card,
+    wounds: Math.max(0, target.wounds - 1),
+  };
 }
 
 export function computerDelay(action) {
   if (action?.type === "join" && action.side === "out") return 275;
-  return ["move", "mug", "join", "answer", "play"].includes(action?.type) ? 450 : 300;
+  return ["move", "mug", "join", "answer", "play"].includes(action?.type)
+    ? 450
+    : 300;
 }
 
 function activityContent(lines) {
-  return { lines, text: lines.map(line => line.map(part => part.label ?? part).join("")).join("\n") };
+  return {
+    lines,
+    text: lines
+      .map((line) => line.map((part) => part.label ?? part).join(""))
+      .join("\n"),
+  };
 }
 
 export function recordTurn(history, before, after, action) {
   if (action.type === "sort" && before.phase === "row") {
-    const index = history.findLastIndex(entry => entry.day === before.day && entry.rower === before.queue[0]);
+    const index = history.findLastIndex(
+      (entry) => entry.day === before.day && entry.rower === before.queue[0],
+    );
     if (index >= 0) {
       const entry = history[index];
       const count = action.keep.filter(Boolean).length;
@@ -89,29 +140,25 @@ export function describeTurn(before, after, action) {
   let joined = null;
   let rower = null;
   let winners = [];
-  const actor = before.queue[0];
+  const fightWounds = new Map();
   let navigation = false;
   let birds = before.birds;
   let flareChange = 0;
   const noteFlareBirds = () => {
     if (!flareChange) return;
-    note("feedback.birds", { change: flareChange > 0 ? "+" + flareChange : "−" + Math.abs(flareChange) });
+    note("feedback.birds", {
+      change: flareChange > 0 ? "+" + flareChange : "−" + Math.abs(flareChange),
+    });
     flareChange = 0;
   };
-
-  const armedCard = action?.type === "arm" ? cardInfo(action.card) : null;
-  if (armedCard?.size) {
-    const wielder = after.characters.find(person => person.shown.includes(armedCard.id));
-    const previous = before.characters.find(person => person.id === wielder?.id);
-    if (previous && !previous.shown.includes(armedCard.id)) {
-      note("feedback.armed", { name: name(wielder.id), weapon: provision(armedCard.type) });
-    }
-  }
 
   for (const event of events) {
     switch (event.type) {
       case "take":
-        note("feedback.take", { name: name(event.id), card: { icon: "crate", label: t("feedback.provisionCard") } });
+        note("feedback.take", {
+          name: name(event.id),
+          card: { icon: "crate", label: t("feedback.provisionCard") },
+        });
         transfer = { from: null, to: event.id };
         hold = Math.max(hold, 350);
         break;
@@ -133,45 +180,99 @@ export function describeTurn(before, after, action) {
           rower = event.id;
           note("feedback.row", { name: name(rower) });
         }
-        if (event.act === "parasol") note("feedback.parasol", { name: name(event.id) });
+        if (event.act === "parasol")
+          note("feedback.parasol", { name: name(event.id) });
         // A successful immediate mug or move already has its own public event.
         if (after.phase === "answer" && event.act === "mug") {
           mug = { from: event.id, to: event.target };
           lines.push(mugRequestParts({ ...mug, card: after.demand?.card }));
           hold = Math.max(hold, 800);
         }
-        if (after.phase === "answer" && event.act === "move") note("feedback.moveRequest", { from: name(event.id), to: name(event.target) });
+        if (after.phase === "answer" && event.act === "move")
+          note("feedback.moveRequest", {
+            from: name(event.id),
+            to: name(event.target),
+          });
+        break;
+      case "fightJoin":
+        joined = event.id;
+        note(
+          event.side === "attack" ? "feedback.joinAttack" : "feedback.joinDefend",
+          { name: name(event.id) },
+        );
+        hold = Math.max(hold, 600);
+        break;
+      case "fightArm":
+        note("feedback.armed", { name: name(event.id), weapon: provision(event.weapon) });
         break;
       case "fight": {
-        const result = event.attackersWin ? "feedback.attackWin" : "feedback.defendWin";
-        if (Array.isArray(event.attackers) && Array.isArray(event.defenders) &&
-            Number.isFinite(event.attack) && Number.isFinite(event.defense)) {
+        const result = event.attackersWin
+          ? "feedback.attackWin"
+          : "feedback.defendWin";
+        if (
+          Array.isArray(event.attackers) &&
+          Array.isArray(event.defenders) &&
+          Number.isFinite(event.attack) &&
+          Number.isFinite(event.defense)
+        ) {
           note("feedback.fightResult", {
-            attackers: portraits(event.attackers), attack: event.attack,
-            defenders: portraits(event.defenders), defense: event.defense, result: t(result),
+            attackers: portraits(event.attackers),
+            attack: event.attack,
+            defenders: portraits(event.defenders),
+            defense: event.defense,
+            result: t(result),
           });
         } else note(result);
-        winners = [...(event.attackersWin ? before.fight?.attackers ?? [event.attacker] : before.fight?.defenders ?? [event.defender])];
-        if (actor && action?.type === "join" && action.side === (event.attackersWin ? "attack" : "defend")) winners.push(actor);
+        const losers = event.losers ?? [];
+        if (losers.length === 1) {
+          note("feedback.injured", { name: name(losers[0]), count: 1 });
+        } else if (losers.length > 1) {
+          note("feedback.groupInjured", {
+            names: listNameParts(losers.map(name)),
+            count: 1,
+          });
+        }
+        for (const id of losers)
+          fightWounds.set(id, (fightWounds.get(id) ?? 0) + 1);
+        winners = event.attackersWin
+          ? (event.attackers ?? before.fight?.attackers ?? [event.attacker])
+          : (event.defenders ?? before.fight?.defenders ?? [event.defender]);
         hold = Math.max(hold, 1000);
         break;
       }
       case "fightFlare":
-        note("feedback.fightFlare", { name: name(event.id), weapon: provision("flare") });
+        note("feedback.fightFlare", {
+          name: name(event.id),
+          weapon: provision("flare"),
+        });
         break;
       case "heal":
-        note("feedback.heal", { name: name(event.id), target: name(event.target) });
+        note("feedback.heal", {
+          name: name(event.id),
+          target: name(event.target),
+        });
         break;
       case "nav": {
         noteFlareBirds();
         const card = { navigationCard: event.card, label: t("nav.card") };
         if (event.source === "choice") {
-          note("feedback.navigationChoice", { name: name(event.navigator), card });
+          note("feedback.navigationChoice", {
+            name: name(event.navigator),
+            card,
+          });
         } else {
-          note(event.source === "deck" ? "feedback.navigationDeck" : "feedback.navigationReveal", { card });
+          note(
+            event.source === "deck"
+              ? "feedback.navigationDeck"
+              : "feedback.navigationReveal",
+            { card },
+          );
         }
         if (event.birds > birds) {
-          note("feedback.gullAdded", { gull: { icon: "bird", label: t("feedback.gull") }, count: event.birds });
+          note("feedback.gullAdded", {
+            gull: { icon: "bird", label: t("feedback.gull") },
+            count: event.birds,
+          });
         } else if (event.birds < birds) {
           note("feedback.birds", { change: "−1" });
         }
@@ -194,35 +295,47 @@ export function describeTurn(before, after, action) {
 
   // Gifts made by the human are confirmed by the engine before arriving here.
   if (action?.type === "give") {
-    const giver = before.characters.find(entry => entry.player === before.viewerId);
+    const giver = before.characters.find(
+      (entry) => entry.player === before.viewerId,
+    );
     if (giver) {
       note("feedback.gift", { from: name(giver.id), to: name(action.target) });
       transfer = { from: giver.id, to: action.target };
     }
   }
-  if (actor && action?.type === "join" && action.side !== "out") {
-    joined = actor;
-    note(action.side === "attack" ? "feedback.joinAttack" : "feedback.joinDefend", { name: name(actor) });
-    hold = Math.max(hold, 600);
-  }
   if (after.falling.length && navigation) {
-    note("feedback.overboard", { names: listNameParts(after.falling.map(name)) });
+    note("feedback.overboard", {
+      names: listNameParts(after.falling.map(name)),
+    });
   }
   noteFlareBirds();
 
   const injuries = [];
   for (const person of after.characters) {
-    const previous = before.characters.find(entry => entry.id === person.id);
+    const previous = before.characters.find((entry) => entry.id === person.id);
     if (previous) {
-      const thirst = events.find(event => event.type === "thirst" && event.id === person.id)?.wounds ?? 0;
-      const healed = events.some(event => event.type === "heal" && event.target === person.id) ? 1 : 0;
-      const otherWounds = person.wounds - previous.wounds + healed - thirst;
-      if (otherWounds > 0 || thirst > 0) injuries.push(person.id);
-      if (otherWounds > 0) note("feedback.injured", { name: name(person.id), count: otherWounds });
-      if (thirst > 0) note("feedback.thirstInjury", { name: name(person.id), count: thirst });
+      const thirst =
+        events.find(
+          (event) => event.type === "thirst" && event.id === person.id,
+        )?.wounds ?? 0;
+      const healed = events.some(
+        (event) => event.type === "heal" && event.target === person.id,
+      )
+        ? 1
+        : 0;
+      const fighting = fightWounds.get(person.id) ?? 0;
+      const otherWounds =
+        person.wounds - previous.wounds + healed - thirst - fighting;
+      if (otherWounds > 0 || thirst > 0 || fighting > 0)
+        injuries.push(person.id);
+      if (otherWounds > 0)
+        note("feedback.injured", { name: name(person.id), count: otherWounds });
+      if (thirst > 0)
+        note("feedback.thirstInjury", { name: name(person.id), count: thirst });
     }
   }
-  if (after.phase === "ended" && before.phase !== "ended") note("feedback.landfall");
+  if (after.phase === "ended" && before.phase !== "ended")
+    note("feedback.landfall");
   if (!lines.length) return null;
   return {
     step: after.step,

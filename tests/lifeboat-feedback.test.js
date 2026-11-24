@@ -146,17 +146,15 @@ test("fight feedback names and illustrates weapons after they become public", ()
   const after = { ...before, step: before.step + 1 };
   assert.equal(describeTurn(before, after, action), null);
 
-  const armed = { ...after, characters: after.characters.map(person =>
-    person.id === "mate" ? { ...person, shown: [action.card] } : person,
-  ) };
-  const cue = describeTurn(before, armed, action);
+  const armed = { ...after, log: [...before.log, { type: "fightArm", id: "mate", weapon: "knife" }] };
+  const cue = describeTurn(before, armed);
   assert.equal(cue.text, "大副亮出短刀");
   assert.ok(cue.lines[0].some(part => part.icon === "knife" && part.label === "短刀"));
 
-  const resolved = describeTurn(before, { ...armed, log: [...before.log,
+  const resolved = describeTurn(before, { ...armed, log: [...armed.log,
     { type: "fight", attacker: "captain", defender: "mate", attackersWin: true },
     { type: "mug", from: "captain", to: "mate" },
-  ] }, action);
+  ] });
   assert.deepEqual(resolved.text.split("\n"), ["大副亮出短刀", "进攻方赢得打架", "船长从大副那里抢走一张牌"]);
 
   const flare = { ...after, log: [...before.log, { type: "fightFlare", id: "mate" }] };
@@ -173,7 +171,7 @@ test("a mugging request shows both public seats without moving a card yet", () =
     demand: { kind: "mug", from: "mate", to: "lauren", card: false },
   };
   const cue = describeTurn(before, after, { type: "mug", target: "lauren" });
-  assert.equal(cue.text, "大副要随机抢走劳伦的一张手牌");
+  assert.equal(cue.text, "大副要抢走劳伦的一张手牌");
   assert.deepEqual(cue.mug, { from: "mate", to: "lauren" });
   assert.equal(cue.transfer, null);
   assert.equal(cue.hold, 800);
@@ -198,14 +196,46 @@ test("joining a side stays visible and a simultaneous fight result uses the long
     fight: { attackers: ["captain"], defenders: ["lauren"] }, phase: "fight",
   };
   for (const side of ["attack", "defend"]) {
-    const action = { type: "join", side };
-    const joined = describeTurn(before, { ...before, step: before.step + 1 }, action);
+    const join = { type: "fightJoin", id: "mate", side };
+    const joined = describeTurn(before, { ...before, step: before.step + 1, log: [join] });
     assert.equal(joined.joined, "mate");
     assert.equal(joined.hold, 600);
     const resolved = describeTurn(before, { ...before, step: before.step + 1, phase: "action", fight: false,
-      log: [{ type: "fight", attacker: "captain", defender: "lauren", attackersWin: side === "attack" }],
-    }, action);
+      log: [join, { type: "fight", attackersWin: side === "attack",
+        attackers: side === "attack" ? ["captain", "mate"] : ["captain"],
+        defenders: side === "defend" ? ["lauren", "mate"] : ["lauren"],
+      }],
+    });
+    assert.deepEqual(resolved.text.split("\n"), side === "attack"
+      ? ["大副加入进攻方", "进攻方赢得打架"]
+      : ["大副加入防守方", "防守方赢得打架"]);
     assert.deepEqual(resolved.winners, [side === "attack" ? "captain" : "lauren", "mate"]);
     assert.equal(resolved.hold, 1000);
   }
+});
+
+test("the last fighter joins before the result and fight wounds share a line", () => {
+  const before = { ...projectGame(createGame(roster, "beef"), "p0"), queue: ["captain"],
+    fight: { attackers: ["lauren", "kid"], defenders: ["frenchy"] }, phase: "fight",
+  };
+  const after = {
+    ...before, step: before.step + 1, phase: "action", fight: false,
+    log: [...before.log, { type: "fightJoin", id: "captain", side: "defend" }, {
+      type: "fight", attacker: "lauren", defender: "frenchy", attackersWin: false,
+      attackers: ["lauren", "kid"], defenders: ["frenchy", "captain"],
+      attack: 10, defense: 14, losers: ["lauren", "kid"],
+    }, { type: "thirst", id: "lauren", wounds: 1 }],
+    characters: before.characters.map(person => ({ ...person,
+      wounds: person.wounds + ({ lauren: 2, kid: 1 }[person.id] ?? 0),
+    })),
+  };
+  const cue = describeTurn(before, after);
+  assert.deepEqual(cue.text.split("\n"), [
+    "船长加入防守方",
+    "进攻方劳伦、小孩战力 10 点，防守方法国佬、船长战力 14 点，防守方赢得打架",
+    "劳伦、小孩各受伤 1 点",
+    "劳伦因口渴受伤 1 点",
+  ]);
+  assert.deepEqual(cue.lines[2].filter(part => part.id).map(part => part.id), ["lauren", "kid"]);
+  assert.deepEqual(cue.injuries, ["lauren", "kid"]);
 });

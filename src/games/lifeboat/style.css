@@ -632,12 +632,14 @@ button.back-link {
 }
 .seats > li {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: max-content;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 0.25rem;
   min-width: 0;
+}
+.seats > li > * {
+  flex-shrink: 0;
 }
 .seats > :is(:first-child, :nth-child(odd):nth-last-child(-n + 2)) {
   padding-inline-start: clamp(1.65rem, 6.5vw, 2.35rem);
@@ -651,11 +653,11 @@ button.back-link {
   row-gap: 0;
 }
 .crew-board[data-rows="3"] .seats > :nth-child(-n + 2) {
-  align-content: end;
+  justify-content: end;
   padding-bottom: 0.45rem;
 }
 .crew-board[data-rows="3"] .seats > :nth-child(n + 5) {
-  align-content: start;
+  justify-content: start;
   padding-top: 0.65rem;
 }
 
@@ -1470,40 +1472,52 @@ button.card:disabled,
   width: auto;
   min-width: min(100%, 10rem);
 }
+.settlement-dialog .dialog-body {
+  padding-inline: 0.625rem;
+}
 .settlement-scores {
-  display: grid;
-  align-content: start;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
-.score {
-  padding: 0.45rem 0.7rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: var(--recess);
+.settlement-scores :is(th, td) {
+  padding: 0.45rem 0.25rem;
+  text-align: center;
 }
-.score.is-leader {
-  border-color: var(--gold);
+.settlement-scores th:first-child {
+  text-align: start;
 }
-.score-summary {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.55rem;
-}
-.score-summary strong {
-  overflow-wrap: anywhere;
-}
-.score-summary b {
-  flex: none;
-  color: var(--text-gold);
-  font-size: 1rem;
-}
-.score small {
+.settlement-scores thead th {
   color: var(--muted);
   font-size: 0.75rem;
+  white-space: nowrap;
+}
+.settlement-scores tbody tr {
+  border-block-start: 1px solid var(--line);
+}
+.settlement-scores td:last-child {
+  font-weight: 700;
+}
+.settlement-scores tr[data-leader] td:last-child {
+  color: var(--text-gold);
+}
+.settlement-scores tr[data-own] td {
+  color: var(--gold);
+}
+.settlement-identity {
+  display: flex;
+  align-items: center;
+  min-width: 4.75rem;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}
+.settlement-identity > .seat-portrait {
+  flex: none;
+  width: 2rem;
+}
+.settlement-identity .character-player {
+  display: block;
+  font-weight: 400;
 }
 .error {
   margin: 0.4rem 1rem 0;
@@ -1532,6 +1546,18 @@ button.card:disabled,
 }
 .sea-dialog > .floating-notice {
   position: absolute;
+}
+.floating-toast {
+  animation: app-backdrop-enter 150ms ease-out both;
+}
+.floating-toast[data-exiting] {
+  animation: app-backdrop-exit 150ms ease-in both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating-toast,
+  .floating-toast[data-exiting] {
+    animation-duration: 1ms;
+  }
 }
 .floating-notice button {
   flex: none;
@@ -2124,7 +2150,9 @@ body:has(.navigation-drawer[open]) {
     --boat-ratio: 1.8;
     --boat-columns: repeat(2, minmax(0, 1fr));
     --seat-avatar-size: clamp(2.125rem, 10vw, 2.875rem);
+    display: grid;
     height: auto;
+    min-height: min-content;
     aspect-ratio: var(--boat-ratio);
   }
   .crew-board[data-rows="3"] {
@@ -2136,13 +2164,16 @@ body:has(.navigation-drawer[open]) {
       rotate(-90deg);
   }
   .crew-board[data-rows] .seats {
-    grid-template: repeat(2, minmax(0, 1fr)) / var(--boat-columns);
+    grid-template: repeat(2, minmax(max-content, 1fr)) / var(--boat-columns);
     grid-auto-flow: column;
-    gap: 0;
+    gap: 0.5rem 0;
+    height: auto;
     padding: clamp(0.65rem, 3.5vw, 1.2rem) 0;
   }
   .crew-board[data-rows] .seats > :nth-child(n) {
-    align-content: center;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
     padding: 0;
   }
   .crew-board[data-rows] .seats > :nth-child(-n + 2) {
@@ -2155,8 +2186,11 @@ body:has(.navigation-drawer[open]) {
   }
   .seat,
   .seat-supply-slot {
-    justify-self: center;
     width: min(100%, calc(var(--seat-avatar-size) + 4.4rem));
+  }
+  .seat-supply-slot {
+    block-size: 1.75rem;
+    padding-inline: 0.25rem;
   }
   .seat {
     column-gap: 0.375rem;
