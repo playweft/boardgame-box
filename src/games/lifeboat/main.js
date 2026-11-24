@@ -14,7 +14,7 @@ import {
 } from "./engine.js";
 import { errorMessage, locale, t } from "./i18n.js";
 import { normalizeRoomView } from "./room-state.js";
-import { computerDelay, describeTurn, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween } from "./turn-feedback.js";
+import { computerDelay, describeTurn, fightResultBetween, FIGHT_RESULT_MS, FIGHT_SKIP_MS, navigationCardBetween, treatmentBetween } from "./turn-feedback.js";
 import LifeboatApp from "./view.jsx";
 
 document.documentElement.lang = locale;
@@ -24,6 +24,8 @@ document.querySelector('meta[name="description"]').content = t("game.description
 const root = document.querySelector("#lifeboat-app");
 const NAVIGATION_REVEAL_MS = 3500;
 const NAVIGATION_EXIT_MS = 200;
+const MEDICAL_DISCARD_MS = 280;
+const MEDICAL_RECOVERY_MS = 550;
 const embedded = window.parent !== window;
 const launchUrl = new URL("https://play.longern.com/");
 launchUrl.searchParams.set(
@@ -48,10 +50,11 @@ let paused = false;
 let holdingComputer = false;
 let botWorker = null;
 let botJob = null;
-let turnHistory = [];
+const turnHistory = [];
 let turnFeedback = null;
 let feedbackUntil = 0;
 let fightPlayback = null;
+let treatmentPlayback = null;
 let navigationPlayback = null;
 let tradeViewerId = null;
 let handoff = false;
@@ -65,10 +68,11 @@ function redraw() {
   const game = room ? roomGame : localGame && projectGame(localGame, viewer);
   render(
     h(LifeboatApp, {
-      game: fightPlayback?.game ?? game,
+      game: treatmentPlayback?.game ?? fightPlayback?.game ?? game,
       fightResult: fightPlayback?.skipped ? null : fightPlayback?.result,
       fightSkip: fightPlayback?.skipped,
-      navigationReveal: fightPlayback ? null : navigationPlayback,
+      treatment: treatmentPlayback?.treatment,
+      navigationReveal: fightPlayback || treatmentPlayback ? null : navigationPlayback,
       room,
       computer: !room && !!humanId,
       turnHistory,
@@ -96,9 +100,10 @@ function redraw() {
         }
         stopComputer();
         clearFightPlayback();
+        clearTreatmentPlayback();
         clearNavigationPlayback();
         humanId = computer ? "local-0" : null;
-        turnHistory = [];
+        turnHistory.length = 0;
         turnFeedback = null;
         feedbackUntil = 0;
         tradeViewerId = null;
@@ -128,9 +133,10 @@ function redraw() {
       onExit() {
         stopComputer();
         clearFightPlayback();
+        clearTreatmentPlayback();
         clearNavigationPlayback();
         localGame = null;
-        turnHistory = [];
+        turnHistory.length = 0;
         turnFeedback = null;
         feedbackUntil = 0;
         humanId = null;
@@ -160,6 +166,32 @@ function clearFightPlayback() {
   fightPlayback = null;
 }
 
+function clearTreatmentPlayback() {
+  clearTimeout(treatmentPlayback?.timer);
+  treatmentPlayback = null;
+}
+
+function playTreatment(before, after, usedCard) {
+  const treatment = treatmentBetween(before, after, usedCard);
+  if (!treatment) return;
+  clearTreatmentPlayback();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  treatment.recovering = reducedMotion;
+  treatmentPlayback = { game: before, treatment };
+  const finish = () => {
+    clearTreatmentPlayback();
+    playNavigationReveal();
+    redraw();
+    queueComputer();
+  };
+  if (reducedMotion) treatmentPlayback.timer = setTimeout(finish, MEDICAL_RECOVERY_MS);
+  else treatmentPlayback.timer = setTimeout(() => {
+    treatment.recovering = true;
+    treatmentPlayback.timer = setTimeout(finish, MEDICAL_RECOVERY_MS);
+    redraw();
+  }, MEDICAL_DISCARD_MS);
+}
+
 function clearNavigationPlayback() {
   clearTimeout(navigationPlayback?.timer);
   navigationPlayback = null;
@@ -174,7 +206,7 @@ function prepareNavigationReveal(before, after) {
 }
 
 function playNavigationReveal() {
-  if (!navigationPlayback || navigationPlayback.timer !== undefined) return;
+  if (fightPlayback || treatmentPlayback || !navigationPlayback || navigationPlayback.timer !== undefined) return;
   navigationPlayback.timer = setTimeout(() => {
     navigationPlayback.open = false;
     navigationPlayback.timer = setTimeout(() => {
@@ -211,17 +243,21 @@ function acceptLocalGame(next, action) {
     const viewer = humanId ?? tradeViewerId ?? actor;
     playFightFeedback(projectGame(localGame, viewer), fightResult, skipped);
   }
+  if (action.type === "medical") {
+    const viewer = humanId ?? tradeViewerId ?? actor;
+    playTreatment(projectGame(localGame, viewer), projectGame(next, viewer), action.card);
+  }
   prepareNavigationReveal(localGame, next);
   let feedback;
   if (humanId) {
-    if (action.type === "rematch") turnHistory = [];
+    if (action.type === "rematch") turnHistory.length = 0;
     else {
       feedback = describeTurn(
         projectGame(localGame, humanId),
         projectGame(next, humanId),
         action,
       );
-      if (feedback) turnHistory = [...turnHistory, feedback].slice(-8);
+      if (feedback) turnHistory.push(feedback);
     }
   }
   localGame = next;
@@ -236,6 +272,7 @@ function queueComputer() {
     !localGame ||
     localGame.phase === "ended" ||
     mode !== "solo" ||
+    treatmentPlayback ||
     navigationPlayback ||
     paused ||
     holdingComputer ||
@@ -260,7 +297,7 @@ function queueComputer() {
       () => {
         if (botJob !== job) return;
         botJob = null;
-        if (fightPlayback || navigationPlayback) return;
+        if (fightPlayback || treatmentPlayback || navigationPlayback) return;
         let intent = planned;
         let result =
           intent && applyAction(localGame, actor, { ...intent, step });
@@ -330,6 +367,7 @@ function enterRoom(next) {
   stopComputer();
   if ((presence && presence.roomId !== next.roomId) || next.phase !== "playing") {
     clearFightPlayback();
+    clearTreatmentPlayback();
     clearNavigationPlayback();
     roomGame = null;
   }
@@ -364,7 +402,7 @@ function openRoom() {
 function submit(intent) {
   const room = mode === "room";
   const game = room ? roomGame : localGame;
-  if (!game || fightPlayback || navigationPlayback || busy || (room ? !client.connected : handoff || paused)) return;
+  if (!game || fightPlayback || treatmentPlayback || navigationPlayback || busy || (room ? !client.connected : handoff || paused)) return;
   const action = { ...intent, step: game.step };
   if (room)
     return roomRequest(async () => {
@@ -414,6 +452,7 @@ const client = embedded
       onRoomState: enterRoom,
       onRoomClosed() {
         clearFightPlayback();
+        clearTreatmentPlayback();
         clearNavigationPlayback();
         mode = "solo";
         presence = null;
@@ -427,10 +466,12 @@ const client = embedded
         const next = normalizeRoomView(state);
         if (roomGame && (next.viewerId !== roomGame.viewerId || next.log.length < roomGame.log.length)) {
           clearFightPlayback();
+          clearTreatmentPlayback();
           clearNavigationPlayback();
         } else {
           const fightResult = fightResultBetween(roomGame, next);
           if (fightResult) playFightFeedback(roomGame, fightResult);
+          playTreatment(roomGame, next);
           prepareNavigationReveal(roomGame, next);
         }
         roomGame = next;

@@ -1,8 +1,13 @@
-import { characterName, listNameParts, t, tParts } from "./i18n.js";
+import { cardInfo } from "./data.js";
+import { characterName, listNameParts, provisionName, t, tParts } from "./i18n.js";
 
 function name(id) {
   const label = characterName(id, { short: true });
   return label ? { id, label } : t("characters.crew");
+}
+
+function weapon(type) {
+  return { icon: type, label: provisionName(type) };
 }
 
 export const FIGHT_RESULT_MS = 1080;
@@ -20,19 +25,40 @@ export function navigationCardBetween(before, after) {
   return after.log.slice(before.log.length).findLast(event => event.type === "nav")?.card ?? null;
 }
 
+export function treatmentBetween(before, after, usedCard) {
+  if (!before || after.step <= before.step || after.log.length <= before.log.length) return null;
+  const heal = after.log.slice(before.log.length).findLast(event => event.type === "heal");
+  if (!heal) return null;
+  const source = before.characters.find(entry => entry.id === heal.id);
+  const target = before.characters.find(entry => entry.id === heal.target);
+  const remaining = after.characters.find(entry => entry.id === heal.id);
+  if (!source || !target || !remaining) return null;
+  const visible = [...source.shown, ...(source.hand || [])];
+  const stillHeld = new Set([...remaining.shown, ...(remaining.hand || [])]);
+  const card = visible.includes(usedCard) ? usedCard : visible.find(id =>
+    cardInfo(id)?.type === "medical" && !stillHeld.has(id),
+  );
+  return { from: source.id, target: target.id, card, wounds: Math.max(0, target.wounds - 1) };
+}
+
 export function computerDelay(action) {
   if (action?.type === "join" && action.side === "out") return 275;
   return ["move", "mug", "join", "answer", "play"].includes(action?.type) ? 450 : 300;
 }
 
 // Both snapshots are from the human seat's view. Feedback carries only public
-// roles, counts, and movement endpoints, including for a face-down transfer.
+// roles, counts, revealed weapons, and movement endpoints for face-down transfers.
 export function describeTurn(before, after, action) {
   const events = after.log.slice(before.log.length);
-  const parts = [];
+  let line;
+  const lines = [];
   const note = (key, values = {}) => {
-    if (parts.length) parts.push(" · ");
-    parts.push(...tParts(key, values).flat());
+    if (line) line.push(" · ");
+    else {
+      line = [];
+      lines.push(line);
+    }
+    line.push(...tParts(key, values).flat());
   };
   let transfer = null;
   let hold = 0;
@@ -45,7 +71,7 @@ export function describeTurn(before, after, action) {
   for (const event of events) {
     switch (event.type) {
       case "take":
-        note("feedback.take", { name: name(event.id) });
+        note("feedback.take", { name: name(event.id), card: { icon: "crate", label: t("feedback.provisionCard") } });
         transfer = { from: null, to: event.id };
         hold = Math.max(hold, 350);
         break;
@@ -80,15 +106,23 @@ export function describeTurn(before, after, action) {
         hold = Math.max(hold, 1000);
         break;
       case "fightFlare":
-        note("feedback.fightFlare", { name: name(event.id) });
+        note("feedback.fightFlare", { name: name(event.id), weapon: weapon("flare") });
         break;
       case "heal":
         note("feedback.heal", { name: name(event.id), target: name(event.target) });
         break;
-      case "nav":
-        note("feedback.navigation");
+      case "nav": {
+        line = null;
+        const card = { navigationCard: event.card, label: t("nav.card") };
+        if (event.source === "choice") {
+          note("feedback.navigationChoice", { name: name(event.navigator), card });
+        } else {
+          note(event.source === "deck" ? "feedback.navigationDeck" : "feedback.navigationReveal", { card });
+        }
+        line = null;
         navigation = true;
         break;
+      }
       case "flare":
         if (!navigation) note("feedback.flare", { name: name(event.id) });
         navigation = true;
@@ -126,23 +160,30 @@ export function describeTurn(before, after, action) {
   }
 
   const injuries = [];
+  const armedCard = action?.type === "arm" ? cardInfo(action.card) : null;
   for (const person of after.characters) {
     const previous = before.characters.find(entry => entry.id === person.id);
-    if (previous && person.wounds > previous.wounds) {
-      injuries.push(person.id);
-      note("feedback.injured", { name: name(person.id), count: person.wounds - previous.wounds });
+    if (previous) {
+      const thirst = events.find(event => event.type === "thirst" && event.id === person.id)?.wounds ?? 0;
+      const healed = events.some(event => event.type === "heal" && event.target === person.id) ? 1 : 0;
+      const otherWounds = person.wounds - previous.wounds + healed - thirst;
+      if (otherWounds > 0 || thirst > 0) injuries.push(person.id);
+      if (otherWounds > 0) note("feedback.injured", { name: name(person.id), count: otherWounds });
+      if (thirst > 0) note("feedback.thirstInjury", { name: name(person.id), count: thirst });
     }
-    if (action?.type === "arm" && previous && person.shown.length > previous.shown.length) {
-      note("feedback.armed", { name: name(person.id) });
+    if (armedCard?.size && previous && !previous.shown.includes(armedCard.id) && person.shown.includes(armedCard.id)) {
+      note("feedback.armed", { name: name(person.id), weapon: weapon(armedCard.type) });
     }
   }
   if (after.phase === "ended" && before.phase !== "ended") note("feedback.landfall");
-  if (!parts.length) return null;
+  if (!lines.length) return null;
+  const parts = lines.flatMap((parts, index) => index ? [" · ", ...parts] : parts);
 
   return {
     step: after.step,
     day: before.day,
     parts,
+    lines,
     text: parts.map(part => part.label ?? part).join(""),
     injuries,
     transfer,

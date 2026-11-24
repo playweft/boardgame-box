@@ -20,7 +20,7 @@ export function CrewPortrait({ id, dead = false }) {
     style={{ backgroundPosition: `${(index % 3) * 50}% ${Math.floor(index / 3) * 100}%` }} />;
 }
 
-function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, takeCard }) {
+function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, takeCard, spentCard }) {
   if (!entry.shown.length) return null;
   const interactive = !!onInspect || canTake;
   return <div className="seat-supplies" role="group" aria-label={t("crew.shownBy", { name: personName(entry.id) })}
@@ -31,17 +31,17 @@ function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, take
       const label = `${provisionName(card.type)}${card.value ? t("crew.lootValue", { value: card.value }) : ""}`;
       const face = <Icon name={card.type} />;
       return interactive
-        ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)}
+        ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)} data-spent={spentCard === id || undefined}
           aria-label={canTake ? t("crew.mugCard", { name: personName(entry.id), card: label }) : label} title={label}
           aria-expanded={onInspect ? inspectedId === id : undefined}
           aria-controls={onInspect ? "hand-card-details" : undefined}
           onClick={event => onInspect ? onInspect(id, event.currentTarget) : takeCard(entry.id, id)}>{face}</button>
-        : <span key={id} className="seat-supply" role="img" aria-label={label} title={label}>{face}</span>;
+        : <span key={id} className="seat-supply" data-spent={spentCard === id || undefined} role="img" aria-label={label} title={label}>{face}</span>;
     })}
   </div>;
 }
 
-export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, isTarget, pickSeat, inspectCard, inspectedId, cardDisabled, taking, takeCard }) {
+export function CrewBoard({ game, players, feedback, treatment, thinking, fightSkip, mug, isTarget, pickSeat, inspectCard, inspectedId, cardDisabled, taking, takeCard }) {
   const rows = Math.ceil(game.characters.length / 2);
   return <div className="crew-board" data-rows={rows} style={{ "--seat-rows": rows }}>
     <BoatHull rows={rows} />
@@ -51,6 +51,7 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
         const current = entry.id === game.queue[0];
         const target = isTarget(entry);
         const hurt = feedback?.injuries.includes(entry.id);
+        const recovering = treatment?.recovering && entry.id === treatment.target;
         const winner = feedback?.winners.includes(entry.id);
         const mugRole = entry.id === mug?.from ? "from" : entry.id === mug?.to ? "to" : undefined;
         const name = personName(entry.id);
@@ -61,6 +62,9 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
             {winner && <span className="fight-winner-highlight" key={feedback.step} aria-hidden="true" />}
             <span className="seat-avatar">
               <CrewPortrait id={entry.id} dead={!entry.alive} />
+              {treatment?.from === entry.id && !treatment.card && <span className="medical-use-marker" aria-hidden="true">
+                <Icon name="medical" />
+              </span>}
               {entry.id === fightSkip && <span className="seat-thinking" data-skipped="true" role="status"
                 aria-label={t("crew.skipsFight", { name })}>{t("common.skip")}</span>}
               {current && thinking && <span className="seat-thinking" role="status" aria-label={t("crew.thinking", { name })}>···</span>}
@@ -72,7 +76,7 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
                 {entry.handCount}
               </small>
             </span>
-            <button type="button" className="seat-button" aria-label={target ? t("crew.select", { name, status }) : t("crew.inspect", { name })}
+            <button type="button" className="seat-button" disabled={!!treatment} aria-label={target ? t("crew.select", { name, status }) : t("crew.inspect", { name })}
               aria-haspopup={target ? undefined : "dialog"} onClick={() => pickSeat(entry)} />
             <div className="seat-details">
               <strong className="seat-role" title={name}>{name}</strong>
@@ -80,10 +84,10 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
                 {(!own || status !== t("common.you")) && <small className="seat-name" title={status}>{status}</small>}
                 {own && <small className="seat-self">{t("common.you")}</small>}
               </div>
-              <small className={`seat-wounds${hurt ? " wound-flash" : ""}`} key={hurt ? feedback.step : null}>
+              <small className={`seat-wounds${hurt ? " wound-flash" : ""}`} data-recovering={recovering || undefined} key={hurt ? feedback.step : null}>
                 {tParts("crew.woundCount", {
                   label: <span className="seat-wound-label">{t("crew.wounds")} </span>,
-                  wounds: entry.wounds,
+                  wounds: recovering ? treatment.wounds : entry.wounds,
                   size: entry.size,
                 })}
               </small>
@@ -91,7 +95,7 @@ export function CrewBoard({ game, players, feedback, thinking, fightSkip, mug, i
           </div>
           <div className="seat-supply-slot">
             <PublicSupplies entry={entry} onInspect={own && inspectCard} inspectedId={inspectedId}
-              canTake={taking && !own && !entry.removed} disabled={cardDisabled} takeCard={takeCard} />
+              canTake={taking && !own && !entry.removed} disabled={cardDisabled} takeCard={takeCard} spentCard={treatment?.card} />
           </div>
         </li>;
       })}

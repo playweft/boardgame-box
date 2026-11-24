@@ -2,6 +2,7 @@ import { h } from "preact";
 import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Heart, HeartCrack } from "lucide";
 import LucideIcon from "../../shared/lucide-icon.jsx";
+import ActivityText from "./activity-text.jsx";
 import { CrewBoard, CrewPortrait } from "./crew.jsx";
 import { cardInfo, characterById } from "./data.js";
 import { fightSize, fightWeapons } from "./engine.js";
@@ -216,7 +217,7 @@ function Settlement({ game, players, busy, error, overlayOpen, onAction }) {
 
 const EMPTY_DRAFT = { targetCard: null, mode: "", drinks: [] };
 
-export default function Table({ game, computer, feedback, fightResult, fightSkip, latestActivity, busy, trading, error, overlayOpen, navigationDraft, onNavigationDraft,
+export default function Table({ game, computer, feedback, fightResult, fightSkip, treatment, latestActivity, busy, trading, error, overlayOpen, navigationDraft, onNavigationDraft,
   onAction, onChooseTrader, onEndTrade, onComputerHold, onHistory, onInspect }) {
   const boardRef = useRef(null);
   const turnRef = useRef(null);
@@ -241,7 +242,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const dealing = active && game.phase === "deal";
   const demand = !fightResult && game.phase === "answer" ? game.demand : null;
   const mug = demand?.kind === "mug";
-  const cardTransfer = !fightResult && !fightSkip ? feedback?.transfer : null;
+  const cardTransfer = !fightResult && !fightSkip && !treatment ? feedback?.transfer : null;
   const mugInFlight = cardTransfer && feedback.mug && finishedMugStep !== feedback.step;
   const highlightedMug = computer ? (mug ? demand : mugInFlight ? feedback.mug : null) : null;
   const thinking = computer && !active && !fightResult && !fightSkip && !overlayOpen && mode !== "give" && game.phase !== "ended" && !!game.queue.length;
@@ -335,7 +336,9 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   }}>
     <header className="table-overview">
       {computer && <div className="turn-feedback">
-        <span className="feedback-text" role="status">{mug ? t("feedback.mugRequest", { from: requester, to: recipient }) : latestActivity?.text}</span>
+        <span className="feedback-text" role="status">{mug
+          ? t("feedback.mugRequest", { from: requester, to: recipient })
+          : latestActivity && <ActivityText key={latestActivity.step} parts={latestActivity.parts} characters={game.characters} />}</span>
         <button type="button" className="feedback-link" disabled={!latestActivity} aria-haspopup="dialog" onClick={onHistory}>
           {t("history.view")} <span aria-hidden="true">›</span>
         </button>
@@ -346,7 +349,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
         <div className="meter"><Icon name="navigation" /><span>{t("table.navigation")}</span><b>{game.navCount}</b></div>
       </div>
     </header>
-    <CrewBoard game={game} players={players} feedback={fightResult || fightSkip ? null : feedback}
+    <CrewBoard game={game} players={players} treatment={treatment} feedback={fightResult || fightSkip || treatment ? null : feedback}
       thinking={thinking} fightSkip={fightSkip} mug={highlightedMug} isTarget={isTarget} pickSeat={pickSeat}
       inspectCard={inspectCard} inspectedId={openSupplyId} cardDisabled={cardDisabled}
       taking={mode === "mug"} takeCard={(target, card) => send({ type: "mug", target, card })} />
@@ -455,7 +458,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
         {!!self.hand.length ? <div className="hand" aria-label={t("hand.cards")}>
           {self.hand.map(id => {
             const preview = element => inspectCard(id, element);
-            return <CardFace key={id} id={id} disabled={cardDisabled(id)}
+            return <CardFace key={id} id={id} disabled={cardDisabled(id)} spent={treatment?.card === id}
               detailsOpen={!!handCard && inspectedCard.id === id && !!handCard.closest(".card-rail")}
               onPreview={preview} onClick={event => preview(event.currentTarget)} />;
           })}

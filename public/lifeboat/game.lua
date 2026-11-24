@@ -478,11 +478,11 @@ begin_overboard = function(state, card)
   if #state.queue == 0 then resolve_overboard(state, card) end
 end
 
-resolve_navigation = function(state, card_id)
+resolve_navigation = function(state, card_id, source, navigator)
   local card = NAV[card_id]
   state.navCard = card_id
   state.birds = math.max(0, state.birds + card.bird)
-  note(state, {type = "nav", card = card_id, birds = state.birds})
+  note(state, {type = "nav", card = card_id, birds = state.birds, source = source, navigator = navigator})
   push(state.navDeck, card_id)
   if state.birds >= LAND_BIRDS then
     finish(state)
@@ -498,6 +498,7 @@ begin_navigate = function(state)
     if conscious(entry) then navigator = entry break end
   end
   local cards = state.rowStack
+  local source = #cards > 0 and "row" or "deck"
   state.rowStack = {}
   if navigator and has_type(navigator, "compass") then
     local compass = find_type(navigator, "compass")
@@ -505,15 +506,10 @@ begin_navigate = function(state)
     if not index_of(navigator.shown, compass) then push(navigator.shown, compass) end
     if #state.navDeck > 0 then push(cards, table.remove(state.navDeck, 1)) end
   end
-  if not navigator then
+  if not navigator or #cards <= 1 then
     local card = table.remove(cards, 1) or table.remove(state.navDeck, 1)
     for _, id in ipairs(cards) do push(state.navDeck, id) end
-    if card then resolve_navigation(state, card) else end_turn(state) end
-    return
-  end
-  if #cards <= 1 then
-    local card = cards[1] or table.remove(state.navDeck, 1)
-    if card then resolve_navigation(state, card) else end_turn(state) end
+    if card then resolve_navigation(state, card, source) else end_turn(state) end
     return
   end
   state.phase = "navigate"
@@ -955,7 +951,7 @@ local function on_play(state, action)
   state.rowChoices = {}
   state.rowStack = {}
   for _, id in ipairs(rest) do push(state.navDeck, id) end
-  resolve_navigation(state, action.card)
+  resolve_navigation(state, action.card, "choice", state.queue[1])
 end
 
 local function on_rescue(state, action)

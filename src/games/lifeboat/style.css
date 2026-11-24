@@ -507,15 +507,48 @@ button.back-link {
   display: grid;
   gap: 0.35rem;
 }
-.activity-person {
+.activity-person,
+.activity-card {
   white-space: nowrap;
 }
-.activity-person .seat-portrait {
+.activity-person .seat-portrait,
+.activity-card :is(.sea-icon, .ui-symbol) {
   display: inline-block;
   width: 1.125rem;
   margin-inline-end: 0.18rem;
   vertical-align: middle;
   vertical-align: calc((1cap - 1.125rem) / 2);
+}
+.activity-card :is(.sea-icon, .ui-symbol) {
+  height: 1.125rem;
+}
+.activity-navigation button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: auto;
+}
+.activity-navigation .sea-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-inline-end: 0.18rem;
+}
+.navigation-card-preview {
+  position: fixed;
+  inset: auto;
+  width: min(16rem, calc(100% - 16px));
+  max-height: calc(100dvh - 16px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0.62rem;
+  white-space: normal;
+  box-shadow: 0 0.3rem 0.85rem rgb(0 0 0 / 25%);
 }
 .card-flight {
   position: absolute;
@@ -851,6 +884,39 @@ button.seat-supply:enabled {
     background: var(--text-gold);
   }
 }
+:is(.card, .seat-supply)[data-spent="true"],
+.medical-use-marker {
+  animation: medical-discard 280ms ease-in both;
+}
+.medical-use-marker {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  padding: 0.1rem;
+  border-radius: 0.3rem;
+  background: var(--secondary-button-fill);
+  pointer-events: none;
+}
+@keyframes medical-discard {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.seat-wounds[data-recovering="true"] {
+  border-radius: 0.2rem;
+  animation: medical-recovery 550ms ease-out;
+}
+@keyframes medical-recovery {
+  0%,
+  50% {
+    color: #163b2d;
+    background: #a7e3c2;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .seat {
     transition: none;
@@ -858,6 +924,18 @@ button.seat-supply:enabled {
   .wound-flash {
     color: var(--raised-button-ink);
     background: var(--text-gold);
+    animation: none;
+  }
+  :is(.card, .seat-supply)[data-spent="true"] {
+    visibility: hidden;
+    animation: none;
+  }
+  .medical-use-marker {
+    animation: none;
+  }
+  .seat-wounds[data-recovering="true"] {
+    color: #163b2d;
+    background: #a7e3c2;
     animation: none;
   }
 }
@@ -1382,14 +1460,14 @@ button.card:disabled,
   background: #f1d4ad;
   color: #1d1d1f;
 }
-.navigation-reveal .navigation-card {
+:is(.navigation-reveal, .navigation-card-preview) .navigation-card {
   max-width: none;
   aspect-ratio: auto;
   grid-template-rows: none;
   padding: 0.45rem 0.85rem;
   color: inherit;
 }
-.navigation-reveal .navigation-detail {
+:is(.navigation-reveal, .navigation-card-preview) .navigation-detail {
   min-height: 2.3rem;
   padding-block: 0.35rem;
   font-size: 0.875rem;

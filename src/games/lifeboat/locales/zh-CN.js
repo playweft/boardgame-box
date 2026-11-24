@@ -151,11 +151,11 @@ export default {
 
   "errors.botActionFailed": "电脑未能完成行动。",
 
-  "feedback.armed": "{{name}}亮出武器",
+  "feedback.armed": "{{name}}亮出{{weapon}}",
   "feedback.attackWin": "进攻方赢得打架",
   "feedback.birds": "海鸥 {{change}}",
   "feedback.defendWin": "防守方赢得打架",
-  "feedback.fightFlare": "{{name}}打出信号枪，战力 +8",
+  "feedback.fightFlare": "{{name}}打出{{weapon}}，战力 +8",
   "feedback.flare": "{{name}}使用信号枪",
   "feedback.gift": "{{from}}送给{{to}}一张物资牌",
   "feedback.heal": "{{name}}给{{target}}治疗了一处伤",
@@ -169,13 +169,17 @@ export default {
   "feedback.moveRequest": "{{from}}请{{to}}换座",
   "feedback.mug": "{{from}}从{{to}}那里抢走一张牌",
   "feedback.mugRequest": "{{from}}发起了对{{to}}的物资的抢夺",
-  "feedback.navigation": "航海结算",
+  "feedback.navigationChoice": "航海结算，{{name}}选择了一张{{card}}",
+  "feedback.navigationDeck": "航海结算，从牌库顶翻开了一张{{card}}",
+  "feedback.navigationReveal": "航海结算，翻开了一张{{card}}",
   "feedback.overboard": "{{names}}落水",
   "feedback.parasol": "{{name}}撑开阳伞",
   "feedback.pass": "{{name}}不动",
+  "feedback.provisionCard": "物资牌",
   "feedback.row": "{{name}}开始划船",
   "feedback.rowed": "{{name}}完成划船",
-  "feedback.take": "{{name}}拿走一张物资牌",
+  "feedback.take": "{{name}}拿走一张{{card}}",
+  "feedback.thirstInjury": "{{name}}因口渴受伤 {{count}} 点",
 
   "fight.attackWin": "进攻方获胜",
   "fight.attackers": "进攻方",
@@ -208,7 +212,6 @@ export default {
   "handoff.title": "交给 {{player}}",
   "handoff.tradeHint": "请由这位玩家接过设备后继续。",
 
-  "history.recent": "最近行动",
   "history.title": "行动记录",
   "history.view": "查看记录",
 
@@ -219,6 +222,7 @@ export default {
   "menu.local": "本地多人",
   "menu.online": "联机多人",
 
+  "nav.card": "航海牌",
   "nav.choose": "选择航海牌",
   "nav.confirmRow": "确认划船",
   "nav.drawn": "划船抽到的航海牌",

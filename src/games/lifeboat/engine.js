@@ -293,6 +293,7 @@ function beginNavigate(state) {
     .map((id) => character(state, id))
     .find(conscious);
   let cards = state.rowStack.splice(0);
+  const source = cards.length ? "row" : "deck";
   if (navigator && hasType(navigator, "compass")) {
     const compass = holding(navigator).find(
       (id) => cardInfo(id)?.type === "compass",
@@ -301,16 +302,10 @@ function beginNavigate(state) {
     if (!navigator.shown.includes(compass)) navigator.shown.push(compass);
     if (state.navDeck.length) cards.push(state.navDeck.shift());
   }
-  if (!navigator) {
+  if (!navigator || cards.length <= 1) {
     const card = cards.shift() || state.navDeck.shift();
     state.navDeck.push(...cards);
-    if (card) resolveNavigation(state, card);
-    else endTurn(state);
-    return;
-  }
-  if (cards.length <= 1) {
-    const card = cards[0] || state.navDeck.shift();
-    if (card) resolveNavigation(state, card);
+    if (card) resolveNavigation(state, card, source);
     else endTurn(state);
     return;
   }
@@ -319,11 +314,11 @@ function beginNavigate(state) {
   state.rowChoices = cards;
 }
 
-function resolveNavigation(state, cardId) {
+function resolveNavigation(state, cardId, source, navigator) {
   const card = navigationById[cardId];
   state.navCard = cardId;
   state.birds = Math.max(0, state.birds + card.bird);
-  note(state, { type: "nav", card: cardId, birds: state.birds });
+  note(state, { type: "nav", card: cardId, birds: state.birds, source, ...(navigator && { navigator }) });
   state.navDeck.push(cardId);
   if (state.birds >= LAND_BIRDS) {
     finish(state);
@@ -957,7 +952,7 @@ function chooseNavigation(state, actorId, action) {
   state.rowChoices = [];
   state.rowStack = [];
   state.navDeck.push(...rest);
-  resolveNavigation(state, action.card);
+  resolveNavigation(state, action.card, "choice", state.queue[0]);
   return ok();
 }
 

@@ -151,11 +151,11 @@ export default {
 
   "errors.botActionFailed": "The computer could not complete its action.",
 
-  "feedback.armed": "{{name}} reveals a weapon.",
+  "feedback.armed": "{{name}} reveals their {{weapon}}.",
   "feedback.attackWin": "The attackers win the fight.",
   "feedback.birds": "Gulls {{change}}",
   "feedback.defendWin": "The defenders win the fight.",
-  "feedback.fightFlare": "{{name}} plays a Flare Gun for +8 strength.",
+  "feedback.fightFlare": "{{name}} plays a {{weapon}} for +8 strength.",
   "feedback.flare": "{{name}} fires a Flare Gun.",
   "feedback.gift": "{{from}} gives {{to}} a provision card.",
   "feedback.heal": "{{name}} treats one of {{target}}’s wounds.",
@@ -169,13 +169,17 @@ export default {
   "feedback.moveRequest": "{{from}} asks {{to}} to swap seats.",
   "feedback.mug": "{{from}} mugs {{to}} and takes a card.",
   "feedback.mugRequest": "{{from}} attempts to steal a provision from {{to}}.",
-  "feedback.navigation": "Navigation resolved",
+  "feedback.navigationChoice": "Navigation resolved. {{name}} chose a {{card}}.",
+  "feedback.navigationDeck": "Navigation resolved. A {{card}} was flipped from the top of the deck.",
+  "feedback.navigationReveal": "Navigation resolved. A {{card}} was flipped.",
   "feedback.overboard": "Overboard: {{names}}",
   "feedback.parasol": "{{name}} opens a parasol.",
   "feedback.pass": "{{name}} passes.",
+  "feedback.provisionCard": "provision card",
   "feedback.row": "{{name}} starts rowing.",
   "feedback.rowed": "{{name}} finishes rowing.",
-  "feedback.take": "{{name}} takes a provision card.",
+  "feedback.take": "{{name}} takes a {{card}}.",
+  "feedback.thirstInjury": "{{name}} takes {{count}} damage from thirst.",
 
   "fight.attackWin": "Attackers Win",
   "fight.attackers": "Attackers",
@@ -208,7 +212,6 @@ export default {
   "handoff.title": "Pass to {{player}}",
   "handoff.tradeHint": "Hand the device to this player before continuing.",
 
-  "history.recent": "Recent actions",
   "history.title": "Action Log",
   "history.view": "View log",
 
@@ -219,6 +222,7 @@ export default {
   "menu.local": "Local Multiplayer",
   "menu.online": "Online Multiplayer",
 
+  "nav.card": "navigation card",
   "nav.choose": "Choose Navigation Card",
   "nav.confirmRow": "Confirm Rowing",
   "nav.drawn": "Navigation cards drawn while rowing",

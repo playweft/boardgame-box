@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Check } from "lucide";
 import GameTopbar from "../../shared/game-topbar.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
+import ActivityText from "./activity-text.jsx";
 import { CharacterDialog, CrewPortrait } from "./crew.jsx";
 import { CHARACTERS, MAX_PLAYERS, MIN_PLAYERS } from "./data.js";
 import { personName, t } from "./i18n.js";
@@ -124,28 +125,26 @@ function Notice({ icon, title, children }) {
 
 const EMPTY_NAVIGATION_DRAFT = { dismissed: false, kept: [] };
 
-function ActivityHistory({ events }) {
+function ActivityHistory({ events, characters }) {
   const days = new Map();
   for (const event of events) {
     if (!days.has(event.day)) days.set(event.day, []);
     days.get(event.day).push(event);
   }
-  return <ol className="activity-days" aria-label={t("history.recent")} tabIndex={0}>
+  return <ol className="activity-days" aria-label={t("history.title")} tabIndex={0}>
     {[...days].map(([day, entries], index) => <li key={day}>
       {index > 0 && <hr />}
       <h3>{t("table.day", { day })}</h3>
       <ol className="activity-list">
-        {entries.map(event => <li key={event.step}>
-          {event.parts.map((part, index) => typeof part === "object"
-            ? <span key={index} className="activity-person"><CrewPortrait id={part.id} />{part.label}</span>
-            : part)}
-        </li>)}
+        {entries.flatMap(event => event.lines.map((line, index) => <li key={`${event.step}-${index}`}>
+          <ActivityText parts={line} characters={characters} showPortraits />
+        </li>))}
       </ol>
     </li>)}
   </ol>;
 }
 
-export default function LifeboatApp({ room, computer, turnHistory, turnFeedback, fightResult, fightSkip, navigationReveal, standalone, game, connecting, waiting, handoff, trading, busy, error, launchUrl,
+export default function LifeboatApp({ room, computer, turnHistory, turnFeedback, fightResult, fightSkip, treatment, navigationReveal, standalone, game, connecting, waiting, handoff, trading, busy, error, launchUrl,
   onCreateRoom, onStart, onReady, onTrade, onEndTrade, onExit, onAction, onPauseChange, onComputerHold }) {
   const [setup, setSetup] = useState(null);
   const [dialog, setDialog] = useState(null);
@@ -197,7 +196,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
   let scene;
   if (connecting || (room && !game)) {
     scene = <Notice icon="bird" title={connecting ? t("room.connecting") : waiting ? t("room.waiting") : t("room.loading")} />;
-  } else if (localMatch && handoff && !fightResult) {
+  } else if (localMatch && handoff && !fightResult && !treatment) {
     const player = game.players.find(item => item.id === game.viewerId);
     scene = <Notice icon="lock" title={t("handoff.title", { player: player?.name ?? t("handoff.next") })}>
       <p className="hint">{trading ? t("handoff.tradeHint") : t("handoff.privateHint", { day: game.day })}</p>
@@ -206,9 +205,9 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
     </Notice>;
   } else if (game) scene = <Table key={`${game.viewerId}-${trading}`}
     game={game} computer={computer} feedback={computer && !fightSkip ? turnFeedback : null}
-    fightResult={fightResult} fightSkip={fightSkip} latestActivity={turnHistory.at(-1)}
-    busy={busy || !!fightResult || !!fightSkip || !!navigationReveal} trading={trading} error={error}
-    overlayOpen={dialog !== null || !!navigationReveal} navigationDraft={navigationDraft} onNavigationDraft={updateNavigationDraft}
+    fightResult={fightResult} fightSkip={fightSkip} treatment={treatment} latestActivity={turnHistory.at(-1)}
+    busy={busy || !!fightResult || !!fightSkip || !!treatment || !!navigationReveal} trading={trading} error={error}
+    overlayOpen={dialog !== null || !!treatment || !!navigationReveal} navigationDraft={navigationDraft} onNavigationDraft={updateNavigationDraft}
     onAction={onAction} onEndTrade={onEndTrade}
     onHistory={() => showDialog("history")} onInspect={inspect}
     onComputerHold={onComputerHold}
@@ -232,7 +231,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
     {inspected && <CharacterDialog entry={inspected} player={game.players.find(player => player.id === inspected.player)?.name}
       seatNumber={game.cast.indexOf(inspected.id) + 1} open={dialog === "character"} onClose={close} />}
     {computer && <GameDialog title={t("history.title")} open={dialog === "history"} onClose={close} bodyRef={historyBody}>
-      <ActivityHistory events={turnHistory} />
+      <ActivityHistory events={turnHistory} characters={game?.characters ?? []} />
     </GameDialog>}
     <GameDialog title={t("rules.title")} open={dialog === "help"} onClose={close}
       footer={<Raised onClick={close}>{t("common.gotIt")}</Raised>}>
