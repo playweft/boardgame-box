@@ -3,6 +3,7 @@ import "../../shared/game-chrome.css";
 import "./style.css";
 import { h, render } from "preact";
 import { createPlayweftClient } from "../../shared/playweft-client.js";
+import { createBotMemory } from "./bot-memory.js";
 import { chooseRuleAction } from "./bot-policy.js";
 import { MAX_PLAYERS, MIN_PLAYERS } from "./data.js";
 import {
@@ -50,6 +51,7 @@ let paused = false;
 let holdingComputer = false;
 let botWorker = null;
 let botJob = null;
+let botMemory = null;
 const turnHistory = [];
 let turnFeedback = null;
 let feedbackUntil = 0;
@@ -98,7 +100,8 @@ function redraw() {
       waiting: presence?.phase === "lobby",
       launchUrl: embedded ? null : launchUrl.href,
       onCreateRoom: canCreateRoom ? openRoom : null,
-      onStart(names, cast, computer) {
+      onStart(names, cast, difficulty) {
+        const computer = difficulty !== null;
         const players = names.map((name, index) => ({
           id: `local-${index}`,
           name,
@@ -115,6 +118,7 @@ function redraw() {
         clearTreatmentPlayback();
         clearNavigationPlayback();
         humanId = computer ? "local-0" : null;
+        botMemory = difficulty === "hard" ? createBotMemory(players.slice(1)) : null;
         turnHistory.length = 0;
         turnFeedback = null;
         feedbackUntil = 0;
@@ -148,6 +152,7 @@ function redraw() {
         clearTreatmentPlayback();
         clearNavigationPlayback();
         localGame = null;
+        botMemory = null;
         turnHistory.length = 0;
         turnFeedback = null;
         feedbackUntil = 0;
@@ -262,8 +267,10 @@ function acceptLocalGame(next, action) {
   prepareNavigationReveal(localGame, next);
   let feedback;
   if (humanId) {
-    if (action.type === "rematch") turnHistory.length = 0;
-    else {
+    if (action.type === "rematch") {
+      turnHistory.length = 0;
+      if (botMemory) botMemory = createBotMemory(next.players.filter(({ id }) => id !== humanId));
+    } else {
       feedback = recordTurn(
         turnHistory,
         projectGame(localGame, humanId),
@@ -295,7 +302,8 @@ function queueComputer() {
   if (actor === humanId) return;
 
   const step = localGame.step;
-  const view = projectBotGame(localGame, actor);
+  const view = projectBotGame(localGame, actor, botMemory?.forPlayer(actor));
+  const observeCardMoves = botMemory?.observe;
   const startedAt = performance.now();
   const job = {};
   botJob = job;
@@ -312,10 +320,10 @@ function queueComputer() {
         if (fightPlayback || treatmentPlayback || navigationPlayback) return;
         let intent = planned;
         let result =
-          intent && applyAction(localGame, actor, { ...intent, step });
+          intent && applyAction(localGame, actor, { ...intent, step }, observeCardMoves);
         if (!result?.accepted && action) {
           intent = chooseRuleAction(view);
-          result = intent && applyAction(localGame, actor, { ...intent, step });
+          result = intent && applyAction(localGame, actor, { ...intent, step }, observeCardMoves);
         }
         if (result?.accepted) acceptLocalGame(result.state, intent);
         else showError(t("errors.botActionFailed"));
@@ -343,7 +351,7 @@ function queueComputer() {
     };
     botWorker.onerror = fallback;
     job.watchdog = setTimeout(fallback, 1500);
-    botWorker.postMessage({ step, view });
+    botWorker.postMessage({ step, view, treeSearch: botMemory !== null });
   } catch {
     fallback();
   }
@@ -431,6 +439,7 @@ function submit(intent) {
     localGame,
     humanId ?? tradeViewerId ?? previous,
     action,
+    botMemory?.observe,
   );
   if (humanId) {
     stopComputer();

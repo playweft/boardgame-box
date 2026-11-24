@@ -11,6 +11,8 @@ import {
 } from "./data.js";
 
 const MODULUS = 2147483647;
+// Card moves are collected only for live bot games, outside the saved rule state.
+const CARD_MOVES = Symbol();
 
 function hashSeed(seedText) {
   let seed = 0;
@@ -89,6 +91,18 @@ function takeCard(entry, id) {
   if (shown < 0) return "";
   if (cardInfo(id)?.type === "parasol") entry.parasol = false;
   return entry.shown.splice(shown, 1)[0];
+}
+
+function discardCards(state, entry, shown, hand) {
+  state[CARD_MOVES]?.push({ type: "discard", player: entry.player, shown, hand });
+}
+
+function spendCard(state, entry, card) {
+  if (state[CARD_MOVES]) {
+    const shown = entry.shown.includes(card);
+    discardCards(state, entry, shown ? [card] : [], shown ? [] : [card]);
+  }
+  takeCard(entry, card);
 }
 
 export function fightWeapons(entry) {
@@ -294,15 +308,26 @@ function beginNavigate(state) {
     .find(conscious);
   let cards = state.rowStack.splice(0);
   const source = cards.length ? "row" : "deck";
+  let drewCompassCard = false;
   if (navigator && hasType(navigator, "compass")) {
     const compass = holding(navigator).find(
       (id) => cardInfo(id)?.type === "compass",
     );
     takeCard(navigator, compass);
     if (!navigator.shown.includes(compass)) navigator.shown.push(compass);
-    if (state.navDeck.length) cards.push(state.navDeck.shift());
+    if (state.navDeck.length) {
+      cards.push(state.navDeck.shift());
+      drewCompassCard = true;
+    }
   }
-  if (!navigator || cards.length <= 1) {
+  const automatic = !navigator || cards.length <= 1;
+  state[CARD_MOVES]?.push({
+    type: "gather",
+    drewCompassCard,
+    player: automatic ? null : navigator.player,
+    cards: automatic ? null : cards,
+  });
+  if (automatic) {
     const card = cards.shift() || state.navDeck.shift();
     state.navDeck.push(...cards);
     if (card) resolveNavigation(state, card, source);
@@ -319,6 +344,7 @@ function resolveNavigation(state, cardId, source, navigator) {
   state.navCard = cardId;
   state.birds = Math.max(0, state.birds + card.bird);
   note(state, { type: "nav", card: cardId, birds: state.birds, source, ...(navigator && { navigator }) });
+  state[CARD_MOVES]?.push({ type: "play", card: cardId, chosen: source === "choice" });
   state.navDeck.push(cardId);
   if (state.birds >= LAND_BIRDS) {
     finish(state);
@@ -357,21 +383,20 @@ function beginOverboard(state, card) {
     }
   }
   state.phase = "rescue";
-  state.queue = state.cast.filter((id) => {
-    const entry = character(state, id);
-    if (!conscious(entry)) return false;
-    const canThrow =
-      hasType(entry, "preserver") &&
-      state.falling.some(
-        (target) =>
-          target !== id &&
-          conscious(character(state, target)) &&
-          !hasType(character(state, target), "preserver"),
-      );
-    const canChum = hasType(entry, "chum", "hand") && state.falling.length;
-    return canThrow || canChum;
-  });
+  state.queue = state.cast.filter((id) => canRescue(state, id));
   if (!state.queue.length) resolveOverboard(state, card);
+}
+
+function canRescue(state, id) {
+  const entry = character(state, id);
+  return conscious(entry) && (
+    (hasType(entry, "chum", "hand") && state.falling.length > 0) ||
+    (hasType(entry, "preserver") && state.falling.some((target) =>
+      target !== id &&
+      conscious(character(state, target)) &&
+      !hasType(character(state, target), "preserver")
+    ))
+  );
 }
 
 function resolveOverboard(state, card = navigationById[state.navCard]) {
@@ -388,12 +413,19 @@ function resolveOverboard(state, card = navigationById[state.navCard]) {
     const drown = entry.wounds >= characterById[id].size && !preserver;
     const killed = entry.wounds > characterById[id].size;
     if (drown || killed) {
+      discardCards(state, entry, entry.shown, entry.hand);
       entry.removed = true;
       entry.hand = [];
       entry.shown = [];
       entry.parasol = false;
       note(state, { type: "lost", id });
     } else {
+      if (state[CARD_MOVES]) {
+        const lost = entry.shown.filter(
+          (cardId) => cardInfo(cardId)?.type !== "preserver",
+        );
+        if (lost.length) discardCards(state, entry, lost, []);
+      }
       entry.shown = entry.shown.filter(
         (cardId) => cardInfo(cardId)?.type === "preserver",
       );
@@ -443,6 +475,16 @@ function applyThirst(state) {
   }
   state.thirst = [];
   endTurn(state);
+}
+
+export function simulateRemainingResponses(state) {
+  const first = state.queue[0];
+  const rest = state.cast.slice(state.cast.indexOf(first) + 1);
+  state.queue = [first, ...rest.filter((id) => {
+    if (state.phase === "rescue") return canRescue(state, id);
+    const entry = character(state, id);
+    return conscious(entry) && hasType(entry, "water");
+  })];
 }
 
 function endTurn(state) {
@@ -564,6 +606,7 @@ function takeProvision(state, actorId, action) {
   const entry = acting(state);
   const index = state.offer.indexOf(action.card);
   if (index < 0) return fail("PROVISION_NOT_OFFERED");
+  state[CARD_MOVES]?.push({ type: "offer", player: actorId, cards: [...state.offer] });
   state.offer.splice(index, 1);
   entry.hand.push(action.card);
   note(state, { type: "take", id: entry.id });
@@ -648,6 +691,7 @@ function startRow(state, entry) {
   }
   state.phase = "row";
   state.rowChoices = drawn;
+  state[CARD_MOVES]?.push({ type: "draw", player: entry.player, cards: drawn });
   entry.rowed = true;
   note(state, { type: "act", id: entry.id, act: "row", cards: drawn.length });
   return ok();
@@ -672,6 +716,9 @@ function sortRow(state, actorId, action) {
     else back.push(card);
   });
   state.navDeck.push(...back);
+  state[CARD_MOVES]?.push({
+    type: "sort", player: actorId, keep: action.keep, returned: back.length,
+  });
   state.rowChoices = [];
   finishAction(state);
   return ok();
@@ -838,7 +885,7 @@ function fightAction(state, actorId, action) {
   if (!fightWeapons(entry).includes(action.card)) return fail("INVALID_WEAPON");
   const weapon = cardInfo(action.card).type;
   if (weapon === "flare") {
-    takeCard(entry, action.card);
+    spendCard(state, entry, action.card);
     fight.flareBy = entry.id;
     note(state, { type: "fightFlare", id: entry.id });
   } else {
@@ -912,7 +959,7 @@ function useMedical(state, entry, action) {
   if (!target || !inBoat(target)) return fail("CHOOSE_INJURED_CHARACTER");
   if (target.wounds <= 0 || target.wounds > characterById[target.id].size)
     return fail("INVALID_MEDICAL_TARGET");
-  takeCard(entry, kit);
+  spendCard(state, entry, kit);
   target.wounds -= 1;
   note(state, { type: "heal", id: entry.id, target: target.id });
   finishAction(state);
@@ -922,7 +969,7 @@ function useMedical(state, entry, action) {
 function useFlare(state, entry) {
   const flare = holding(entry).find((id) => cardInfo(id)?.type === "flare");
   if (!flare) return fail("NO_FLARE");
-  takeCard(entry, flare);
+  spendCard(state, entry, flare);
   const drawn = draw(state.navDeck, 3);
   for (const id of drawn) {
     const card = navigationById[id];
@@ -934,6 +981,7 @@ function useFlare(state, entry) {
       return ok();
     }
   }
+  state[CARD_MOVES]?.push({ type: "flare", cards: drawn });
   note(state, { type: "act", id: entry.id, act: "flare" });
   finishAction(state);
   return ok();
@@ -988,7 +1036,7 @@ function rescueAction(state, actorId, action) {
   if (action.chum) {
     const chum = entry.hand.find((id) => cardInfo(id)?.type === "chum");
     if (!chum || !state.falling.length) return fail("CHUM_UNAVAILABLE");
-    takeCard(entry, chum);
+    spendCard(state, entry, chum);
     state.sharks = true;
   }
   state.queue.shift();
@@ -1021,7 +1069,7 @@ function drink(state, actorId, action) {
     spent.add(use.card);
     need.left -= 1;
   }
-  for (const card of spent) takeCard(entry, card);
+  for (const card of spent) spendCard(state, entry, card);
   state.queue.shift();
   state.queue = state.queue.filter(
     (id) =>
@@ -1032,7 +1080,7 @@ function drink(state, actorId, action) {
   return ok();
 }
 
-export function applyAction(state, actorId, action) {
+export function applyAction(state, actorId, action, observeCardMoves) {
   if (
     !state.players.some((player) => player.id === actorId) &&
     action?.type !== "rematch"
@@ -1042,10 +1090,23 @@ export function applyAction(state, actorId, action) {
   }
   if (!action || action.step !== state.step) return reject("STALE_ACTION");
   const next = structuredClone(state);
+  if (observeCardMoves) next[CARD_MOVES] = [];
   const result = mutate(next, actorId, action);
   if (!result.ok) return reject(result.code);
+  if (observeCardMoves) {
+    const moves = next[CARD_MOVES];
+    delete next[CARD_MOVES];
+    observeCardMoves(moves);
+  }
   next.step += 1;
   return { accepted: true, state: next, events: [] };
+}
+
+// The caller owns this rollout copy and discards it if an intent is rejected.
+export function advanceSimulation(state, actorId, action) {
+  if (!mutate(state, actorId, action).ok) return false;
+  state.step += 1;
+  return true;
 }
 
 export function actingPlayer(state) {
@@ -1076,7 +1137,7 @@ function publicCharacter(state, entry, viewer, ended) {
   };
 }
 
-export function projectGame(state, viewerId) {
+export function projectGame(state, viewerId, includeLog = true) {
   const ended = state.phase === "ended";
   const actor = acting(state);
   const mine = actor?.player === viewerId;
@@ -1120,12 +1181,12 @@ export function projectGame(state, viewerId) {
     navCard: state.navCard,
     queue: privatePrompt ? (mine ? state.queue.slice(0, 1) : []) : state.queue,
     // Durable rooms may still contain records created before card IDs were removed.
-    log: state.log.map((entry) => {
+    log: includeLog ? state.log.map((entry) => {
       if (entry.type === "take") return { type: entry.type, id: entry.id };
       if (entry.type === "mug")
         return { type: entry.type, from: entry.from, to: entry.to };
       return entry;
-    }),
+    }) : [],
     scores: state.scores,
     outcome: state.outcome,
     canAct: mine && state.phase !== "ended",
@@ -1137,12 +1198,13 @@ export function projectGame(state, viewerId) {
   };
 }
 
-export function projectBotGame(state, viewerId) {
+export function projectBotGame(state, viewerId, cardMemory) {
   // This is the public action queue as it stood before the demand interrupted it.
   return {
     ...projectGame(state, viewerId),
     remainingActions: [...state.savedQueue],
     fightPending: state.fight && [...state.fight.pending],
+    ...(cardMemory && { cardMemory }),
   };
 }
 

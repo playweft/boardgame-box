@@ -234,3 +234,49 @@ export function rankBotActions(view, profile = botProfiles[0]) {
 export function chooseRuleAction(view, profile) {
   return rankBotActions(view, profile)[0]?.action ?? null;
 }
+
+function rankWaterAllocations(view, self, profile) {
+  const water = held(self).filter((id) => cardInfo(id).type === "water");
+  let byCost = [[{ score: 0, uses: [] }]];
+  for (const { id, left } of view.thirst) {
+    const target = view.characters.find((person) => person.id === id);
+    const next = Array.from({ length: water.length + 1 }, () => []);
+    for (const [used, candidates] of byCost.entries()) {
+      for (const plan of candidates) {
+        for (let count = 0; count <= left && used + count <= water.length; count++) {
+          const prevented = injury(target, left) - injury(target, left - count);
+          const score = plan.score + relation(self, target, profile) * prevented;
+          const uses = [...plan.uses, ...water.slice(used, used + count).map(
+            (card) => ({ card, for: id }),
+          )];
+          next[used + count].push({ score, uses });
+        }
+      }
+    }
+    byCost = next.map((candidates) => candidates.sort((a, b) => b.score - a.score).slice(0, 2));
+  }
+  return byCost.flatMap((plans, count) => plans.map(({ score, uses }) => ({
+    score: score - count * (view.birds >= LAND_BIRDS - 1 ? 0.55 : 0.9),
+    action: { type: "drink", uses },
+  })));
+}
+
+export function rankStrategicActions(view, profile = botProfiles[0]) {
+  if (!view.canAct) return [];
+  const self = view.characters.find((person) => person.player === view.viewerId);
+  if (view.phase === "thirst") {
+    return rankWaterAllocations(view, self, profile).sort((a, b) => b.score - a.score);
+  }
+  const entries = rankBotActions(view, profile);
+  const bait = view.phase === "rescue" && entries.find(({ action }) => action.chum);
+  if (bait) {
+    for (const { score, action } of [...entries]) {
+      if (action.to) entries.push({
+        score: score + bait.score,
+        action: { ...action, chum: true },
+      });
+    }
+    entries.sort((a, b) => b.score - a.score);
+  }
+  return entries;
+}

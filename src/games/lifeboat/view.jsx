@@ -44,6 +44,9 @@ function SetupSegments({ name, labelledBy, options, value, onChange }) {
 
 function Setup({ computer, onStart, onBack }) {
   const [count, setCount] = useState(MIN_PLAYERS);
+  const [difficulty, setDifficulty] = useState(() =>
+    new URLSearchParams(window.location.search).get("ai") === "tree" ? "hard" : "normal",
+  );
   const [names, setNames] = useState(() => Array(MAX_PLAYERS).fill(""));
   const [cast, setCast] = useState(null);
   const canStart = !cast || cast.length === count;
@@ -61,7 +64,7 @@ function Setup({ computer, onStart, onBack }) {
     if (!canStart) return;
     const players = computer ? Array.from({ length: count }, (_, index) => index === 0 ? t("common.you") : t("setup.computerName", { number: index }))
       : names.slice(0, count).map((name, index) => name.trim() || t("setup.playerName", { number: index + 1 }));
-    onStart(players, cast);
+    onStart(players, cast, computer ? difficulty : null);
   }
   return <main className="sea-page setup" data-computer={computer}>
     {!computer && <h1>{t("menu.local")}</h1>}
@@ -73,6 +76,11 @@ function Setup({ computer, onStart, onBack }) {
           <SetupSegments name="crew-count" labelledBy="setup-count-label" value={count} onChange={chooseCount}
             options={[4, 5, 6].map(number => [number, t("setup.playerCount", { number })])} />
         </div>
+        {computer && <div className="setup-row">
+          <span id="setup-difficulty-label">{t("setup.difficulty")}</span>
+          <SetupSegments name="computer-difficulty" labelledBy="setup-difficulty-label" value={difficulty} onChange={setDifficulty}
+            options={[["normal", t("setup.normal")], ["hard", t("setup.hard")]]} />
+        </div>}
         <div>
           <div className="setup-row">
             <span id="setup-cast-label">{t("setup.cast")}</span>
@@ -216,7 +224,7 @@ export default function LifeboatApp({ room, computer, turnHistory, turnFeedback,
     onChooseTrader={traders.length ? () => setDialog("trade") : null} />;
   else scene = setup
     ? <Setup computer={setup === "computer"} onBack={() => setSetup(null)}
-      onStart={(names, cast) => { setSetup(null); onStart(names, cast, setup === "computer"); }} />
+      onStart={(names, cast, difficulty) => { setSetup(null); onStart(names, cast, difficulty); }} />
     : <Menu onSetup={setSetup} onCreateRoom={onCreateRoom} launchUrl={launchUrl} busy={busy} />;
 
   return <div className="sea-shell">

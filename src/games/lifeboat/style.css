@@ -315,6 +315,16 @@ button.back-link {
   outline: 2px solid var(--text-gold);
   outline-offset: -3px;
 }
+.setup[data-computer="true"] .setup-segments {
+  width: min(14rem, 72%);
+}
+.setup[data-computer="true"] .setup-segments label {
+  flex-basis: 0;
+  min-width: 0;
+}
+.setup[data-computer="true"] .setup-segments label > span {
+  padding-inline: 0.35rem;
+}
 .cast-disclosure {
   display: grid;
   grid-template-rows: 0fr;
