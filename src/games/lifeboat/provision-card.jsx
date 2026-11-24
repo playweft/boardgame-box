@@ -18,10 +18,19 @@ export function provisionEffect(card) {
   return weapon + (provisionEffects.has(card.type) ? t(`provisions.${card.type}.effect`) : "");
 }
 
+export function provisionLabel(type, parasolOpen) {
+  if (type === "parasol") return t(parasolOpen ? "provisions.parasol.open" : "provisions.parasol.closed");
+  return provisionName(type);
+}
+
+export function ProvisionIcon({ type, parasolOpen }) {
+  return <Icon name={type === "parasol" && !parasolOpen ? "parasol-closed" : type} />;
+}
+
 const CARD_PREVIEW_DELAY = 500;
 const CARD_PREVIEW_SLOP = 10;
 
-export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent, dimmed }) {
+export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent, dimmed, parasolOpen }) {
   const press = useRef(null);
   const stopPress = () => {
     clearTimeout(press.current?.timer);
@@ -69,7 +78,7 @@ export function CardFace({ id, disabled, onClick, onPreview, detailsOpen, spent,
   const card = cardInfo(id);
   if (!card) return null;
   const face = <>
-    <Icon name={card.type} />
+    <ProvisionIcon type={card.type} parasolOpen={parasolOpen} />
     <strong>{provisionName(card.type)}</strong>
     <small>{card.value ? t("score.points", { value: card.value }) : card.size ? t("provisions.weapon", { size: card.size }) : ""}</small>
   </>;
@@ -199,8 +208,8 @@ export function CardDetail({ anchor, content, onClose, onChooseAction, takeFocus
     </svg>
     {detail && <section ref={handPanelRef} className="hand-card-panel" aria-labelledby="hand-card-title" tabIndex={-1}>
       <header className="hand-card-heading">
-        <Icon name={detail.card.type} />
-        <strong id="hand-card-title">{provisionName(detail.card.type)}</strong>
+        <ProvisionIcon type={detail.card.type} parasolOpen={detail.parasolOpen} />
+        <strong id="hand-card-title">{provisionLabel(detail.card.type, detail.parasolOpen)}</strong>
       </header>
       <p className="provision-effect">{provisionEffect(detail.card)}</p>
       {!!detail.actions.length && <div className={detail.actions.length > 1 ? "paired-actions" : undefined}>

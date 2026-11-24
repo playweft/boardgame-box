@@ -4,9 +4,9 @@ import Dialog from "../../shared/dialog.jsx";
 import LucideIcon from "../../shared/lucide-icon.jsx";
 import BoatHull from "./boat-hull.jsx";
 import { CHARACTERS, cardInfo, characterById } from "./data.js";
-import { characterAbility, characterName, personName, provisionName, t, tParts } from "./i18n.js";
+import { characterAbility, characterName, personName, t, tParts } from "./i18n.js";
 import Icon from "./icon.jsx";
-import { CardFace, provisionEffect } from "./provision-card.jsx";
+import { CardFace, ProvisionIcon, provisionEffect, provisionLabel } from "./provision-card.jsx";
 
 function crewStatus(entry) {
   if (entry.removed) return t("crew.lost");
@@ -28,8 +28,8 @@ function PublicSupplies({ entry, onInspect, canTake, inspectedId, disabled, take
     {entry.shown.map(id => {
       const card = cardInfo(id);
       if (!card) return null;
-      const label = `${provisionName(card.type)}${card.value ? t("crew.lootValue", { value: card.value }) : ""}`;
-      const face = <Icon name={card.type} />;
+      const label = `${provisionLabel(card.type, entry.parasol)}${card.value ? t("crew.lootValue", { value: card.value }) : ""}`;
+      const face = <ProvisionIcon type={card.type} parasolOpen={entry.parasol} />;
       return interactive
         ? <button key={id} type="button" className="seat-supply" disabled={disabled(id)} data-spent={spentCard === id || undefined}
           aria-label={canTake ? t("crew.mugCard", { name: personName(entry.id), card: label }) : label} title={label}
@@ -137,7 +137,7 @@ export function CharacterDialog({ entry, player, seatNumber, open, onClose }) {
             {entry.shown.map(id => {
               const card = cardInfo(id);
               return card && <li key={id}>
-                <CardFace id={id} />
+                <CardFace id={id} parasolOpen={entry.parasol} />
                 <p className="provision-effect">{provisionEffect(card)}</p>
               </li>;
             })}

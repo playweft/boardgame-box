@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { Armchair, ArrowLeftRight, ChevronRight, Layers, LockKeyhole } from "lucide";
+import { ChevronRight, Layers, LockKeyhole } from "lucide";
 import LucideIcon from "../../shared/lucide-icon.jsx";
 
 const icons = [
@@ -7,9 +7,10 @@ const icons = [
   "oar", "knife", "preserver", "compass",
   "bird", "parasol", "medical", "chum",
   "blackjack", "hook", "flare", "row",
-  "navigation", "crate",
+  "navigation", "crate", "parasol-closed", "swap",
+  "wait", "mug",
 ];
-const controls = { forward: ChevronRight, swap: ArrowLeftRight, supplies: Layers, wait: Armchair, lock: LockKeyhole };
+const controls = { forward: ChevronRight, supplies: Layers, lock: LockKeyhole };
 
 export default function Icon({ name }) {
   const control = controls[name];
@@ -17,6 +18,6 @@ export default function Icon({ name }) {
   const index = icons.indexOf(name);
   if (index < 0) return null;
   return <span className="sea-icon" aria-hidden="true" style={{
-    backgroundPosition: `${(index % 4) * 100 / 3}% ${Math.floor(index / 4) * 25}%`,
+    backgroundPosition: `${(index % 4) * 100 / 3}% ${Math.floor(index / 4) * 20}%`,
   }} />;
 }

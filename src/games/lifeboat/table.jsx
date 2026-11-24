@@ -250,7 +250,7 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
   const hasSettlement = game.phase === "ended" && !!game.scores?.length;
   const guidance = mode ? t(`target.${mode}`)
     : trading ? t(game.tradeOpen ? "trade.chooseToGive" : "trade.chooseToReveal")
-    : rescuing ? t("rescue.hint") : undefined;
+      : rescuing ? t("rescue.hint") : undefined;
   const ownCards = self ? [...(self.hand || []), ...self.shown] : [];
   const waterCards = usingWater ? ownCards.filter(id => cardInfo(id)?.type === "water") : [];
   const weapons = fightWeapons(self);
@@ -294,7 +294,12 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
       rescuePhase && type === "chum" && inHand && game.falling.length > 0 && { label: t("action.chum"), intent: { type: "rescue", chum: true } },
       canUseWeapon && { label: t("action.arm"), intent: { type: "arm", card: id } },
     ].filter(Boolean);
-    cardDetail = { card: handDetail, actions, busy: cardDisabled(id) };
+    cardDetail = {
+      card: handDetail,
+      actions,
+      busy: cardDisabled(id),
+      parasolOpen: !previewingOffer && !inHand && self.parasol,
+    };
   }
 
   function chooseCardAction(action, card) {
@@ -370,11 +375,11 @@ export default function Table({ game, computer, feedback, fightResult, fightSkip
         {active && navigationDraft && <Raised secondary aria-haspopup="dialog"
           onClick={() => onNavigationDraft(() => ({ dismissed: false }))}>{game.phase === "row" ? t("nav.resumeRow") : t("nav.resumeNavigation")}</Raised>}
         {active && game.phase === "action" && <section className="card-tray" aria-label={t("action.options")}>
-          <div className="actions" aria-label={t("action.group")}>
+          <div className="actions turn-actions" aria-label={t("action.group")}>
             <Choice icon="row" aria-haspopup="dialog" disabled={busy} onClick={() => send({ type: "row" })}>{t("action.row")}</Choice>
             <Choice icon="swap" disabled={busy} aria-pressed={mode === "move"}
               onClick={() => updateDraft({ mode: "move", targetCard: null })}>{t("action.move")}</Choice>
-            <Choice icon="knife" disabled={busy} aria-pressed={mode === "mug"}
+            <Choice icon="mug" disabled={busy} aria-pressed={mode === "mug"}
               onClick={() => updateDraft({ mode: "mug", targetCard: null })}>{t("action.mug")}</Choice>
             <Choice icon="wait" disabled={busy} onClick={() => send({ type: "nothing" })}>{t("action.pass")}</Choice>
           </div>

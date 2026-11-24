@@ -28,6 +28,8 @@ export default {
   "provisions.cash.name": "Cash",
   "provisions.painting.name": "Painting",
   "provisions.parasol.name": "Parasol",
+  "provisions.parasol.closed": "Parasol (Closed)",
+  "provisions.parasol.open": "Parasol (Open)",
   "provisions.preserver.name": "Life Preserver",
   "provisions.blackjack.name": "Blackjack",
   "provisions.compass.name": "Compass",
